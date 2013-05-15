@@ -277,6 +277,11 @@ endif
 ifeq ($(BUILDAFDSMGRD),yes)
 MODULES      += proof/afdsmgrd
 endif
+ifeq ($(BUILDMPI),yes)
+MODULES      += mpi/rmpi
+# MODULES      += mpi/math
+MODULES      += mpi/rootmpi
+endif
 
 -include MyModules.mk   # allow local modules
 

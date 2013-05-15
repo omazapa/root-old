@@ -75,6 +75,7 @@ options="                    \
    enable_memstat            \
    enable_minuit2            \
    enable_monalisa           \
+   enable_mpi                \
    enable_mysql              \
    enable_odbc               \
    enable_opengl             \
@@ -165,6 +166,7 @@ enable_builtin_pcre=no
 enable_builtin_zlib=no
 enable_builtin_lzma=no
 enable_afdsmgrd=no
+enable_mpi=no
 
 if test "x$ENABLEALL" = "xyes"; then
     enable_gdml=yes
@@ -175,6 +177,7 @@ if test "x$ENABLEALL" = "xyes"; then
     enable_ruby=yes
     enable_table=yes
     enable_unuran=yes
+    enable_mpi=yes
 fi
 
 # Remove old log file
@@ -223,6 +226,7 @@ MINUIT2          \
 TABLE            \
 XMLDIR           \
 ROOTDICTTYPE     \
+MPICXX           \
 "
 configenvvars=
 for c in $envvars ; do
@@ -1522,6 +1526,7 @@ enable/disable options, prefix with either --enable- or --disable-
   memstat            A memory statistics utility, helps to detect memory leaks
   minuit2            Build the new libMinuit2 minimizer library
   monalisa           Monalisa monitoring support, requires libapmoncpp
+  mpi                Message Passing Interface Support with OpenMpi
   mysql              MySQL support, requires libmysqlclient
   odbc               ODBC support, requires libiodbc or libodbc
   opengl             OpenGL support, requires libGL and libGLU
@@ -1615,6 +1620,7 @@ with options, prefix with --with-, enables corresponding support
   llvm-config        LLVM/clang for cling, location of llvm-config script
   monalisa-incdir    Monalisa support, location of ApMon.h
   monalisa-libdir    Monalisa support, location of libapmoncpp
+  mpi-bindir         Support for Message Passing Interface with OpenMpi(Need mpicxx)
   mysql-incdir       MySQL support, location of mysql.h
   mysql-libdir       MySQL support, location of libmysqlclient
   odbc-incdir        ODBC support, location of sqlext.h
@@ -1954,6 +1960,7 @@ if test $# -gt 0 ; then
       --with-ldap-incdir=*)    ldapincdir=$optarg    ; enable_ldap="yes"    ;;
       --with-ldap-libdir=*)    ldaplibdir=$optarg    ; enable_ldap="yes"    ;;
       --with-llvm-config=*)    llvmconfig=$optarg    ;; # require explicit --enable-cling
+      --with-mpi-bindir=*)     mpibindir=$optarg     ; enable_mpi="yes"     ;;      
       --with-mysql-incdir=*)   mysqlincdir=$optarg   ; enable_mysql="yes"   ;;
       --with-mysql-libdir=*)   mysqllibdir=$optarg   ; enable_mysql="yes"   ;;
       --with-monalisa-incdir=*)monalisaincdir=$optarg; enable_monalisa="yes";;
@@ -5717,6 +5724,69 @@ check_explicit "$enable_shadowpw" "$enable_shadowpw_explicit" \
 
 ######################################################################
 #
+### echo %%% RMpi Library - Contributed library
+#
+if test ! "x$enable_mpi" = "xno"; then
+    # Check for OpenMpi include and library
+    mpiskip=
+    hasmpi="define"
+    
+   # test mpic++
+   if (test -n "$mpibindir"); then
+      mpicxx="$mpibindir/mpic++"
+      mpirun="$mpibindir/mpirun"
+   else
+      mpicxx="mpic++"
+      mpirun="mpirun"
+   fi       
+    
+   if test ! "x$mpiskip" = "xskip"; then
+        checking_msg "mpic++"
+        if `$cwhich $mpicxx > /dev/null 2>&1` ; then
+            $cwhich $mpicxx
+            # we found mpic++ 
+            enable_mpi="yes"
+            result "yes"            
+        else
+            enable_mpi="no"
+            result "not found"
+        fi
+    fi
+    
+    if test ! "x$enable_mpi" = "xyes"; then
+         message "Checking for mpirun "
+         # check for mpi version >= 1.6
+         if `$cwhich $mpirun > /dev/null 2>&1`; then
+             message "Checking OpenMpi version >= 1.6"
+             mpi_version=`$mpirun --version 2>&1 | awk -F" " '{print $4}' | awk -F"." '{print $1 $2}' | head -n 1 | sed -e 's/[a-z]//g' | cut -b 1,2`
+             if test $mpi_version -lt 16; then
+               mpiskip="skip"
+               result "no"
+               enable_mpi="no"
+             else
+               result "ok"
+               enable_mpi="yes"
+               mpiversion=$mpi_version
+             fi
+         fi
+    fi
+fi
+message "Checking whether to build libRMpi and libRMpiMath"
+if test "x$enable_mpi" = "xyes"; then
+    result "yes"
+    hasmpi="define"
+    enable_table="yes"
+else
+    result "no"
+    hasmpi="undef"
+fi
+check_explicit "$enable_mpi" "$enable_mpi_explicit" \
+     "Explicitly required RMpi dependencies not fulfilled"
+
+     
+     
+######################################################################
+#
 ### echo %%% MathMore Library - Contributed library
 #
 if test ! "x$enable_mathmore" = "xno"; then
@@ -6166,6 +6236,7 @@ if test "x$show_pkglist" = "xyes" ; then
     test "x$enable_mathmore" = "xyes" && pl="$pl libroot-math-mathmore"
     test "x$enable_unuran"   = "xyes" && pl="$pl libroot-math-unuran"
     test "x$enable_table"    = "xyes" && pl="$pl libroot-misc-table"
+    test "x$enable_mpi"      = "xyes" && pl="$pl libroot-mpi"    
     test "x$enable_ldap"     = "xyes" && pl="$pl libroot-net-ldap"
     test "x$enable_roofit"   = "xyes" && pl="$pl libroot-roofit"
     test "x$enable_asimage"  = "xyes" && pl="$pl root-plugin-graf2d-asimage"
@@ -6220,6 +6291,7 @@ if test "x$show_pkglist" = "xyes" ; then
         libroot-misc-minicern \
         libroot-montecarlo-eg \
         libroot-montecarlo-vmc \
+        libroot-mpi \        
         libroot-net \
         libroot-net-auth \
         libroot-proof \
@@ -6639,6 +6711,8 @@ sed -e "s|@aclocaldir@|$aclocaldir|"            \
     -e "s|@glitelib@|$glitelib|"                \
     -e "s|@glitelibdir@|$glitelibdir|"          \
     -e "s|@gaw_cppflags@|$gaw_cppflags|"        \
+    -e "s|@buildmpi@|$enable_mpi|"              \
+    -e "s|@mpicxx@|$mpicxx|"                    \
         < Makefile.tmp > Makefile.tmpp
 mv Makefile.tmpp Makefile.tmp
 
@@ -6804,6 +6878,7 @@ sed -e "s|@srcdir@|$ac_srcdir|"                 \
     -e "s|@buildglite@|$enable_glite|"          \
     -e "s|@buildcocoa@|$enable_cocoa|"          \
     -e "s|@c++11@|$enable_cxx11|"               \
+    -e "s|@buildmpi@|$enable_mpi|"              \
     < Makefile.tmp > $MAKEOUT
 rm -f Makefile.tmp
 

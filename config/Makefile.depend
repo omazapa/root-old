@@ -137,6 +137,17 @@ MEMSTATGUILIBDEPM      = $(MEMSTATLIB) $(TREELIB) $(GUILIB)
 RECLIBDEPM             = $(IOLIB) $(TREELIB) $(GUILIB) $(THREADLIB)
 FITSIOLIBDEPM          = $(HISTLIB) $(GPADLIB) $(GRAFLIB) $(MATRIXLIB)
 
+MPILIBDEPM             = $(MATHCORELIB) $(MATHMORELIB) $(HISTLIB) $(MATRIXLIB) \
+			 $(IOLIB) $(TABLELIBDEP) $(NETLIB) $(GLLIB) \
+			 $(RINTLIB) $(TREELIB)  $(TREEPLAYERLIB) $(PHYSICSLIB) $(MINUITLIB) \
+			 $(GENVECTORLIB) $(CINTLIB)
+
+MPIMATHLIBDEPM         = $(MATHCORELIB) $(MATHMORELIB) $(HISTLIB) $(MATRIXLIB) \
+			 $(IOLIB) $(TABLELIBDEP) $(NETLIB) $(GLLIB) \
+			 $(RINTLIB) $(TREELIB)  $(TREEPLAYERLIB) $(PHYSICSLIB) $(MPILIB) \
+			 $(MINUITLIB) $(GENVECTORLIB) $(CINTLIB)
+
+
 ifeq ($(EXPLICITLINK),yes)
 
 IOLIBDEP               = $(IOLIBDEPM)
@@ -236,6 +247,8 @@ MEMSTATLIBDEP          = $(MEMSTATLIBDEPM)
 MEMSTATGUILIBDEP       = $(MEMSTATGUILIBDEPM)
 RECLIBDEP              = $(RECLIBDEPM)
 FITSIOLIBDEP           = $(FITSIOLIBDEPM)
+MPILIBDEP              = $(MPILIBDEPM)
+MPIMATHLIBDEP          = $(MPIMATHLIBDEPM)
 
 ifeq ($(PLATFORM),win32)
 
@@ -362,6 +375,7 @@ HISTFACTORYLIBEXTRA     = lib/libRooFit.lib lib/libRooFitCore.lib \
                           lib/libMinuit.lib lib/libFoam.lib \
                           lib/libGraf.lib lib/libGpad.lib lib/libRooStats.lib \
                           lib/libXMLParser.lib
+                          
 ifeq ($(BUILDMATHMORE),yes)
 ROOFITLIBEXTRA         += lib/libMathMore.lib
 ROOSTATSLIBEXTRA       += lib/libMathMore.lib
@@ -495,10 +509,21 @@ ROOSTATSLIBEXTRA        = -Llib -lRooFit -lRooFitCore -lTree -lRIO -lHist \
 HISTFACTORYLIBEXTRA     = -Llib -lRooFit -lRooFitCore -lTree -lRIO -lHist \
                           -lMatrix -lMathCore -lMinuit -lFoam -lGraf -lGpad \
                           -lRooStats -lXMLParser
+MPILIBEXTRA             = -Llib -lCore -lMatrix -lMathCore -lCint -lRint \
+                          -lNet -lRIO -lHist -lGenVector -lPhysics \
+                          -lGraf3d -lRGL -lTable -lTree -lTreePlayer -lMinuit 
+
+MPIMATHLIBEXTRA         = -Llib -lCore -lMatrix -lMathCore -lCint -lRint \
+                          -lNet -lRIO -lHist -lGenVector -lPhysics \
+                          -lGraf3d -lRGL -lTable -lTree -lTreePlayer -lMinuit -lRMpi
+                          
+                          
 ifeq ($(BUILDMATHMORE),yes)
 ROOFITLIBEXTRA         += -lMathMore
 ROOSTATSLIBEXTRA       += -lMathMore
 HISTFACTORYLIBEXTRA    += -lMathMore
+MPILIBEXTRA            += -lMathMore
+MPIMATHLIBEXTRA        += -lMathMore
 endif
 CINTEXLIBEXTRA          = -Llib -lReflex
 REFLEXDICTLIBEXTRA      = -Llib -lReflex
@@ -531,6 +556,7 @@ MEMSTATLIBEXTRA         = -Llib -lTree -lGpad -lGraf -lHist -lRIO
 MEMSTATGUILIBEXTRA      = -Llib -lMemStat -lTree -lGui
 RECLIBEXTRA             = -Llib -lGui -lRIO -lTree -lThread
 FITSIOLIBEXTRA          = -Llib -lHist -lGpad -lGraf -lMatrix
+
 
 endif
 

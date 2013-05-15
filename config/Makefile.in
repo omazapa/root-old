@@ -358,3 +358,6 @@ INSTALLDIR     := mkdir -p
 RSYNC          := rsync -au
 
 ROOTDRPMREL    := 1
+
+MPICXX         := @mpicxx@
+BUILDMPI       := @buildmpi@

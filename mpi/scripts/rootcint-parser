@@ -1,0 +1,230 @@
+#!/bin/bash
+#####################################
+#Basic options for header generation#
+#####################################
+IncludePath="rmpi/inc/Mpi"
+
+#######################################
+#Header for Send/Recv template Methods#
+#######################################
+SendRecvHeaderName="TCommCintSendRecv.h"
+BcastHeaderName="TCommCintBcast.h"
+GatherHeaderName="TCommCintGather.h"
+ScatterHeaderName="TCommCintScatter.h"
+ReduceHeaderName="TCommCintReduce.h"
+AllGatherHeaderName="TCommCintAllGather.h"
+AllReduceHeaderName="TCommCintAllReduce.h"
+ISendRecvHeaderName="TCommCintISendRecv.h"
+
+HeadersFile="scripts/headers"
+ClassesFile="scripts/classes"
+
+function HeaderMsg {
+echo "//generated $(date)"                                                        >  "$1"
+echo "//Warning!! this header is auto-generated, the changes will be removed!!"   >> "$1"
+echo "/*************************************************************************" >> "$1"
+echo "* Copyright (C)  Gfif Developers                                         *" >> "$1"
+echo "* Grupo de Fenomenologia de Interacciones Fundamentales                  *" >> "$1"
+echo "* http://gfif.udea.edu.co                                                *" >> "$1"
+echo "* División de ciencias de la computación Gfifdev                         *" >> "$1"
+echo "* http://gfifdev.udea.edu.co                                             *" >> "$1"
+echo "* Class Created and Maintained By Omar Andres Zapata Mesa                *" >> "$1"
+echo "* All rights reserved.                                                   *" >> "$1"
+echo "*                                                                        *" >> "$1"
+echo "*                                                                        *" >> "$1"
+echo "* For the list of contributors see $ROOTSYS/README/CREDITS.              *" >> "$1"
+echo "*************************************************************************/" >> "$1"
+}
+
+
+function SendRecvHeader {
+HeaderMsg "$1"
+cat $HeadersFile >> "$1" 
+echo "">> "$1"
+echo "#ifdef __CINT__ ">> "$1"
+echo "namespace ROOT{" >> "$1"
+echo "namespace Mpi{" >> "$1"
+
+for i in $(cat $ClassesFile)
+do
+   echo "//______________________________________________________________________________"      >> "$1"
+   echo "//Support for class $i"                                                                >> "$1"
+   echo "template<> void TComm::SendObject<$i>(const $i &obj,Int_t dest, Int_t tag);"   >> "$1"
+   echo "template<> void TComm::RecvObject<$i>($i &obj,Int_t source, Int_t tag);" >> "$1"
+   echo "template<> void TComm::SendObject<$i>(const $i *obj,Int_t count,Int_t dest, Int_t tag);"   >> "$1"
+   echo "template<> void TComm::RecvObject<$i>($i *obj,Int_t count,Int_t source, Int_t tag);" >> "$1"
+   echo ""                                                                                      >> "$1"
+done
+
+echo "}" >> "$1"
+echo "}" >> "$1"
+echo "#endif" >> "$1"
+}
+
+
+function BcastHeader {
+HeaderMsg "$1"
+cat $HeadersFile >> "$1" 
+echo "">> "$1"
+echo "#ifdef __CINT__ ">> "$1"
+echo "namespace ROOT{" >> "$1"
+echo "namespace Mpi{" >> "$1"
+
+for i in $(cat $ClassesFile)
+do
+   echo "//______________________________________________________________________________"      >> "$1"
+   echo "//Support for class $i"                                                                >> "$1"
+   echo "template<> void TComm::BcastObject<$i>($i &obj, Int_t root);"   >> "$1"
+   echo "template<> void TComm::BcastObject<$i>($i *obj,Int_t count, Int_t root);"   >> "$1"
+   echo ""                                                                                      >> "$1"
+done
+
+echo "}" >> "$1"
+echo "}" >> "$1"
+echo "#endif" >> "$1"
+}
+
+
+function GatherHeader {
+HeaderMsg "$1"
+cat $HeadersFile >> "$1" 
+echo "">> "$1"
+echo "#ifdef __CINT__ ">> "$1"
+echo "namespace ROOT{" >> "$1"
+echo "namespace Mpi{" >> "$1"
+
+for i in $(cat $ClassesFile)
+do
+   echo "//______________________________________________________________________________"      >> "$1"
+   echo "//Support for class $i"                                                                >> "$1"
+   echo "template<> void TComm::GatherObject<$i>(const $i &sendobj,$i *recvobjs, Int_t root);"    >> "$1"
+   echo ""                                                                                      >> "$1"
+done
+
+echo "}" >> "$1"
+echo "}" >> "$1"
+echo "#endif" >> "$1"
+}
+
+
+function ScatterHeader {
+HeaderMsg "$1"
+cat $HeadersFile >> "$1" 
+echo "">> "$1"
+echo "#ifdef __CINT__ ">> "$1"
+echo "namespace ROOT{" >> "$1"
+echo "namespace Mpi{" >> "$1"
+
+for i in $(cat $ClassesFile)
+do
+   echo "//______________________________________________________________________________"      >> "$1"
+   echo "//Support for class $i"                                                                >> "$1"
+   echo "template<> void TComm::ScatterObject<$i>(const $i *sendobjs,$i &obj, Int_t root);"     >> "$1"
+   echo ""                                                                                      >> "$1"
+done
+
+echo "}" >> "$1"
+echo "}" >> "$1"
+echo "#endif" >> "$1"
+}
+
+function AllGatherHeader {
+HeaderMsg "$1"
+cat $HeadersFile >> "$1" 
+echo "">> "$1"
+echo "#ifdef __CINT__ ">> "$1"
+echo "namespace ROOT{" >> "$1"
+echo "namespace Mpi{" >> "$1"
+
+for i in $(cat $ClassesFile)
+do
+   echo "//______________________________________________________________________________"      >> "$1"
+   echo "//Support for class $i"                                                                >> "$1"
+   echo "template<> void TComm::AllGatherObject<$i>(const $i &sendobj,$i *recvobjs);"    >> "$1"
+   echo ""                                                                                      >> "$1"
+done
+
+echo "}" >> "$1"
+echo "}" >> "$1"
+echo "#endif" >> "$1"
+}
+
+function ReduceHeader {
+HeaderMsg "$1"
+cat $HeadersFile >> "$1" 
+echo "">> "$1"
+echo "#ifdef __CINT__ ">> "$1"
+echo "namespace ROOT{" >> "$1"
+echo "namespace Mpi{" >> "$1"
+
+for i in $(cat "$ClassesFile-reduce")
+do
+   echo "//______________________________________________________________________________"      >> "$1"
+   echo "//Support for class $i"                                                                >> "$1"
+   echo "template<> void TComm::ReduceSendObject<$i>($i sendObject, const TOperation& operation,Int_t root);"    >> "$1"
+   echo "template<> void TComm::ReduceRecvObject<$i>($i &recvObject, const TOperation& operation,Int_t root);"   >> "$1"
+   echo ""                                                                                      >> "$1"
+done
+
+echo "}" >> "$1"
+echo "}" >> "$1"
+echo "#endif" >> "$1"
+}
+
+
+function AllReduceHeader {
+HeaderMsg "$1"
+cat $HeadersFile >> "$1" 
+echo "">> "$1"
+echo "#ifdef __CINT__ ">> "$1"
+echo "namespace ROOT{" >> "$1"
+echo "namespace Mpi{" >> "$1"
+
+for i in $(cat "$ClassesFile-reduce")
+do
+   echo "//______________________________________________________________________________"      >> "$1"
+   echo "//Support for class $i"                                                                >> "$1"
+   echo "template<> void TComm::AllReduceSendObject<$i>($i sendObject, const TOperation& operation);"    >> "$1"
+   echo "template<> void TComm::AllReduceRecvObject<$i>($i &recvObject, const TOperation& operation);"   >> "$1"
+   echo ""                                                                                      >> "$1"
+done
+
+echo "}" >> "$1"
+echo "}" >> "$1"
+echo "#endif" >> "$1"
+}
+
+function ISendRecvHeader {
+HeaderMsg "$1"
+cat $HeadersFile >> "$1" 
+echo "">> "$1"
+echo "#ifdef __CINT__ ">> "$1"
+echo "namespace ROOT{" >> "$1"
+echo "namespace Mpi{" >> "$1"
+
+for i in $(cat $ClassesFile)
+do
+   echo "//______________________________________________________________________________"      >> "$1"
+   echo "//Support for class $i"                                                                >> "$1"
+   echo "template<> void TComm::ISendObject<$i>(const $i &obj,Int_t dest, Int_t tag);"   >> "$1"
+   echo "template<> void TComm::ISsendObject<$i>(const $i &obj,Int_t dest, Int_t tag);"   >> "$1"
+   echo "template<> void TComm::IRsendObject<$i>(const $i &obj,Int_t dest, Int_t tag);"   >> "$1"
+   echo "template<> void TComm::IRecvObject<$i>($i &obj,Int_t source, Int_t tag);" >> "$1"
+   echo ""                                                                                      >> "$1"
+done
+
+echo "}" >> "$1"
+echo "}" >> "$1"
+echo "#endif" >> "$1"
+}
+
+
+
+SendRecvHeader   "$IncludePath/$SendRecvHeaderName"
+BcastHeader      "$IncludePath/$BcastHeaderName"
+GatherHeader     "$IncludePath/$GatherHeaderName"
+ScatterHeader    "$IncludePath/$ScatterHeaderName"
+# ReduceHeader     "$IncludePath/$ReduceHeaderName"
+AllGatherHeader  "$IncludePath/$AllGatherHeaderName"
+# AllReduceHeader  "$IncludePath/$AllReduceHeaderName"
+ISendRecvHeader  "$IncludePath/$ISendRecvHeaderName"

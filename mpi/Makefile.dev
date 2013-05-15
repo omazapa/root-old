@@ -1,0 +1,8 @@
+clean:
+	find . -name "*~" -exec rm '{}' \;
+indent:
+	find . -name "*.h" -exec astyle '{}' \;
+	find . -name "*.cpp" -exec astyle '{}' \;
+	find . -name "*.cxx" -exec astyle '{}' \;
+cint:
+	./scripts/rootcint-parser

@@ -1,0 +1,38 @@
+Due to the great significance of the parallel programming within the scientific community and the adventages openmpi brings us for those purposes, it is natural to think on an extension for cern’s ROOT libraries.
+This project will give openmpi the skill to send and receive ROOT’s native datatypes, this through the redefinition of classes according to the necessity of each group of similar datatypes and the implementation of macros and scripts will give the execution and compilation hability to the ROOT’s interpreter (cint), mpirun-like. The design of the execution module through cint was based on buffers of code which will grant the correct definition as openmpi requires for the code block.
+The project manager is Omar Andres Zapata Mesa, please contact him at andresete.chaos@gmail.com to support or suggestions.
+
+==Project Description==
+
+Nowadays it is necessary to paralellize code most importantly within science areas and given the advanages that ROOT brings to the scientific calculations, mpi appears as an essential extension just because with this support it will be much easier for the user to write efficient and distributed routines without the need to resort to complicated syntaxes which we face when writing code with this separated dependencies. ROOT lacks this capability and we are giving this advantage to it to expand his usage and demand.
+
+===About Me===
+I am programmer from Universidad de Antioquia At Medellin Colombia 
+Omar Andres Zapata Mesa, Head Developer,  Systems Engineering Student  
+
+===Features===
+Mpi’s send and receive functions communicate naturally with ROOT’s datatypes such as:
+*RooDouble
+*RooInt
+*RooComplex, etc.
+This will support every communication system (PeertoPeer, Broadcast & AlltoAll).
+Datatypes which allow the manipulation of the streams to files of ROOT and mpi.
+
+===Why is it good for...===
+The end-user can paralelize confortably his code written with ROOT libraries or on the other hand, he can use this libraries to optimize his code previously written with parallel routines, all this in a natural way for mpi and ROOT.
+With the support given to cint, the end-user has the hability to test small blocks of mpi code with the amenities cint itself provides to us such as the omission of the compilation and linking of libraries.
+
+
+=== Website ===
+http://gfif.udea.edu.co/web/tiki-index.php?page=RootMpi
+
+
+==Special Thanks==
+Rene Brun
+Axel Naumann
+Fons Rademakers
+From Cern
+
+Diego Alejandro Restrepo Ph.D Physics
+Jorge Ivan Zuluaga Callejas Ph.D Physics
+Universidad de Antioquia 
