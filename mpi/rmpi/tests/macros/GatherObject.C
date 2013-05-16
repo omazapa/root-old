@@ -35,14 +35,21 @@ void GatherObject()
    str += world.Get_rank();
    world.GatherObject(str,strs,root);
    world.GatherObject(mat,mats,root);
+   Bool_t status=true;
    if (world.Get_rank() == root) {   
-      TString s_str;
-      TMatrixD s_mat(2,2);
       for (Int_t i = 0; i < world.Get_size(); i++) {
-	 s_str+=strs[i];
-	 s_mat+=mats[i];
+         TString s_str("*");
+         TMatrixD s_mat(2,2);
+	 s_str+=i;
+
+	 s_mat[0][0] = i;
+	 s_mat[0][1] = i;
+         s_mat[1][0] = i;
+         s_mat[1][1] = i;
+
+	 if(s_str!=strs[i]) status=false;
+	 if(!(s_mat==mats[i])) status=false;
       }
-      std::cout<<s_str.Data()<<"\n";
-      s_mat.Print();
+      if(status) std::cout<<"PASSED"<<endl;
    }
 }

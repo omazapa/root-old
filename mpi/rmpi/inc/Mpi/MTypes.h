@@ -63,15 +63,6 @@
 #define __METHOD_CHAR__  TString(__FUNCTION__)+" Char_t"
 #endif
 
-#define BCAST_MSG "\nThe rank and root should be the same, because it produces communication problems. \nthis cuase that some rank block the communication system.\n"
-
-#define GATHER_MSG "\nThe rank and root should be the same, because it produces communication problems. \nthis cuase that some rank block the communication system.\n"
-
-#define SCATTER_MSG "\nThe rank and root should be the same, because it produces communication problems. \nthis cuase that some rank block the communication system.\n"
-
-#define ALL_GATHER_MSG "\nYou are trying gather scalar array without send scalar first or maybe the scalars array was recv now.\n"
-
-#define ALL_REDUCE_MSG "\nYou are trying get reduce scalar result without send scalar first or maybe the scalar result was recv now.\n"
 
 namespace ROOT {
    namespace Mpi {

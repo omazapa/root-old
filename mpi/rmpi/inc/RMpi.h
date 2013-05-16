@@ -14,8 +14,7 @@
 #ifndef ROOT_Mpi_Global_Header
 #define ROOT_Mpi_Global_Header
 
-#if defined(__CINT__)
-#else
+#if !defined(__CINT__)
 #include"Mpi/TEnvironment.h"
 #include"Mpi/TIntercomm.h"
 #include"Mpi/TCartcomm.h"

@@ -1,5 +1,5 @@
 /*************************************************************************
- * Copyright (C) 2012,  Gfif Developers                                   *
+ * Copyright (C) 2013,  Gfif Developers                                   *
  * Grupo de Fenomenologia de Interacciones Fundamentales                  *
  * http://gfif.udea.edu.co                                                *
  * División de ciencias de la computación Gfifdev                         *
@@ -29,8 +29,15 @@ void AllGatherObject()
     
    Mpi::COMM_WORLD.AllGatherObject(str,strs);
    
+   str="";
+   TString str_require;
   for(Int_t i=0;i<size;i++){
-   cout<<strs[i].Data();
+   str+=strs[i].Data();
+   str_require+=i;
    }
-    cout<<endl;
+   
+   if(str==str_require)
+   {
+   cout<<"PASSED"<<endl;  
+   }
 }

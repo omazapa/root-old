@@ -8,33 +8,38 @@ void Datatype()
     Int_t z;
   };
 
-  ROOT::Mpi::TEnvironment env(gApplication->Argc(), gApplication->Argv());
+  ROOT::Mpi::TEnvironment env(0, 0);
   ROOT::Mpi::TIntracomm world;
-  ROOT::Mpi::TDatatype PositionDatatype;
-  PositionDatatype = ROOT::Mpi::INT.Create_contiguous(3);
-  PositionDatatype.Commit( );
+  ROOT::Mpi::TDatatype Posdt;
+  Posdt = ROOT::Mpi::INT.Create_contiguous(3);
+  Posdt.Commit();
   
-  if ( world.Rank() == 0 ) 
+  if ( world.Get_rank() == 0 ) 
   {
     Position s_point;
     s_point.x = 1;
     s_point.y = 2;
     s_point.z = 3;
-    world.SendDatatype (1, 0,&s_point,PositionDatatype );
-    cout<<"Sending x="<<s_point.x<<" y="<<s_point.y<<" z="<<s_point.z<<" to rank 1\n";
-    world.RecvDatatype(1, 0,&s_point, PositionDatatype);
-    cout<<"Recving x="<<s_point.x<<" y="<<s_point.y<<" z="<<s_point.z<<" from rank 1\n";
+    world.Send(&s_point,1,Posdt,1, 0);
+    world.Recv(&s_point,1,Posdt,1, 1);
+    if((s_point.x==4)&&(s_point.y==5)&&(s_point.z==6))
+    {
+      cout<<"PASSED"<<endl;
+    }
+    
   }else
   {
     Position r_point;
-    world.RecvDatatype(0, 0,&r_point, PositionDatatype);  
-    cout<<"Recving x="<<r_point.x<<" y="<<r_point.y<<" z="<<r_point.z<<" from rank 0\n";
-    world.SendDatatype (0, 0,&r_point,PositionDatatype);
+    world.Recv(&r_point,1,Posdt,0, 0);  
+    if((r_point.x==1)&&(r_point.y==2)&&(r_point.z==3))
+    {
+      cout<<"PASSED"<<endl;
+    }
     
     r_point.x = 4;
     r_point.y = 5;
     r_point.z = 6;    
-    cout<<"Sending x="<<r_point.x<<" y="<<r_point.y<<" z="<<r_point.z<<" to rank 0\n";
+    world.Send(&r_point,1,Posdt,0, 1);
   }
    env.Finalize();
 }
