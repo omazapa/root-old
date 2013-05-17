@@ -52,7 +52,16 @@ namespace ROOT {
       Double_t Wtime();
 
       Double_t Wtick();
+    
+      void Init(int& argc, char**& argv);
 
+      void Init();
+      
+      void InitializeIntercepts();
+
+      void Real_init();
+      
+      void Finalize();
 
       Bool_t Is_initialized();
 

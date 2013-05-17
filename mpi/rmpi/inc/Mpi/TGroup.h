@@ -69,7 +69,7 @@ namespace ROOT {
             return *this;
          }
          inline operator MPI_Group() const {
-            return MPI::Group();
+	   return (const MPI_Group)fGroup;
          }
 
 
@@ -92,13 +92,13 @@ namespace ROOT {
 
          static TGroup Difference(const TGroup &group1, const TGroup &group2);
 
-         virtual TGroup Include(Int_t n, const Int_t ranks[]) const;
+         virtual TGroup Incl(Int_t n, const Int_t ranks[]) const;
 
-         virtual TGroup Exclude(Int_t n, const Int_t ranks[]) const;
+         virtual TGroup Excl(Int_t n, const Int_t ranks[]) const;
 
-         virtual TGroup Range_include(Int_t n, const Int_t ranges[][3]) const;
+         virtual TGroup Range_incl(Int_t n, const Int_t ranges[][3]) const;
 
-         virtual TGroup Range_exclude(Int_t n, const Int_t ranges[][3]) const;
+         virtual TGroup Range_excl(Int_t n, const Int_t ranges[][3]) const;
 
          virtual void Free();
 

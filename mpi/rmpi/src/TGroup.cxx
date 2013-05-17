@@ -62,25 +62,25 @@ TGroup TGroup::Difference(const TGroup &group1, const TGroup &group2)
 }
 
 //______________________________________________________________________________
-TGroup TGroup::Include(Int_t n, const Int_t ranks[]) const
+TGroup TGroup::Incl(Int_t n, const Int_t ranks[]) const
 {
    return fGroup.Incl(n, ranks);
 }
 
 //______________________________________________________________________________
-TGroup TGroup::Exclude(Int_t n, const Int_t ranks[]) const
+TGroup TGroup::Excl(Int_t n, const Int_t ranks[]) const
 {
    return fGroup.Excl(n, ranks);
 }
 
 //______________________________________________________________________________
-TGroup TGroup::Range_include(Int_t n, const Int_t ranges[][3]) const
+TGroup TGroup::Range_incl(Int_t n, const Int_t ranges[][3]) const
 {
    return fGroup.Range_incl(n, ranges);
 }
 
 //______________________________________________________________________________
-TGroup TGroup::Range_exclude(Int_t n, const Int_t ranges[][3]) const
+TGroup TGroup::Range_excl(Int_t n, const Int_t ranges[][3]) const
 {
    return fGroup.Range_excl(n, ranges);
 }
