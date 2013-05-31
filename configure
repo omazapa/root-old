@@ -85,6 +85,7 @@ options="                    \
    enable_python             \
    enable_qt                 \
    enable_qtgsi              \
+   enable_r                  \
    enable_reflex             \
    enable_roofit             \
    enable_ruby               \
@@ -150,6 +151,7 @@ enable_qt=no
 enable_qtgsi=no
 enable_roofit=no
 enable_minuit2=no
+enable_r=no
 enable_rpath=no
 enable_ruby=no
 enable_shadowpw=
@@ -1532,6 +1534,7 @@ enable/disable options, prefix with either --enable- or --disable-
   python             Python ROOT bindings, requires python >= 2.2
   qt                 Qt graphics backend, requires libqt >= 4.x
   qtgsi              GSI's Qt integration, requires libqt >= 3
+  r                  Build R Interface for Statistical Computing
   reflex             Build the libReflex dictionary library
   rfio               RFIO support, requires libshift from CASTOR >= 1.5.2
   roofit             Build the libRooFit advanced fitting package
@@ -1633,6 +1636,9 @@ with options, prefix with --with-, enables corresponding support
   python-libdir      Python support, location of libpython
   qt-incdir          Qt support, location of Qt/qglobal.h
   qt-libdir          Qt support, location of libqt-mt or libqt
+  r-incdir           R support, location of R.h
+  r-libdir           R support, location of libR
+  r-sitedir          R support, location of modules Rcpp and Rinside
   ruby-incdir        Ruby support, location of ruby.h
   ruby-libdir        Ruby support, location of libruby
   sapdb-incdir       SapDB support, location of sql.h
@@ -1976,6 +1982,9 @@ if test $# -gt 0 ; then
       --with-python-libdir=*)  pythonlibdir=$optarg  ; enable_python="yes"  ;;
       --with-qt-incdir=*)      qtincdir=$optarg      ; mocdir=$optarg/../bin; enable_qt="yes"; enable_qtgsi="yes" ;;
       --with-qt-libdir=*)      qtlibdir=$optarg      ; enable_qt="yes"; enable_qtgsi="yes" ;;
+      --with-r-incdir=*)       rincdir=$optarg       ; enable_r="yes"       ;;
+      --with-r-libdir=*)       rlibdir=$optarg       ; enable_r="yes"       ;;
+      --with-r-sitedir=*)      rsitedir=$optarg      ; enable_r="yes"       ;;
       --with-ruby-incdir=*)    rubyincdir=$optarg    ; enable_ruby="yes"    ;;
       --with-ruby-libdir=*)    rubylibdir=$optarg    ; enable_ruby="yes"    ;;
       --with-sapdb-incdir=*)   sapdbincdir=$optarg   ; enable_sapdb="yes"   ;;
@@ -6160,6 +6169,110 @@ esac
 # Print info if dicttype!=cint, or --with-dict overrides $ROOTDICTTYPE
 result "$dicttype"
 
+
+######################################################################
+#
+### echo %%% RInterface Library - Contributed library
+#
+if test ! "x$enable_r" = "xno"; then
+    # Check for R include and library
+    check_header "R.h" "$rincdir" \
+        ${finkdir:+$finkdir/include} \
+        /usr/local/include /usr/include \
+        /opt/R/include /usr/share/R/include \
+        /usr/local/share/R/include
+        
+     if test ! "x$found_dir" = "x"; then
+        rflags="-I$found_dir"
+     else
+        message "R.h not found"
+        enable_r="no"
+        result "no"
+     fi
+     
+     check_library "libR" "yes" "$rlibdir" \
+        /usr/local/lib /usr/lib \
+        /opt/R/lib /usr/lib/R/lib/ \
+        /usr/lib/R/lib/ 
+
+     if test ! "x$found_lib" = "x"; then
+        rlibs="$found_dir $found_lib "
+     else
+        message "libR not found"
+        enable_r="no"
+        result "no"
+     fi
+     
+    # Check for Rcpp include and library
+     check_header "Rcpp.h" "$rsitedir" \
+        /usr/local/include /usr/include \
+        /opt/R/site-library/Rcpp/include \
+        /usr/local/lib/R/site-library/Rcpp/include \
+        /usr/lib/R/site-library/Rcpp/include "$rsitedir/Rcpp/include"
+
+     if test ! "x$found_dir" = "x"; then
+        rflags="$rflags -I$found_dir"
+     else
+        message "Rcpp.h not found"
+        message "Install it running like root 'R -e \"install.packages(\"RInside\",repos=\"http://cran.irsn.fr/\")\"'"
+        enable_r="no"
+        result "no"
+     fi
+
+     check_library "libRcpp" "staticonly" "$rsitedir" \
+        /usr/local/lib /usr/lib \
+        /opt/R/site-library/Rcpp/lib  /usr/local/lib/R/site-library/Rcpp/lib \
+        /usr/lib/R/site-library/Rcpp/lib "$rsitedir/Rcpp/lib"
+     
+     if test ! "x$found_lib" = "x"; then
+        rlibs="$rlibs $found_dir/$found_lib"
+     else
+        message "libRcpp not found"
+        enable_r="no"
+        result "no"
+     fi
+     
+    # Check for RInside include and library
+     check_header "RInside.h" "$rsitedir" \
+        /usr/local/include /usr/include \
+        /opt/R/site-library/RInside/include /usr/local/lib/R/site-library/RInside/include \
+        /usr/lib/R/site-library/Rcpp/include "$rsitedir/RInside/include"
+
+     if test ! "x$found_dir" = "x"; then
+        rflags="$rflags -I$found_dir"
+     else
+        message "RInside.h not found"
+        message "Install it running like root 'R -e \"install.packages(\"RInside\",repos=\"http://cran.irsn.fr/\")\"'"
+        enable_r="no"
+        result "no"
+     fi
+
+     check_library "libRInside" "staticonly" "$rsitedir" \
+        /usr/local/lib /usr/lib \
+        /opt/R/site-library/RInside/lib  /usr/local/lib/R/site-library/RInside/lib \
+        /usr/lib/R/site-library/RInside/lib "$rsitedir/RInside/lib"
+     
+     if test ! "x$found_lib" = "x"; then
+        rlibs="$rlibs $found_dir/$found_lib"
+     else
+        message "libRInside not found"
+        enable_r="no"
+        result "no"
+     fi
+     
+fi
+message "Checking whether to build libRInterface"
+if test "x$enable_r" = "xyes"; then
+    result "yes"
+    hasr="define"
+else
+    result "no"
+    hasr="undef"
+fi
+check_explicit "$enable_r" "$enable_r_explicit" \
+     "Explicitly required R dependencies not fulfilled"
+
+
 ######################################################################
 #
 ### echo %%% Debian or Red Hat package list
@@ -6203,6 +6316,7 @@ if test "x$show_pkglist" = "xyes" ; then
     test "x$enable_oracle"   = "xyes" && pl="$pl root-plugin-sql-oracle"
     test "x$enable_pgsql"    = "xyes" && pl="$pl root-plugin-sql-pgsql"
     test "x$enable_sapdb"    = "xyes" && pl="$pl root-plugin-sql-maxdb"
+    test "x$enable_r"        = "xyes" && pl="$pl root-plugin-r"
     test "x$enable_xrootd"   = "xyes" && pl="$pl root-system-xrootd root-plugin-net-netx root-plugin-net-xrootd"
 
     pl="$pl \
@@ -6252,6 +6366,7 @@ if test "x$show_pkglist" = "xyes" ; then
         root-plugin-proof-proofplayer \
         root-plugin-proof-xproof \
         root-plugin-tree-treeviewer \
+        root-plugin-r \
         root-system-proofd \
         root-system-rootd \
         root-system-doc \
@@ -6739,6 +6854,9 @@ sed -e "s|@globusincdir@|$globusincdir|"        \
     -e "s|@shiftlib@|$shiftlib|"                \
     -e "s|@shiftlibdir@|$shiftlibdir|"          \
     -e "s|@shiftcflags@|$shiftcflags|"          \
+    -e "s|@buildr@|$enable_r|"                  \
+    -e "s|@rflags@|$rflags|"                    \
+    -e "s|@rlibs@|$rlibs|"                      \
         < Makefile.tmp > Makefile.tmpp
 mv Makefile.tmpp Makefile.tmp
 

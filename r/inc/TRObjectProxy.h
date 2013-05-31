@@ -14,15 +14,23 @@
 *************************************************************************/
 #ifndef __TRObjectProxy_H__
 #define __TRObjectProxy_H__
+//ROOT headers
 #include<Rtypes.h>
 #include<TObject.h>
 #include<TString.h>
-#include<string>
-#include<TVectorT.h>
-#include<TMatrixT.h>
+#include<TVectorD.h>
+#include<TMatrixD.h>
 #include<TArrayD.h>
 #include<TArrayF.h>
 #include<TArrayI.h>
+//std headers
+#include<string>
+//pragma to disable warnings on Rcpp that have
+//a so many noise compiling
+#if defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Wshadow"
+#endif
+//R headers
 #ifndef __CINT__
 #include <RInside.h>
 #include <Rcpp.h>
@@ -38,7 +46,7 @@ namespace Rcpp
 //internal R objects (at R api) Rinternals.h 
 typedef struct SEXPREC *SEXP;
 #endif
-#include<TObject.h>
+
 namespace ROOT
 {
   namespace R{
@@ -63,18 +71,21 @@ namespace ROOT
 
   }
 #ifndef __CINT__
+//______________________________________________________________________________
 template<class Type> TVectorT<Type> ROOT::R::TRObjectProxy::toVector()
 {
   std::vector<Type> vec=::Rcpp::as<std::vector<Type> >(x);
   return TVectorT<Type>(vec.size(),vec.data());
 }
 
+//______________________________________________________________________________
 template<class TypeClass,class TypeData> TypeClass   ROOT::R::TRObjectProxy::toArray()
 {
   std::vector<TypeData> vec=::Rcpp::as<std::vector<TypeData> >(x);
   return TypeClass(vec.size(),vec.data());
 }
 
+//______________________________________________________________________________
 template<class Type> TMatrixT<Type>   ROOT::R::TRObjectProxy::toMatrix()
 {
   Rcpp::NumericMatrix mat=::Rcpp::as<Rcpp::NumericMatrix>(x);

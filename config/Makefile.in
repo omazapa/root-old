@@ -359,3 +359,7 @@ INSTALLDIR     := mkdir -p
 RSYNC          := rsync -au
 
 ROOTDRPMREL    := 1
+
+BUILDR         := @buildr@
+RLIBS          := @rlibs@
+RFLAGS         := @rflags@

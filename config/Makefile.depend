@@ -137,6 +137,8 @@ MEMSTATGUILIBDEPM      = $(MEMSTATLIB) $(TREELIB) $(GUILIB)
 RECLIBDEPM             = $(IOLIB) $(TREELIB) $(GUILIB) $(THREADLIB)
 FITSIOLIBDEPM          = $(HISTLIB) $(GPADLIB) $(GRAFLIB) $(MATRIXLIB)
 
+RLIBDEPM               = $(MATRIXLIB) $(CINTLIB)
+
 ifeq ($(EXPLICITLINK),yes)
 
 IOLIBDEP               = $(IOLIBDEPM)
@@ -236,6 +238,7 @@ MEMSTATLIBDEP          = $(MEMSTATLIBDEPM)
 MEMSTATGUILIBDEP       = $(MEMSTATGUILIBDEPM)
 RECLIBDEP              = $(RECLIBDEPM)
 FITSIOLIBDEP           = $(FITSIOLIBDEPM)
+RLIBDEP                = $(RLIBDEPM)
 
 ifeq ($(PLATFORM),win32)
 
@@ -531,6 +534,7 @@ MEMSTATLIBEXTRA         = -Llib -lTree -lGpad -lGraf -lHist -lRIO
 MEMSTATGUILIBEXTRA      = -Llib -lMemStat -lTree -lGui
 RECLIBEXTRA             = -Llib -lGui -lRIO -lTree -lThread
 FITSIOLIBEXTRA          = -Llib -lHist -lGpad -lGraf -lMatrix
+RLIBEXTRA               = -Llib -lCore -lCint -lMatrix
 
 endif
 

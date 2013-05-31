@@ -278,6 +278,10 @@ ifeq ($(BUILDAFDSMGRD),yes)
 MODULES      += proof/afdsmgrd
 endif
 
+ifeq ($(BUILDR),yes)
+MODULES      += r
+endif
+
 -include MyModules.mk   # allow local modules
 
 ifneq ($(findstring $(MAKECMDGOALS),distclean maintainer-clean),)

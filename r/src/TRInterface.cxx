@@ -43,28 +43,28 @@ TRObjectProxy TRInterface::parseEval(const TString &code,Bool_t exception)
 }
 
 //______________________________________________________________________________
-template<> void TRInterface::assign(const TArrayD &obj,const TString & name)
+template<> void TRInterface::assign<TArrayD>(const TArrayD &obj,const TString & name)
 {
   std::vector<double> vec(obj.GetArray(),obj.GetArray()+obj.GetSize());
   RInside::assign(vec,name.Data());
 }
 
 //______________________________________________________________________________
-template<> void TRInterface::assign(const TVectorD &obj,const TString & name)
+template<> void TRInterface::assign<TVectorD>(const TVectorD &obj,const TString & name)
 {
   std::vector<double> vec(obj.GetMatrixArray(),obj.GetMatrixArray()+obj.GetNoElements());
   RInside::assign(vec,name.Data());
 }
 
 //______________________________________________________________________________
-template<> void TRInterface::assign(const TString &obj,const TString & name)
+template<> void TRInterface::assign<TString>(const TString &obj,const TString & name)
 {
  
   RInside::assign(obj.Data(),name.Data());
 }
 
 //______________________________________________________________________________
-template<> void TRInterface::assign(const TMatrixD &obj,const TString & name)
+template<> void TRInterface::assign<TMatrixD>(const TMatrixD &obj,const TString & name)
 {
   Int_t rows=obj.GetNrows();
   Int_t cols=obj.GetNcols();
@@ -76,13 +76,13 @@ template<> void TRInterface::assign(const TMatrixD &obj,const TString & name)
 }
 
 //______________________________________________________________________________
-template<> void TRInterface::assign(const Double_t &value,const TString & name)
+template<> void TRInterface::assign<Double_t>(const Double_t &value,const TString & name)
 {
   RInside::assign(value,name.Data());
 }
 
 //______________________________________________________________________________
-template<> void TRInterface::assign(const Int_t &value,const TString & name)
+template<> void TRInterface::assign<Int_t>(const Int_t &value,const TString & name)
 {
   RInside::assign(value,name.Data());  
 }

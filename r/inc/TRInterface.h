@@ -14,17 +14,14 @@
 *************************************************************************/
 #ifndef __TRInterface_H__
 #define __TRInterface_H__
-#include<Rtypes.h>
-#include<TObject.h>
-#include<string>
-#include<TArrayD.h>
-#include<TVectorD.h>
-#include<TMatrixD.h>
+//ROOT headers
 #include<TRObjectProxy.h>
+//std headers
+#include<string>
+//R headers
 #ifndef __CINT__
 #include <RInside.h>
 #include <Rcpp.h>
-#include<string>
 #else
 class RInside;
 namespace Rcpp
@@ -34,7 +31,7 @@ namespace Rcpp
  class Environment::Binding;
 }
 #endif
-#include<TObject.h>
+
 namespace ROOT
 {
   namespace R{
@@ -50,7 +47,7 @@ namespace ROOT
       
       TRObjectProxy parseEval(const TString &code,Bool_t exception=kTRUE);
       
-      template<typename T >void assign(const T &obj,const TString & name);      
+      template<typename T >void assign(const T &var,const TString & name);      
       
       //utility methods for plots
       inline void x11(){ parseEvalQ("x11()");}
@@ -61,16 +58,23 @@ namespace ROOT
       //NOTE:this method should be improved to support TObjects
       //May  a new class TREnvironment/TRBinding should be created.
       Rcpp::Environment::Binding operator[]( const TString& name );
-      ClassDef(TRInterface, 0) // 
+      ClassDef(TRInterface, 1) // 
     };
-    template<> void TRInterface::assign(const Double_t &value,const TString & name);
-    template<> void TRInterface::assign(const Int_t &value,const TString & name);
+    template<> void TRInterface::assign<Double_t>(const Double_t &value,const TString & name);
+    template<> void TRInterface::assign<Int_t>(const Int_t &value,const TString & name);
     //Objects Assignation
-    template<> void TRInterface::assign(const TArrayD &obj,const TString & name);
-    template<> void TRInterface::assign(const TVectorD &obj,const TString & name);
-    template<> void TRInterface::assign(const TMatrixD &obj,const TString & name);
-    template<> void TRInterface::assign(const TString &obj,const TString & name);
+    template<> void TRInterface::assign<TArrayD>(const TArrayD &obj,const TString & name);
+    template<> void TRInterface::assign<TVectorD>(const TVectorD &obj,const TString & name);
+    template<> void TRInterface::assign<TMatrixD>(const TMatrixD &obj,const TString & name);
+    template<> void TRInterface::assign<TString>(const TString &obj,const TString & name);
 
+#ifndef __CINT__
+template<typename T >void TRInterface::assign(const T &var,const TString & name)
+{
+  RInside::assign(var,name.Data());
+}
+
+#endif    
 
   }
 }

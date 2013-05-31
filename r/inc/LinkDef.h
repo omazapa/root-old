@@ -1,4 +1,5 @@
 // @(#)root/mpi:$Id: LinkDef.h  -- :: $
+// Author: Omar Zapata   29/05/2013
 
 /*************************************************************************
  * Copyright (C) 2013 , Omar Andres Zapata Mesa           .              *
@@ -18,8 +19,8 @@
 #pragma link C++ nestedtypedef;
 
 //classes
-#pragma link C++ class ROOT::R::TRInterface;
-#pragma link C++ class ROOT::R::TRObjectProxy;
+#pragma link C++ class ROOT::R::TRInterface+;
+#pragma link C++ class ROOT::R::TRObjectProxy+;
 
 #pragma link C++ function  ROOT::R::TRObjectProxy::toVector<Double_t>();
 #pragma link C++ function  ROOT::R::TRObjectProxy::toVector<Float_t>();
