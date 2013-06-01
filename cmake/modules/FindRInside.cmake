@@ -28,7 +28,7 @@ set(RINSIDE_PKGCONF_LIBRARY_DIRS
 
 # Finally the library itself
 find_library(RINSIDE_LIBRARY
-  NAMES RInside
+  NAMES libRInside.a libRInside.lib
   PATHS ${RINSIDE_PKGCONF_LIBRARY_DIRS}
 )
 

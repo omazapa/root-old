@@ -13,10 +13,9 @@ ROOT_USE_PACKAGE(core)
 ROOT_USE_PACKAGE(cint)
 ROOT_USE_PACKAGE(math/matrix)
 
-message(STATUS  "${RCPP_LIBRARIES}" )
 include_directories(${CMAKE_SOURCE_DIR}/r/inc ${R_INCLUDE_DIR} ${RCPP_INCLUDE_DIR} ${RINSIDE_INCLUDE_DIR})
 
-set(R_HEADERS TRinterface.h TRObjectProxy.h)
+set(R_HEADERS ${CMAKE_SOURCE_DIR}/r/inc/TRInterface.h ${CMAKE_SOURCE_DIR}/r/inc/TRObjectProxy.h)
 
 
 

@@ -29,10 +29,9 @@ set(RCPP_PKGCONF_LIBRARY_DIRS
 
 # Finally the library itself
 find_library(RCPP_LIBRARY
-  NAMES Rcpp
+  NAMES libRcpp.a libRcpp.lib
   PATHS ${RCPP_PKGCONF_LIBRARY_DIRS}
 )
-
 
 # Setting up the results 
 set(RCPP_INCLUDE_DIRS ${RCPP_INCLUDE_DIR})
