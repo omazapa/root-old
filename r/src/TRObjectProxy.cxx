@@ -20,12 +20,12 @@ TRObjectProxy::TRObjectProxy(SEXP xx): x(xx) { }
 //______________________________________________________________________________
 TString TRObjectProxy::toString()
 {
-  return TString(::Rcpp::as<std::string>(x));
+   return TString(::Rcpp::as<std::string>(x));
 }
 
 //______________________________________________________________________________
 void TRObjectProxy::operator=(SEXP xx)
 {
-  x=xx;
+   x = xx;
 }
 
