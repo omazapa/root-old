@@ -18,18 +18,18 @@ ROOT::R::TRInterface *gR = new ROOT::R::TRInterface();
 <center><h2>TRInterface class</h2></center>
 
 </p>
-The TRInterface class lets you procces R code from ROOT.
-You can call R libraries and their functions, plot results in R or ROOT language
-and to use the power of ROOT and R at the same time.
-It also lets you pass scalars, vectors and matrices from ROOT to R
-and from R to ROOT using TRObjectProxy.
-
-To plot in R environment you should first call the method x11() to initiliaze the window's system
-before calling the class' plotting methods.
-
-<i>NOTE</i>In the same way that TROOT class have an unique global object gROOT,
-TRInterface has gR. Not more objects of TRInterface class can be instantiated.
-
+The TRInterface class lets you procces R code from ROOT.<br>
+You can call R libraries and their functions, plot results in R or ROOT language<br>
+and to use the power of ROOT and R at the same time.<br>
+It also lets you pass scalars, vectors and matrices from ROOT to R<br>
+and from R to ROOT using TRObjectProxy.<br>
+<br>
+To plot in R environment you should first call the method x11() to initiliaze the window's system<br>
+before calling the class' plotting methods.<br>
+<br>
+<i style="color:red;">NOTE</i> In the same way that TROOT class have an unique global object gROOT,<br>
+TRInterface has gR. Not more objects of TRInterface class can be instantiated.<br>
+<br>
 </p>
 The picture below gives an example:
 End_Html

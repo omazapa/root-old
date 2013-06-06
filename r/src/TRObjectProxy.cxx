@@ -16,8 +16,8 @@
 <center><h2>TRObjectProxy class</h2></center>
 
 <p>
-The TRObjectProxy's class lets you to get ROOT's objects from R's objects.
-It have some basic template methods to convert R's objects into ROOT datatypes
+The TRObjectProxy's class lets you to get ROOT's objects from R's objects.<br>
+It have some basic template methods to convert R's objects into ROOT datatypes<br>
 <UL>
 <LI>toScalar(): That let you get Double_t and Int_t
 <LI>toArray():  To get TArray class objects
@@ -25,7 +25,7 @@ It have some basic template methods to convert R's objects into ROOT datatypes
 <LI>toMatrix(): To get TMatrixT class objects
 </UL>
 </p>
-A simple example
+A simple example<br>
 <p>
 
 </p>
