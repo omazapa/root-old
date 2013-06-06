@@ -11,6 +11,33 @@
 *************************************************************************/
 #include<TRObjectProxy.h>
 #include<vector>
+//______________________________________________________________________________
+/* Begin_Html
+<center><h2>TRObjectProxy class</h2></center>
+
+<p>
+The TRObjectProxy's class lets you to get ROOT's objects from R's objects.
+It have some basic template methods to convert R's objects into ROOT datatypes
+<UL>
+<LI>toScalar(): That let you get Double_t and Int_t
+<LI>toArray():  To get TArray class objects
+<LI>toVector(): To get TVectorT class objects
+<LI>toMatrix(): To get TMatrixT class objects
+</UL>
+</p>
+A simple example
+<p>
+
+</p>
+<hr>
+End_Html
+ROOT::R::TRObjectProxy obj;
+obj=gR->parseEval("seq(1,10)");
+TVectorD v=obj.toVector();
+v.Print();
+return v;
+*/
+
 using namespace ROOT::R;
 ClassImp(TRObjectProxy)
 

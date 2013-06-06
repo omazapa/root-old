@@ -46,6 +46,14 @@ namespace Rcpp {
 typedef struct SEXPREC *SEXP;
 #endif
 
+//________________________________________________________________________________________________________
+/**
+   This is a class to get ROOT's objects from R's objects
+
+
+   @ingroup R
+*/
+
 namespace ROOT {
    namespace R {
       class TRObjectProxy: public TObject {
@@ -68,7 +76,15 @@ namespace ROOT {
       };
 
    }
+
 #ifndef __CINT__
+//______________________________________________________________________________
+   template<class Type> Type ROOT::R::TRObjectProxy::toScalar()
+   {
+      //Return R's scalars like  Integers and Doubles to Int_t and Doublet_t
+      return ::Rcpp::as<Type>(x);
+   }
+
 //______________________________________________________________________________
    template<class Type> TVectorT<Type> ROOT::R::TRObjectProxy::toVector()
    {

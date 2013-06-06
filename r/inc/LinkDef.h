@@ -22,6 +22,10 @@
 #pragma link C++ class ROOT::R::TRInterface+;
 #pragma link C++ class ROOT::R::TRObjectProxy+;
 
+#pragma link C++ function  ROOT::R::TRObjectProxy::toScalar<Double_t>();
+#pragma link C++ function  ROOT::R::TRObjectProxy::toScalar<Float_t>();
+#pragma link C++ function  ROOT::R::TRObjectProxy::toScalar<Int_t>();
+
 #pragma link C++ function  ROOT::R::TRObjectProxy::toVector<Double_t>();
 #pragma link C++ function  ROOT::R::TRObjectProxy::toVector<Float_t>();
 
@@ -30,5 +34,7 @@
 #pragma link C++ function  ROOT::R::TRObjectProxy::toArray<TArrayI,Int_t>();
 
 #pragma link C++ function  ROOT::R::TRObjectProxy::toMatrix<Double_t>();
+
+#pragma link C++ global gR;
 
 #endif

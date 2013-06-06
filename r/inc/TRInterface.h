@@ -30,11 +30,34 @@ namespace Rcpp {
    class Environment::Binding;
 }
 #endif
+
 //utility macro to create easily method from R function in the TRInterface
 #define R_FUNCTION(func) inline void func(TString opt){ \
       TString code=#func;\
       code+="("+opt+")";\
       parse(code.Data());}
+
+/**
+   @defgroup R R Interface for Statistical Computing
+   \ref ROOTR was implemented using the
+   <A HREF="http://www.r-project.org/">R Project</A> library and the modules
+   <A HREF="http://cran.r-project.org/web/packages/Rcpp/index.html">Rcpp</A> and
+   <A HREF="http://cran.r-project.org/web/packages/RInside/index.html">RInside</A>
+   @ingroup R
+ */
+
+/**
+   @defgroup R R Interface for Statistical Computing
+   @ingroup R
+ */
+
+//////////////////////////////////////////////////////////////////////////
+//                                                                      //
+// TRInterface                                                          //
+//                                                                      //
+// R Interface class for Statistical Computing.                         //
+//                                                                      //
+//////////////////////////////////////////////////////////////////////////
 
 namespace ROOT {
    namespace R {
@@ -43,6 +66,7 @@ namespace ROOT {
          TRInterface(const int argc = 0, const char *const argv[] = NULL, const bool loadRcpp = false, const bool verbose = true, const bool interactive = false);
          ~TRInterface() {}
 
+         void SetVerbose(Bool_t status);
          Int_t parseEval(const TString &code, TRObjectProxy  &ans); // parse line, return in ans; error code rc
          //throws on error if exception is kTRUE
          void  parse(const TString &code, Bool_t exception = kTRUE);
@@ -75,10 +99,15 @@ namespace ROOT {
 #ifndef __CINT__
       template<typename T >void TRInterface::assign(const T &var, const TString & name)
       {
+         // This method lets you pass variables from ROOT to R.
+         // The template T should be a supported ROOT datatype and
+         // the TString's name is the name of the variable in the R enviroment.
          RInside::assign(var, name.Data());
       }
 
 #endif
    }
 }
+R__EXTERN ROOT::R::TRInterface *gR;
+
 #endif
