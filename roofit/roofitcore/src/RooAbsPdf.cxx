@@ -2406,6 +2406,9 @@ RooPlot* RooAbsPdf::plotOn(RooPlot* frame, RooLinkedList& cmdList) const
   // VLines()                        -- Add vertical lines to y=0 at end points of curve
   // Precision(Double_t eps)         -- Control precision of drawn curve w.r.t to scale of plot, default is 1e-3. Higher precision
   //                                    will result in more and more densely spaced curve points
+  //                                    A negative precision value will disable adaptive point spacing and restrict sampling to
+  //                                    the grid point of points defined by the binning of the plotted observabled (recommended for
+  //                                    expensive functions such as profile likelihoods)
   // Invisble(Bool_t flag)           -- Add curve to frame, but do not display. Useful in combination AddTo()
 
 
@@ -2591,6 +2594,7 @@ RooPlot* RooAbsPdf::plotOn(RooPlot* frame, RooLinkedList& cmdList) const
 
   // Append overriding scale factor command at end of original command list
   RooCmdArg tmp = RooFit::Normalization(scaleFactor,Raw) ;
+  tmp.setInt(1,1) ; // Flag this normalization command as created for internal use (so that VisualizeError can strip it)
   cmdList.Add(&tmp) ;
 
   // Was a component selected requested
