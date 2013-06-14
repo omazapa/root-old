@@ -6175,91 +6175,50 @@ result "$dicttype"
 ### echo %%% RInterface Library - Contributed library
 #
 if test ! "x$enable_r" = "xno"; then
-    # Check for R include and library
-    check_header "R.h" "$rincdir" \
-        ${finkdir:+$finkdir/include} \
-        /usr/local/include /usr/include \
-        /opt/R/include /usr/share/R/include \
-        /usr/local/share/R/include
-        
-     if test ! "x$found_dir" = "x"; then
-        rflags="-I$found_dir"
+     checking_msg "R command"
+     if `$cwhich R > /dev/null 2>&1` ; then
+         REXE=`$cwhich R`
+         echo $REXE
+         # we found R - now check the version number
+         message "Checking for R version"
+         r_version=`$REXE CMD config -v | head -n  1 | awk -F":" '{print $2}' | awk -F" " '{print $1}' | awk -F"." '{print $1"."$2}'`
+         echo $r_version
+         RCPPFLAGS=`$REXE CMD config --cppflags`
+         RLDFLAGS=`$REXE CMD config --ldflags`
+         RBLAS=`$REXE CMD config BLAS_LIBS`
+         RLAPACK=`$REXE CMD config LAPACK_LIBS`
+         
+         checking_msg "Rcpp"
+         RCPPINCL=`echo 'Rcpp:::CxxFlags()'  | $REXE --vanilla --slave 2> /dev/null`
+         RCPPINCLSTATUS=$?
+         RCPPLIBS=`echo 'Rcpp:::LdFlags(static=0)'   | $REXE --vanilla --slave 2> /dev/null`
+         RCPPLIBSSTATUS=$?
+         if [ $RCPPINCLSTATUS -eq 0 ] && [ $RCPPLIBSSTATUS -eq 0 ];then
+            echo "found"
+         else
+            message "Install it running 'R -e \"install.packages(\\\"RInside\\\",repos=\\\"http://cran.irsn.fr/\\\")\"'"
+            enable_r="no"
+            result "no"
+         fi
+         checking_msg "RInside"
+         RINSIDEINCL=`echo 'RInside:::CxxFlags()'  | $REXE --vanilla --slave 2> /dev/null`
+         RINSIDEINCLSTATUS=$?
+         RINSIDELIBS=`echo 'RInside:::LdFlags(static=0)'   | $REXE --vanilla --slave 2> /dev/null`
+         RINSIDELIBSSTATUS=$?
+         if [ $RINSIDEINCLSTATUS -eq 0 ] && [ $RINSIDELIBSSTATUS -eq 0 ] ; then
+             echo "found"
+	 else
+	    message "Install it running 'R -e \"install.packages(\"RInside\",repos=\"http://cran.irsn.fr/\")\"'"
+	    enable_r="no"
+	    result "no"
+         fi
+         rflags="$RCPPFLAGS $RCPPINCL $RINSIDEINCL"
+         rlibs="$RLDFLAGS $RCPPLIBS $RINSIDELIBS"
      else
-        message "R.h not found"
+        message "R not found"
         enable_r="no"
-        result "no"
-     fi
-     
-     check_library "libR" "yes" "$rlibdir" \
-        /usr/local/lib /usr/lib \
-        /opt/R/lib /usr/lib/R/lib/ \
-        /usr/lib/R/lib/ 
-
-     if test ! "x$found_lib" = "x"; then
-        rlibs="$found_dir $found_lib "
-     else
-        message "libR not found"
-        enable_r="no"
-        result "no"
-     fi
-     
-    # Check for Rcpp include and library
-     check_header "Rcpp.h" "$rsitedir" \
-        /usr/local/include /usr/include \
-        /opt/R/site-library/Rcpp/include \
-        /usr/local/lib/R/site-library/Rcpp/include \
-        /usr/lib/R/site-library/Rcpp/include "$rsitedir/Rcpp/include"
-
-     if test ! "x$found_dir" = "x"; then
-        rflags="$rflags -I$found_dir"
-     else
-        message "Rcpp.h not found"
-        message "Install it running like root 'R -e \"install.packages(\"RInside\",repos=\"http://cran.irsn.fr/\")\"'"
-        enable_r="no"
-        result "no"
-     fi
-
-     check_library "libRcpp" "staticonly" "$rsitedir" \
-        /usr/local/lib /usr/lib \
-        /opt/R/site-library/Rcpp/lib  /usr/local/lib/R/site-library/Rcpp/lib \
-        /usr/lib/R/site-library/Rcpp/lib "$rsitedir/Rcpp/lib"
-     
-     if test ! "x$found_lib" = "x"; then
-        rlibs="$rlibs $found_dir/$found_lib"
-     else
-        message "libRcpp not found"
-        enable_r="no"
-        result "no"
-     fi
-     
-    # Check for RInside include and library
-     check_header "RInside.h" "$rsitedir" \
-        /usr/local/include /usr/include \
-        /opt/R/site-library/RInside/include /usr/local/lib/R/site-library/RInside/include \
-        /usr/lib/R/site-library/Rcpp/include "$rsitedir/RInside/include"
-
-     if test ! "x$found_dir" = "x"; then
-        rflags="$rflags -I$found_dir"
-     else
-        message "RInside.h not found"
-        message "Install it running like root 'R -e \"install.packages(\"RInside\",repos=\"http://cran.irsn.fr/\")\"'"
-        enable_r="no"
-        result "no"
-     fi
-
-     check_library "libRInside" "staticonly" "$rsitedir" \
-        /usr/local/lib /usr/lib \
-        /opt/R/site-library/RInside/lib  /usr/local/lib/R/site-library/RInside/lib \
-        /usr/lib/R/site-library/RInside/lib "$rsitedir/RInside/lib"
-     
-     if test ! "x$found_lib" = "x"; then
-        rlibs="$rlibs $found_dir/$found_lib"
-     else
-        message "libRInside not found"
-        enable_r="no"
-        result "no"
-     fi
-     
+        result "no"     
+     fi         
 fi
 message "Checking whether to build libRInterface"
 if test "x$enable_r" = "xyes"; then

@@ -12,17 +12,32 @@
 *                                                                        *
 * For the list of contributors see $ROOTSYS/README/CREDITS.              *
 *************************************************************************/
-#ifndef __TRObjectProxy_H__
-#define __TRObjectProxy_H__
+#ifndef ROOT_R_TRObjectProxy
+#define ROOT_R_TRObjectProxy
 //ROOT headers
-#include<Rtypes.h>
-#include<TObject.h>
+#ifndef ROOT_TString
 #include<TString.h>
+#endif
+
+#ifndef ROOT_TVectorD 
 #include<TVectorD.h>
+#endif
+
+#ifndef ROOT_TMatrixD
 #include<TMatrixD.h>
+#endif
+
+#ifndef ROOT_TArrayD
 #include<TArrayD.h>
+#endif
+
+#ifndef ROOT_TArrayF
 #include<TArrayF.h>
+#endif
+
+#ifndef ROOT_TArrayI
 #include<TArrayI.h>
+#endif
 //std headers
 #include<string>
 //pragma to disable warnings on Rcpp that have
@@ -34,7 +49,6 @@
 #ifndef __CINT__
 #include <RInside.h>
 #include <Rcpp.h>
-#include<string>
 #else
 class RInside;
 class RInside::Proxy;

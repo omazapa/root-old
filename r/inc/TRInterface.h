@@ -12,10 +12,12 @@
 *                                                                        *
 * For the list of contributors see $ROOTSYS/README/CREDITS.              *
 *************************************************************************/
-#ifndef __TRInterface_H__
-#define __TRInterface_H__
+#ifndef ROOT_R_TRInterface
+#define ROOT_R_TRInterface
 //ROOT headers
+#ifndef ROOT_R_TRObjectProxy
 #include<TRObjectProxy.h>
+#endif
 //std headers
 #include<string>
 //R headers
