@@ -49,7 +49,7 @@ return v;
 //      NumericMatrix mat(m.GetNrows(),m.getNcols(),data);
 //      return mat;
 //   }
-//   
+//
 //   template <typename T> SEXP wrap( const TVectorT<T>& v)
 //   {
 //     Int_t size=v.GetNoElements();
@@ -78,6 +78,3 @@ void TRObjectProxy::operator=(SEXP xx)
 {
    x = xx;
 }
-
-
-

@@ -51,7 +51,7 @@ namespace ROOT {
    namespace R {
       class TRInterface: public RInside, public TObject {
       public:
-         TRInterface(const int argc = 0, const char *const argv[] = NULL, const bool loadRcpp = false, const bool verbose = true, const bool interactive = false);
+         TRInterface(const int argc = 0, const char *const argv[] = NULL, const bool loadRcpp = true, const bool verbose = true, const bool interactive = false);
          ~TRInterface() {}
 
          void SetVerbose(Bool_t status);

@@ -11,7 +11,7 @@
 *************************************************************************/
 #include<TRInterface.h>
 #include<vector>
-ROOT::R::TRInterface *gR = new ROOT::R::TRInterface(0,0,true,true);
+ROOT::R::TRInterface *gR = new ROOT::R::TRInterface();
 
 //______________________________________________________________________________
 /* Begin_Html

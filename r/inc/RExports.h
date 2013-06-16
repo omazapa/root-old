@@ -53,17 +53,16 @@
 
 #ifndef __CINT__
 #include<RcppCommon.h>
-//R headers
 namespace Rcpp {
 
-  template<> SEXP wrap( const TString &v);
-  template<> TString as( SEXP ) ;
+   template<> SEXP wrap(const TString &v);
+   template<> TString as(SEXP) ;
 
-  template<> SEXP wrap( const TVectorD &v);
-  template<> TVectorD as( SEXP ) ;
+   template<> SEXP wrap(const TVectorD &v);
+   template<> TVectorD as(SEXP) ;
 
-  template<> SEXP wrap( const TMatrixD &v);
-  template<> TMatrixD as( SEXP ) ;
+   template<> SEXP wrap(const TMatrixD &v);
+   template<> TMatrixD as(SEXP) ;
 
 }
 #include<Rcpp.h>//this headers should be called after of templates definitions

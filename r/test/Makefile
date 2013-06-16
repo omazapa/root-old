@@ -23,7 +23,7 @@ ROOTLIBS := 		$(shell root-config --libs) -lRInterface
 CXXFLAGS := 		$(RCPPFLAGS) $(RCPPINCL) $(RINSIDEINCL) $(ROOTINCL)
 LDLIBS := 		$(RLDFLAGS) $(RRPATH) $(RBLAS) $(RLAPACK) $(RCPPLIBS) $(RINSIDELIBS) $(ROOTLIBS)
  
-firts:Functions
+all:Functions
 
 Functions:Functions.cxx
 	$(CXX) $(CXXFLAGS) $< -o $@ $(LDLIBS)

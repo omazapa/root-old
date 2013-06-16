@@ -47,42 +47,35 @@ namespace ROOT {
          }
          ClassDef(TRObjectProxy, 0) //
       };
-
    }
-
-#ifndef __CINT__
-//______________________________________________________________________________
-   template<class Type> Type ROOT::R::TRObjectProxy::toScalar()
-   {
-      //Return R's scalars like  Integers and Doubles to Int_t and Doublet_t
-      return ::Rcpp::as<Type>(x);
-   }
-
-//______________________________________________________________________________
-   template<class Type> TVectorT<Type> ROOT::R::TRObjectProxy::toVector()
-   {
-      std::vector<Type> vec =::Rcpp::as<std::vector<Type> >(x);
-      return TVectorT<Type>(vec.size(), vec.data());
-   }
-
-//______________________________________________________________________________
-   template<class TypeClass, class TypeData> TypeClass   ROOT::R::TRObjectProxy::toArray()
-   {
-      std::vector<TypeData> vec =::Rcpp::as<std::vector<TypeData> >(x);
-      return TypeClass(vec.size(), vec.data());
-   }
-
-//______________________________________________________________________________
-   template<class Type> TMatrixT<Type>   ROOT::R::TRObjectProxy::toMatrix()
-   {
-      Rcpp::NumericMatrix mat =::Rcpp::as<Rcpp::NumericMatrix>(x);
-      return TMatrixT<Type>(mat.nrow(), mat.ncol(), mat.begin(), "F");
-   }
-
-#endif
 }
 #ifndef __CINT__
-//giving support to ROOT Datatypes with SEXP
+//______________________________________________________________________________
+template<class Type> Type ROOT::R::TRObjectProxy::toScalar()
+{
+   //Return R's scalars like  Integers and Doubles to Int_t and Doublet_t
+   return ::Rcpp::as<Type>(x);
+}
 
+//______________________________________________________________________________
+template<class Type> TVectorT<Type> ROOT::R::TRObjectProxy::toVector()
+{
+   std::vector<Type> vec =::Rcpp::as<std::vector<Type> >(x);
+   return TVectorT<Type>(vec.size(), vec.data());
+}
+
+//______________________________________________________________________________
+template<class TypeClass, class TypeData> TypeClass   ROOT::R::TRObjectProxy::toArray()
+{
+   std::vector<TypeData> vec =::Rcpp::as<std::vector<TypeData> >(x);
+   return TypeClass(vec.size(), vec.data());
+}
+
+//______________________________________________________________________________
+template<class Type> TMatrixT<Type>   ROOT::R::TRObjectProxy::toMatrix()
+{
+   Rcpp::NumericMatrix mat =::Rcpp::as<Rcpp::NumericMatrix>(x);
+   return TMatrixT<Type>(mat.nrow(), mat.ncol(), mat.begin(), "F");
+}
 #endif
 #endif
