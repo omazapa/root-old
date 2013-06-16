@@ -18,20 +18,6 @@
 #ifndef ROOT_R_TRObjectProxy
 #include<TRObjectProxy.h>
 #endif
-//std headers
-#include<string>
-//R headers
-#ifndef __CINT__
-#include <RInside.h>
-#include <Rcpp.h>
-#else
-class RInside;
-namespace Rcpp {
-   class InternalFunction;
-   class Environment;
-   class Environment::Binding;
-}
-#endif
 
 //utility macro to create easily method from R function in the TRInterface
 #define R_FUNCTION(func) inline void func(TString opt){ \
@@ -87,7 +73,7 @@ namespace ROOT {
 
          //NOTE:this method should be improved to support TObjects
          //A new class TREnvironment/TRBinding should be created.
-         Rcpp::Environment::Binding operator[](const TString& name);
+//          Rcpp::Environment::Binding operator[](const TString& name);
          ClassDef(TRInterface, 1) //
       };
       template<> void TRInterface::assign<Double_t>(const Double_t &value, const TString & name);

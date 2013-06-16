@@ -38,6 +38,29 @@ v.Print();
 return v;
 */
 
+// namespace Rcpp {
+// namespace traits {
+//   template <typename T> SEXP wrap( const TMatrixT<T> &m)
+//   {
+//      Int_t rows = m.GetNrows();
+//      Int_t cols = m.GetNcols();
+//      T *data = new T[rows * cols];
+//      m.GetMatrix2Array(data, "F"); //ROOT have a bug here(Fixed)
+//      NumericMatrix mat(m.GetNrows(),m.getNcols(),data);
+//      return mat;
+//   }
+//   
+//   template <typename T> SEXP wrap( const TVectorT<T>& v)
+//   {
+//     Int_t size=v.GetNoElements();
+//     T *data=v.GetMatrixArray();
+// //     std::vector<T> vec(data, data + sizeof(T)*size );
+//     NumericVector vec(size,data);
+//     return vec;
+//   }
+// }
+// }
+
 using namespace ROOT::R;
 ClassImp(TRObjectProxy)
 
@@ -55,4 +78,6 @@ void TRObjectProxy::operator=(SEXP xx)
 {
    x = xx;
 }
+
+
 

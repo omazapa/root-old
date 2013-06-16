@@ -1,0 +1,86 @@
+// @(#)root/r:$Id$
+// Author: Omar Zapata   29/05/2013
+
+/*************************************************************************
+* Copyright (C) 2013,  Gfif Developers                                   *
+* Grupo de Fenomenologia de Interacciones Fundamentales                  *
+* http://gfif.udea.edu.co                                                *
+* División de ciencias de la computación Gfifdev                         *
+* Class Created and Maintained By Omar Andres Zapata Mesa                *
+* All rights reserved.                                                   *
+*                                                                        *
+*                                                                        *
+* For the list of contributors see $ROOTSYS/README/CREDITS.              *
+*************************************************************************/
+#ifndef ROOT_R_RExports
+#define ROOT_R_RExports
+//ROOT headers
+#ifndef ROOT_Rtypes
+#include<Rtypes.h>
+#endif
+
+#ifndef ROOT_TString
+#include<TString.h>
+#endif
+
+#ifndef ROOT_TVectorD
+#include<TVectorD.h>
+#endif
+
+#ifndef ROOT_TMatrixD
+#include<TMatrixD.h>
+#endif
+
+#ifndef ROOT_TArrayD
+#include<TArrayD.h>
+#endif
+
+#ifndef ROOT_TArrayF
+#include<TArrayF.h>
+#endif
+
+#ifndef ROOT_TArrayI
+#include<TArrayI.h>
+#endif
+//std headers
+#include<string>
+//pragma to disable warnings on Rcpp that have
+//a so many noise compiling
+#if defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Wshadow"
+#endif
+
+
+#ifndef __CINT__
+#include<RcppCommon.h>
+//R headers
+namespace Rcpp {
+
+  template<> SEXP wrap( const TString &v);
+  template<> TString as( SEXP ) ;
+
+  template<> SEXP wrap( const TVectorD &v);
+  template<> TVectorD as( SEXP ) ;
+
+  template<> SEXP wrap( const TMatrixD &v);
+  template<> TMatrixD as( SEXP ) ;
+
+}
+#include<Rcpp.h>//this headers should be called after of templates definitions
+#include<RInside.h>
+#else
+class RInside;
+class RInside::Proxy;
+namespace Rcpp {
+   class RObject;
+   class NumericMatrix;
+   class NumericVector;
+   class InternalFunction;
+   class Environment;
+   class Environment::Binding;
+
+}
+//internal R objects (at R api) Rinternals.h
+typedef struct SEXPREC *SEXP;
+#endif
+#endif

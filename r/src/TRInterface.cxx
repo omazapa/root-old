@@ -192,7 +192,7 @@ template<> void TRInterface::assign<TMatrixD>(const TMatrixD &obj, const TString
    Double_t *data = new Double_t[rows * cols];
    obj.GetMatrix2Array(data, "F"); //ROOT have a bug here(Fixed)
    TMatrixD m(obj.GetNrows(), obj.GetNcols(), data, "F");
-   Rcpp::NumericMatrix mat(obj.GetNrows(), obj.GetNcols(), data);
+   ::Rcpp::NumericMatrix mat(obj.GetNrows(), obj.GetNcols(), data);
    RInside::assign(mat, name.Data());
 }
 
@@ -209,10 +209,10 @@ template<> void TRInterface::assign<Int_t>(const Int_t &value, const TString & n
 }
 
 //______________________________________________________________________________
-Rcpp::Environment::Binding TRInterface::operator[](const TString& name)
-{
-   return RInside::operator[](name.Data());
-}
+// Rcpp::Environment::Binding TRInterface::operator[](const TString& name)
+// {
+//    return RInside::operator[](name.Data());
+// }
 
 //______________________________________________________________________________
 void TRInterface::x11(TString opt)
