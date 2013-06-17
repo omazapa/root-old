@@ -6222,6 +6222,9 @@ if test ! "x$enable_r" = "xno"; then
 fi
 message "Checking whether to build libRInterface"
 if test "x$enable_r" = "xyes"; then
+##adding this two lines to supoort ACLiC for RInterface
+    echo "#define RINCLUDEPATH \" $RCPPFLAGS $RCPPINCL $RINSIDEINCL\" " > include/compilerdata.h
+    echo "#define RLINKEDLIBS  \" $RLDFLAGS  $RCPPLIBS $RINSIDELIBS\"  " >> include/compilerdata.h
     result "yes"
     hasr="define"
 else

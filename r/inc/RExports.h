@@ -50,6 +50,12 @@
 #pragma GCC diagnostic ignored "-Wshadow"
 #endif
 
+#if  defined(__CINT__) 
+#include<compilerdata.h>
+gSystem->AddIncludePath(RINCLUDEPATH);
+gSystem->AddLinkedLibs(RLINKEDLIBS);
+#endif
+
 
 #ifndef __CINT__
 #include<RcppCommon.h>

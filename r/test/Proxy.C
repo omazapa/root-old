@@ -18,7 +18,7 @@ void Proxy()
    Double_t d = gR->parseEval("1.1").toScalar();
    Float_t  f = gR->parseEval("0.1").toScalar();
    Int_t    i = gR->parseEval("1").toScalar();
-   std::cout << d << " " << f << " " << i << end::endl;
+   std::cout << d << " " << f << " " << i << std::endl;
 
    /////////////////////////
    //Passing values to R  //
