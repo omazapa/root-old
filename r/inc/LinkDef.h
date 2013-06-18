@@ -21,6 +21,9 @@
 //classes
 #pragma link C++ class ROOT::R::TRInterface+;
 #pragma link C++ class ROOT::R::TRObjectProxy+;
+// #pragma link C++ class ROOT::R::TRFunction-;
+
+// #pragma link C++ function ROOT::R::TRInterface::assign<ROOT::R::TRFunction>(const ROOT::R::TRFunction &, const TString &);
 
 #pragma link C++ function  ROOT::R::TRObjectProxy::toScalar<Double_t>();
 #pragma link C++ function  ROOT::R::TRObjectProxy::toScalar<Float_t>();

@@ -23,7 +23,8 @@ RDO          := $(RDS:.cxx=.o)
 
 RDH          := $(MODDIRI)/TRInterface.h \
                 $(MODDIRI)/TRObjectProxy.h \
-                $(MODDIRI)/RExports.h
+                $(MODDIRI)/RExports.h \
+                $(MODDIRI)/TRFunction.h 
 
 RH    := $(RDH) 
 

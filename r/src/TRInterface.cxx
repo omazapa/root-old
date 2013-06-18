@@ -220,3 +220,9 @@ void TRInterface::x11(TString opt)
    //Initiliaze the window's system to plot.
    parseEvalQ((std::string)TString("x11(" + opt + ")"));
 }
+
+// //______________________________________________________________________________
+void TRInterface::assign(const TRFunction &obj, const TString & name)
+{
+  RInside::assign(*obj.f,name.Data());
+}

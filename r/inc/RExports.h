@@ -42,6 +42,11 @@
 #ifndef ROOT_TArrayI
 #include<TArrayI.h>
 #endif
+
+#ifndef ROOT_TF1
+#include<TF1.h>
+#endif
+
 //std headers
 #include<string>
 //pragma to disable warnings on Rcpp that have

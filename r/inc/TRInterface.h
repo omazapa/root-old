@@ -19,6 +19,9 @@
 #include<TRObjectProxy.h>
 #endif
 
+#ifndef ROOT_R_TRFunction
+#include<TRFunction.h>
+#endif
 //utility macro to create easily method from R function in the TRInterface
 #define R_FUNCTION(func) inline void func(TString opt){ \
       TString code=#func;\
@@ -62,6 +65,8 @@ namespace ROOT {
          TRObjectProxy parseEval(const TString &code, Bool_t exception = kTRUE);
 
          template<typename T >void assign(const T &var, const TString & name);
+         void assign(const TRFunction &fun, const TString & name);
+//          template<typename T >void assign(const TRFunction<T> &fun, const TString & name);
 
          //utility methods for plots
          void x11(TString opt = "");
@@ -83,6 +88,7 @@ namespace ROOT {
       template<> void TRInterface::assign<TVectorD>(const TVectorD &obj, const TString & name);
       template<> void TRInterface::assign<TMatrixD>(const TMatrixD &obj, const TString & name);
       template<> void TRInterface::assign<TString>(const TString &obj, const TString & name);
+      //support to assign functions
 
 #ifndef __CINT__
       template<typename T >void TRInterface::assign(const T &var, const TString & name)
@@ -92,6 +98,10 @@ namespace ROOT {
          // the TString's name is the name of the variable in the R enviroment.
          RInside::assign(var, name.Data());
       }
+//       template<typename T >void TRInterface::assign(const TRFunction<T> &fun, const TString & name)
+//       {
+// 	RInside::assign(*fun.f, name.Data());
+//       }
 
 #endif
    }
