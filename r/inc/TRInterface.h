@@ -66,6 +66,7 @@ namespace ROOT {
 
          template<typename T >void assign(const T &var, const TString & name);
          void assign(const TRFunction &fun, const TString & name);
+//          void assign(const TF1 &fun);
 //          template<typename T >void assign(const TRFunction<T> &fun, const TString & name);
 
          //utility methods for plots
@@ -81,14 +82,6 @@ namespace ROOT {
 //          Rcpp::Environment::Binding operator[](const TString& name);
          ClassDef(TRInterface, 1) //
       };
-      template<> void TRInterface::assign<Double_t>(const Double_t &value, const TString & name);
-      template<> void TRInterface::assign<Int_t>(const Int_t &value, const TString & name);
-      //Objects Assignation
-      template<> void TRInterface::assign<TArrayD>(const TArrayD &obj, const TString & name);
-      template<> void TRInterface::assign<TVectorD>(const TVectorD &obj, const TString & name);
-      template<> void TRInterface::assign<TMatrixD>(const TMatrixD &obj, const TString & name);
-      template<> void TRInterface::assign<TString>(const TString &obj, const TString & name);
-      //support to assign functions
 
 #ifndef __CINT__
       template<typename T >void TRInterface::assign(const T &var, const TString & name)
@@ -100,7 +93,7 @@ namespace ROOT {
       }
 //       template<typename T >void TRInterface::assign(const TRFunction<T> &fun, const TString & name)
 //       {
-// 	RInside::assign(*fun.f, name.Data());
+//    RInside::assign(*fun.f, name.Data());
 //       }
 
 #endif

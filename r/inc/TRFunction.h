@@ -30,25 +30,31 @@
 namespace ROOT {
    namespace R {
       class TRInterface;
-      class TRFunction:public TObject{
-	friend class TRInterface;
-      private:
-	Rcpp::InternalFunction *f;
-	static TF1 f1;
-	static Double_t ifun1(Double_t x){return f1(x);}
-      public:
-         typedef Double_t (*GenFuncG)(const Double_t*,const Double_t*);
-         typedef Double_t (*GenFunc0)();
-         typedef Double_t (*GenFunc10)(Double_t);
-         typedef Double_t (*GenFunc110)(Double_t,Double_t);
-         typedef Double_t (*GenFunc1110)(Double_t,Double_t, Double_t);
+      class TRFunction: public TObject {
+         friend class TRInterface;
+         friend SEXP Rcpp::wrap<TRFunction>(const TRFunction &f);
 
-	TRFunction(){f=NULL;}
-	TRFunction(TF1 fun);
-	template<class T> TRFunction(T fun)
-	{
-	  f=new Rcpp::InternalFunction(fun);
-	}
+      private:
+         Rcpp::InternalFunction *f;
+         static TF1 f1;
+         static Double_t functor1(Double_t x) {
+            return f1(x);
+         }
+         static Double_t functor1par(TVectorD x, TVectorD par) {
+            return f1.EvalPar(x.GetMatrixArray(), par.GetMatrixArray());
+         }
+      protected:
+         TRFunction(Rcpp::InternalFunction fun);
+         TRFunction() {
+            f = NULL;
+         }
+         TRFunction(const TRFunction &fun);
+         TRFunction(const TF1 &fun);
+         template<class T> TRFunction(T fun) {
+            f = new Rcpp::InternalFunction(fun);
+         }
+//    operator SEXP(){return *f;}
+
       };
    }
 }

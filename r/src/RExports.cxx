@@ -10,6 +10,7 @@
 * For the list of contributors see $ROOTSYS/README/CREDITS.              *
 *************************************************************************/
 #include<RExports.h>
+#include <TRFunction.h>
 #include<Rcpp/Vector.h>
 
 namespace Rcpp {
@@ -25,9 +26,7 @@ namespace Rcpp {
 //TVectorD
    template<> SEXP wrap(const TVectorD &v)
    {
-      Int_t size = v.GetNoElements();
-      const Double_t *data = v.GetMatrixArray();
-      std::vector<Double_t> vec(data, data + sizeof(Double_t)*size);
+      std::vector<double> vec(v.GetMatrixArray(), v.GetMatrixArray() + v.GetNoElements());
       return wrap(vec);
    }
 
@@ -52,4 +51,10 @@ namespace Rcpp {
       NumericMatrix mat =::Rcpp::as<NumericMatrix>(m);
       return TMatrixD(mat.rows(), mat.cols(), mat.begin(), "F");
    }
+
+   template<> SEXP wrap(const ROOT::R::TRFunction &f)
+   {
+      return *f.f;
+   }
+
 }

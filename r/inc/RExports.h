@@ -55,7 +55,7 @@
 #pragma GCC diagnostic ignored "-Wshadow"
 #endif
 
-#if  defined(__CINT__) 
+#if  defined(__CINT__)
 #include<compilerdata.h>
 gSystem->AddIncludePath(RINCLUDEPATH);
 gSystem->AddLinkedLibs(RLINKEDLIBS);
@@ -64,16 +64,23 @@ gSystem->AddLinkedLibs(RLINKEDLIBS);
 
 #ifndef __CINT__
 #include<RcppCommon.h>
+namespace ROOT {
+   namespace R {
+      class TRFunction;
+   }
+}
 namespace Rcpp {
 
-   template<> SEXP wrap(const TString &v);
+   template<> SEXP wrap(const TString &s);
    template<> TString as(SEXP) ;
 
    template<> SEXP wrap(const TVectorD &v);
    template<> TVectorD as(SEXP) ;
 
-   template<> SEXP wrap(const TMatrixD &v);
+   template<> SEXP wrap(const TMatrixD &m);
    template<> TMatrixD as(SEXP) ;
+
+   template<> SEXP wrap(const ROOT::R::TRFunction &f);
 
 }
 #include<Rcpp.h>//this headers should be called after of templates definitions

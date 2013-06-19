@@ -163,50 +163,13 @@ void TRInterface::SetVerbose(Bool_t status)
 }
 
 
-//______________________________________________________________________________
-template<> void TRInterface::assign<TArrayD>(const TArrayD &obj, const TString & name)
-{
-   std::vector<double> vec(obj.GetArray(), obj.GetArray() + obj.GetSize());
-   RInside::assign(vec, name.Data());
-}
-
-//______________________________________________________________________________
-template<> void TRInterface::assign<TVectorD>(const TVectorD &obj, const TString & name)
-{
-   std::vector<double> vec(obj.GetMatrixArray(), obj.GetMatrixArray() + obj.GetNoElements());
-   RInside::assign(vec, name.Data());
-}
-
-//______________________________________________________________________________
-template<> void TRInterface::assign<TString>(const TString &obj, const TString & name)
-{
-
-   RInside::assign(obj.Data(), name.Data());
-}
-
-//______________________________________________________________________________
-template<> void TRInterface::assign<TMatrixD>(const TMatrixD &obj, const TString & name)
-{
-   Int_t rows = obj.GetNrows();
-   Int_t cols = obj.GetNcols();
-   Double_t *data = new Double_t[rows * cols];
-   obj.GetMatrix2Array(data, "F"); //ROOT have a bug here(Fixed)
-   TMatrixD m(obj.GetNrows(), obj.GetNcols(), data, "F");
-   ::Rcpp::NumericMatrix mat(obj.GetNrows(), obj.GetNcols(), data);
-   RInside::assign(mat, name.Data());
-}
-
-//______________________________________________________________________________
-template<> void TRInterface::assign<Double_t>(const Double_t &value, const TString & name)
-{
-   RInside::assign(value, name.Data());
-}
-
-//______________________________________________________________________________
-template<> void TRInterface::assign<Int_t>(const Int_t &value, const TString & name)
-{
-   RInside::assign(value, name.Data());
-}
+// //______________________________________________________________________________
+// template<> void TRInterface::assign<TArrayD>(const TArrayD &obj, const TString & name)
+// {
+//    std::vector<double> vec(obj.GetArray(), obj.GetArray() + obj.GetSize());
+//    RInside::assign(vec, name.Data());
+// }
+//
 
 //______________________________________________________________________________
 // Rcpp::Environment::Binding TRInterface::operator[](const TString& name)
@@ -224,5 +187,5 @@ void TRInterface::x11(TString opt)
 // //______________________________________________________________________________
 void TRInterface::assign(const TRFunction &obj, const TString & name)
 {
-  RInside::assign(*obj.f,name.Data());
+   RInside::assign(*obj.f, name.Data());
 }

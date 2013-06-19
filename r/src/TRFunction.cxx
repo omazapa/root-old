@@ -28,14 +28,24 @@ End_Html
  gR->parse("print(f2(2))");
 */
 
-#include<TFormulaPrimitive.h>
+
 using namespace ROOT::R;
 // ClassImp(TRFunction)
 TF1 TRFunction::f1;
 //______________________________________________________________________________
-TRFunction::TRFunction(TF1 fun)
+TRFunction::TRFunction(const TF1 &fun)
 {
-         f1=fun;
-         f=new Rcpp::InternalFunction((Double_t (*)(Double_t))ifun1);  
+   f1 = fun;
+   if (fun.GetNpar() == 0) f = new Rcpp::InternalFunction((Double_t (*)(Double_t))this->functor1);
+   else f = new Rcpp::InternalFunction((Double_t (*)(TVectorD, TVectorD))this->functor1par);
 }
 
+//______________________________________________________________________________
+TRFunction::TRFunction(const TRFunction &fun)
+{
+   f = fun.f;
+   f1 = fun.f1;
+}
+
+//______________________________________________________________________________
+TRFunction::TRFunction(Rcpp::InternalFunction fun): f(&fun) {}
