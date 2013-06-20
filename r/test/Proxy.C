@@ -27,7 +27,7 @@ void Proxy()
    std::cout << "======Passing values to R ======\n";
    gR->assign(s, "s");
    gR->parse("print(s)");
-// 
+//
    gR->assign(v, "v");
    gR->parse("print(v)");
 

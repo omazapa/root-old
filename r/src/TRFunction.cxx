@@ -30,22 +30,19 @@ End_Html
 
 
 using namespace ROOT::R;
-// ClassImp(TRFunction)
+ClassImp(TRFunction)
 TF1 TRFunction::f1;
 //______________________________________________________________________________
 TRFunction::TRFunction(const TF1 &fun)
 {
    f1 = fun;
-   if (fun.GetNpar() == 0) f = new Rcpp::InternalFunction((Double_t (*)(Double_t))this->functor1);
-   else f = new Rcpp::InternalFunction((Double_t (*)(TVectorD, TVectorD))this->functor1par);
+   if (fun.GetNpar() == 0) f = new Rcpp::InternalFunction((Double_t (*)(Double_t))this->fFunctor1);
+   else f = new Rcpp::InternalFunction((Double_t (*)(TVectorD, TVectorD))this->fFunctor1par);
 }
 
 //______________________________________________________________________________
-TRFunction::TRFunction(const TRFunction &fun)
+TRFunction::TRFunction(const TRFunction &fun): TObject(fun)
 {
    f = fun.f;
    f1 = fun.f1;
 }
-
-//______________________________________________________________________________
-TRFunction::TRFunction(Rcpp::InternalFunction fun): f(&fun) {}

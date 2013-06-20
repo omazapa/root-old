@@ -29,32 +29,36 @@
 
 namespace ROOT {
    namespace R {
+
       class TRInterface;
       class TRFunction: public TObject {
          friend class TRInterface;
          friend SEXP Rcpp::wrap<TRFunction>(const TRFunction &f);
 
-      private:
+      protected:
          Rcpp::InternalFunction *f;
          static TF1 f1;
-         static Double_t functor1(Double_t x) {
+         static Double_t fFunctor1(Double_t x) {
             return f1(x);
          }
-         static Double_t functor1par(TVectorD x, TVectorD par) {
+         static Double_t fFunctor1par(TVectorD x, TVectorD par) {
+            f1.InitArgs(x.GetMatrixArray(), par.GetMatrixArray());
             return f1.EvalPar(x.GetMatrixArray(), par.GetMatrixArray());
          }
-      protected:
-         TRFunction(Rcpp::InternalFunction fun);
-         TRFunction() {
+      public:
+         TRFunction(): TObject() {
             f = NULL;
          }
+
          TRFunction(const TRFunction &fun);
          TRFunction(const TF1 &fun);
+#ifndef __CINT__
          template<class T> TRFunction(T fun) {
             f = new Rcpp::InternalFunction(fun);
          }
-//    operator SEXP(){return *f;}
-
+#endif
+//         operator SEXP(){return *f;}
+         ClassDef(TRFunction, 0) //
       };
    }
 }

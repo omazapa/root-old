@@ -47,6 +47,7 @@ namespace ROOT {
          }
          ClassDef(TRObjectProxy, 0) //
       };
+
    }
 }
 #ifndef __CINT__

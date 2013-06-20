@@ -184,8 +184,14 @@ void TRInterface::x11(TString opt)
    parseEvalQ((std::string)TString("x11(" + opt + ")"));
 }
 
-// //______________________________________________________________________________
+//______________________________________________________________________________
 void TRInterface::assign(const TRFunction &obj, const TString & name)
 {
    RInside::assign(*obj.f, name.Data());
+}
+
+//______________________________________________________________________________
+void TRInterface::assign(const TF1 &fun)
+{
+   RInside::assign(*TRFunction(fun).f, fun.GetName());
 }

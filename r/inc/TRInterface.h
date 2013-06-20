@@ -66,8 +66,7 @@ namespace ROOT {
 
          template<typename T >void assign(const T &var, const TString & name);
          void assign(const TRFunction &fun, const TString & name);
-//          void assign(const TF1 &fun);
-//          template<typename T >void assign(const TRFunction<T> &fun, const TString & name);
+         void assign(const TF1 &fun);
 
          //utility methods for plots
          void x11(TString opt = "");
@@ -91,11 +90,6 @@ namespace ROOT {
          // the TString's name is the name of the variable in the R enviroment.
          RInside::assign(var, name.Data());
       }
-//       template<typename T >void TRInterface::assign(const TRFunction<T> &fun, const TString & name)
-//       {
-//    RInside::assign(*fun.f, name.Data());
-//       }
-
 #endif
    }
 }

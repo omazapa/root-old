@@ -19,6 +19,8 @@
 #pragma link C++ nestedtypedef;
 
 //classes
+#pragma link C++ class ROOT::R::TRFunction+;
+
 #pragma link C++ class ROOT::R::TRInterface+;
 #pragma link C++ function ROOT::R::TRInterface::assign<Int_t>(const Int_t&,const TString&);
 #pragma link C++ function ROOT::R::TRInterface::assign<Double_t>(const Double_t&,const TString&);
