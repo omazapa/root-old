@@ -33,6 +33,7 @@
 #include "RooRealVar.h"
 #include "RooCategory.h"
 #include "RooWorkspace.h"
+#include "RooGlobalFunc.h"
 
 
 
@@ -413,13 +414,27 @@ list<Double_t>* RooHistPdf::plotSamplingHint(RooAbsRealLValue& obs, Double_t xlo
   }
 
   // Check that observable is in dataset, if not no hint is generated
-  RooAbsLValue* lvarg = dynamic_cast<RooAbsLValue*>(_dataHist->get()->find(obs.GetName())) ;
-  if (!lvarg) {
+  _histObsIter->Reset() ;
+  _pdfObsIter->Reset() ;
+  RooAbsArg *pdfObs, *histObs, *dhObs(0) ;
+  while ((pdfObs = (RooAbsArg*)_pdfObsIter->Next()) && !dhObs) {
+    histObs = (RooAbsArg*) _histObsIter->Next() ;
+    if (TString(obs.GetName())==pdfObs->GetName()) {
+      dhObs = _dataHist->get()->find(histObs->GetName()) ;
+    }
+  }
+
+  if (!dhObs) {
+    return 0 ;
+  }
+  RooAbsLValue* lval = dynamic_cast<RooAbsLValue*>(dhObs) ;
+  if (!lval) {
     return 0 ;
   }
 
   // Retrieve position of all bin boundaries
-  const RooAbsBinning* binning = lvarg->getBinningPtr(0) ;
+  
+  const RooAbsBinning* binning = lval->getBinningPtr(0) ;
   Double_t* boundaries = binning->array() ;
 
   list<Double_t>* hint = new list<Double_t> ;
@@ -512,6 +527,23 @@ Double_t RooHistPdf::maxVal(Int_t code) const
 }
 
 
+
+
+//_____________________________________________________________________________
+Bool_t RooHistPdf::areIdentical(const RooDataHist& dh1, const RooDataHist& dh2) 
+{
+  if (fabs(dh1.sumEntries()-dh2.sumEntries())>1e-8) return kFALSE ;
+  if (dh1.numEntries() != dh2.numEntries()) return kFALSE ;
+  for (int i=0 ; i < dh1.numEntries() ; i++) {
+    dh1.get(i) ;
+    dh2.get(i) ;
+    if (fabs(dh1.weight()-dh2.weight())>1e-8) return kFALSE ;
+  }
+  return kTRUE ;
+}
+
+
+
 //_____________________________________________________________________________
 Bool_t RooHistPdf::importWorkspaceHook(RooWorkspace& ws) 
 {  
@@ -527,24 +559,46 @@ Bool_t RooHistPdf::importWorkspaceHook(RooWorkspace& ws)
 
   // Check if dataset with given name already exists
   RooAbsData* wsdata = ws.data(_dataHist->GetName()) ;
+
   if (wsdata) {
+
+    // Yes it exists - now check if it is identical to our internal histogram 
     if (wsdata->InheritsFrom(RooDataHist::Class())) {
-      // Exists and is of correct type -- adjust internal pointer
-      _dataHist = (RooDataHist*) wsdata ;
-      return kFALSE ;
+
+      // Check if histograms are identical
+      if (areIdentical((RooDataHist&)*wsdata,*_dataHist)) {
+
+	// Exists and is of correct type, and identical -- adjust internal pointer to WS copy
+	_dataHist = (RooDataHist*) wsdata ;
+      } else {
+
+	// not identical, clone rename and import
+	TString uniqueName = Form("%s_%s",_dataHist->GetName(),GetName()) ;
+	Bool_t flag = ws.import(*_dataHist,RooFit::Rename(uniqueName.Data())) ;
+	if (flag) {
+	  coutE(ObjectHandling) << " RooHistPdf::importWorkspaceHook(" << GetName() << ") unable to import clone of underlying RooDataHist with unique name " << uniqueName << ", abort" << endl ;
+	  return kTRUE ;
+	}
+	_dataHist = (RooDataHist*) ws.data(uniqueName.Data()) ;
+      }
+
     } else {
-      // Exists and is NOT of correct type -- abort
+
+      // Exists and is NOT of correct type: clone rename and import
+      TString uniqueName = Form("%s_%s",_dataHist->GetName(),GetName()) ;
+      Bool_t flag = ws.import(*_dataHist,RooFit::Rename(uniqueName.Data())) ;
+      if (flag) {
+	coutE(ObjectHandling) << " RooHistPdf::importWorkspaceHook(" << GetName() << ") unable to import clone of underlying RooDataHist with unique name " << uniqueName << ", abort" << endl ;
+	return kTRUE ;
+      }
+      _dataHist = (RooDataHist*) ws.data(uniqueName.Data()) ;
       
     }
+    return kFALSE ;
   }
-
+  
   // We need to import our datahist into the workspace
-  Bool_t flag = ws.import(*_dataHist) ;
-  if (flag) {
-    coutE(ObjectHandling) << "RooHistPdf::importWorkspaceHook(" << GetName() 
-			  << ") error importing RooDataHist into workspace: dataset of different type with same name already exists." << endl ;
-    return kTRUE ;
-  }
+  ws.import(*_dataHist) ;
 
   // Redirect our internal pointer to the copy in the workspace
   _dataHist = (RooDataHist*) ws.data(_dataHist->GetName()) ;
