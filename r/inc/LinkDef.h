@@ -19,8 +19,16 @@
 #pragma link C++ nestedtypedef;
 
 //classes
-#pragma link C++ class ROOT::R::TRInterface+;
 #pragma link C++ class ROOT::R::TRObjectProxy+;
+#pragma link C++ class ROOT::R::TRFunction+;
+
+#pragma link C++ class ROOT::R::TRInterface+;
+#pragma link C++ function ROOT::R::TRInterface::assign<Int_t>(const Int_t&,const TString&);
+#pragma link C++ function ROOT::R::TRInterface::assign<Double_t>(const Double_t&,const TString&);
+#pragma link C++ function ROOT::R::TRInterface::assign<Float_t>(const Float_t&,const TString&);
+#pragma link C++ function ROOT::R::TRInterface::assign<TString>(const TString&,const TString&);
+#pragma link C++ function ROOT::R::TRInterface::assign<TVectorD>(const TVectorD&,const TString&);
+#pragma link C++ function ROOT::R::TRInterface::assign<TMatrixD>(const TMatrixD&,const TString&);
 
 #pragma link C++ function  ROOT::R::TRObjectProxy::toScalar<Double_t>();
 #pragma link C++ function  ROOT::R::TRObjectProxy::toScalar<Float_t>();

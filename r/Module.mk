@@ -21,8 +21,10 @@ RDO          := $(RDS:.cxx=.o)
 
 #RDH          := $(RDS:.cxx=.h)
 
-RDH          := $(MODDIRI)/TRInterface.h \
-                $(MODDIRI)/TRObjectProxy.h 
+RDH          := $(MODDIRI)/RExports.h \
+                $(MODDIRI)/TRInterface.h \
+                $(MODDIRI)/TRObjectProxy.h \
+                $(MODDIRI)/TRFunction.h 
 
 RH    := $(RDH) 
 

@@ -14,52 +14,10 @@
 *************************************************************************/
 #ifndef ROOT_R_TRObjectProxy
 #define ROOT_R_TRObjectProxy
-//ROOT headers
-#ifndef ROOT_TString
-#include<TString.h>
-#endif
 
-#ifndef ROOT_TVectorD 
-#include<TVectorD.h>
+#ifndef ROOT_R_RExports
+#include<RExports.h>
 #endif
-
-#ifndef ROOT_TMatrixD
-#include<TMatrixD.h>
-#endif
-
-#ifndef ROOT_TArrayD
-#include<TArrayD.h>
-#endif
-
-#ifndef ROOT_TArrayF
-#include<TArrayF.h>
-#endif
-
-#ifndef ROOT_TArrayI
-#include<TArrayI.h>
-#endif
-//std headers
-#include<string>
-//pragma to disable warnings on Rcpp that have
-//a so many noise compiling
-#if defined(__GNUC__)
-#pragma GCC diagnostic ignored "-Wshadow"
-#endif
-//R headers
-#ifndef __CINT__
-#include <RInside.h>
-#include <Rcpp.h>
-#else
-class RInside;
-class RInside::Proxy;
-namespace Rcpp {
-   class RObject;
-   class NumericMatrix;
-}
-//internal R objects (at R api) Rinternals.h
-typedef struct SEXPREC *SEXP;
-#endif
-
 //________________________________________________________________________________________________________
 /**
    This is a class to get ROOT's objects from R's objects

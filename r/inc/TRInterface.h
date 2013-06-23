@@ -14,23 +14,13 @@
 *************************************************************************/
 #ifndef ROOT_R_TRInterface
 #define ROOT_R_TRInterface
-//ROOT headers
+
 #ifndef ROOT_R_TRObjectProxy
 #include<TRObjectProxy.h>
 #endif
-//std headers
-#include<string>
-//R headers
-#ifndef __CINT__
-#include <RInside.h>
-#include <Rcpp.h>
-#else
-class RInside;
-namespace Rcpp {
-   class InternalFunction;
-   class Environment;
-   class Environment::Binding;
-}
+
+#ifndef ROOT_R_TFunction
+#include<TRFunction.h>
 #endif
 
 //utility macro to create easily method from R function in the TRInterface
@@ -76,7 +66,7 @@ namespace ROOT {
          TRObjectProxy parseEval(const TString &code, Bool_t exception = kTRUE);
 
          template<typename T >void assign(const T &var, const TString & name);
-
+         void assign(const TRFunction &fun, const TString & name);
          //utility methods for plots
          void x11(TString opt = "");
          R_FUNCTION(plot)
@@ -90,13 +80,6 @@ namespace ROOT {
          Rcpp::Environment::Binding operator[](const TString& name);
          ClassDef(TRInterface, 1) //
       };
-      template<> void TRInterface::assign<Double_t>(const Double_t &value, const TString & name);
-      template<> void TRInterface::assign<Int_t>(const Int_t &value, const TString & name);
-      //Objects Assignation
-      template<> void TRInterface::assign<TArrayD>(const TArrayD &obj, const TString & name);
-      template<> void TRInterface::assign<TVectorD>(const TVectorD &obj, const TString & name);
-      template<> void TRInterface::assign<TMatrixD>(const TMatrixD &obj, const TString & name);
-      template<> void TRInterface::assign<TString>(const TString &obj, const TString & name);
 
 #ifndef __CINT__
       template<typename T >void TRInterface::assign(const T &var, const TString & name)
