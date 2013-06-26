@@ -68,12 +68,15 @@ namespace ROOT {
          template<typename T >void assign(const T &var, const TString & name);
          void assign(const TRFunction &fun, const TString & name);
          //utility methods for plots
-         void x11(TString opt = "");
+	 
+         void Xwin(TString opt = "");//calls X11/quartz/windows to init graphical system
          R_FUNCTION(plot)
+         R_FUNCTION(points)
          R_FUNCTION(lines)
          R_FUNCTION(text)
          R_FUNCTION(abline)
          R_FUNCTION(segments)
+         R_FUNCTION(curve)
 
          //NOTE:this method should be improved to support TObjects
          //A new class TREnvironment/TRBinding should be created.

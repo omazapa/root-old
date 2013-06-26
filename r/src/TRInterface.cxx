@@ -120,7 +120,11 @@ TRInterface::TRInterface(const int argc, const char *const argv[], const bool lo
 {
 // The command line arguments are by deafult argc=0 and argv=NULL,
 // The verbose mode are by default enabled and shows procedures information in stdout/stderr
+  
+
 }
+
+
 
 //______________________________________________________________________________
 Int_t  TRInterface::parseEval(const TString &code, TRObjectProxy  &ans)
@@ -169,10 +173,18 @@ Rcpp::Environment::Binding TRInterface::operator[](const TString& name)
 }
 
 //______________________________________________________________________________
-void TRInterface::x11(TString opt)
+void TRInterface::Xwin(TString opt)
 {
-   //Initiliaze the window's system to plot.
+  //Initiliaze the window's system to do plots.
+  //every platform has it owns system.
+  //see R manual for x11(linux),quartz(macosx),windows(windows)
+#if defined(R__MACOSX)
+   parseEvalQ((std::string)TString("quartz(" + opt + ")"));
+#elif defined(R__WIN32)
+   parseEvalQ((std::string)TString("windows(" + opt + ")"));
+#else
    parseEvalQ((std::string)TString("x11(" + opt + ")"));
+#endif
 }
 
 //______________________________________________________________________________

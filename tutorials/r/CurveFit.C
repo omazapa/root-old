@@ -27,7 +27,7 @@ void CurveFit()
 
    gR->parse("ds<-data.frame(x=x,y=y)");
    gR->parse("str(ds)");
-   gR->x11();//to active new window for plot
+   gR->Xwin();//to active new window for plot
    gR->plot("y~x,main = 'Known cubic, with noise'");
    gR->parse("s <- seq(0,1,length = 100)");
    gR->lines("s,s^3,lty = 2 , col = 'green'");

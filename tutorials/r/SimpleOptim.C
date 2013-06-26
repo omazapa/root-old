@@ -13,7 +13,7 @@ void SimpleOptim()
 
    gR->parse("f  <- function(x) {ifelse(x > -1, ifelse(x < 4, exp(-1/abs(x - 1)), 10), 10)}");
    gR->parse("fp <- function(x) { print(x); f(x) }");
-   gR->x11();//required to show plot
+   gR->Xwin();//required to show plot
    gR->plot("f, -2,5, ylim = 0:1, col = 2");
    gR->parse("optimize(fp, c(-4, 20))");   // doesn't see the minimum
    gR->parse("optimize(fp, c(-7, 20))");   // ok

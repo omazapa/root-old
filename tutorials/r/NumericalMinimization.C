@@ -65,7 +65,7 @@ void NumericalMinimization()
 
  //printing results
  std::cout<<"-----------------------------------------"<<std::endl;
- std::cout<<"Minization with the Hessian"<<endl;
+ std::cout<<"Minimization with the Hessian"<<endl;
  std::cout<<"Minimum x="<<hmin[0]<<" y="<<hmin[1]<<std::endl;
  std::cout<<"Value at minimum ="<<RosenBrock(hmin)<<std::endl;
  
