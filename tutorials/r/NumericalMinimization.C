@@ -31,7 +31,8 @@ void NumericalMinimization()
 {
 #if defined(__CINT__) && !defined(__MAKECINT__) 
   cout << "WARNING: This tutorial can run only using ACliC, you must run it by doing: " << endl;
-  cout << "\t .x $ROOTSYS/tutorials/r/NumericalMinimization.C+" << endl; 
+  cout << "cd  $ROOTSYS/tutorials/r/" << endl; 
+  cout << "\t .x NumericalMinimization.C+" << endl; 
   return;
 #endif
  gR->SetVerbose(kFALSE);//Set this KTRUE to show R messages

@@ -50,7 +50,7 @@ void Functions()
    gR->parse("for(i in seq(along=x)) { \
 		y <- c(y,DiLog(i)) \
 	     }");
-   gR->x11();
+   gR->Xwin();
    gR->plot("x,y");
 
 }

@@ -13,7 +13,7 @@ void test()
    mat[1][0] = 4.4;
    mat[1][1] = 5.5;
    mat[1][2] = 6.6;
-
+   delete gR;
    ROOT::R::TRInterface r(0, 0, true, true);
    ROOT::R::TRObjectProxy robj;
    r.assign(v, "v");

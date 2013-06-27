@@ -1,7 +1,7 @@
 //Example take from http://www.itc.nl/~rossiter/teach/R/R_CurveFit.pdf
 //Please read the file R_CurveFit.pdf while read this code.
 #include<TRInterface.h>
-void CurveFit()
+void CurveFitting()
 {
    //Example of fitting a curve, using RInterface
    //This example is for a ROOT R interface,
@@ -69,7 +69,7 @@ void CurveFit()
    gR->parse("rhs <- function(x, b0, b1) { b0 + x^b1}");
    gR->parse("m.2 <- nls(y ~ rhs(x, intercept, power), data = ds,start = list(intercept = 0,power = 2), trace = T)");
    gR->parse("summary(m.2)");
-   gR->x11();//to active new window for plot
+   gR->Xwin();//to active new window for plot
    gR->plot("ds$y ~ ds$x, main = 'Fitted power model, with intercept',sub = 'Blue: fit; magenta: fit w/o intercept; green: known'");
    gR->abline("h = 0, lty = 1, lwd = 0.5");
    gR->lines("s, s^3, lty = 2, col = 'green'");

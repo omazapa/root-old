@@ -192,3 +192,4 @@ void TRInterface::assign(const TRFunction &obj, const TString & name)
 {
    RInside::assign(*obj.f, name.Data());
 }
+

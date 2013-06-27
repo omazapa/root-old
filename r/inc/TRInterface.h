@@ -77,7 +77,7 @@ namespace ROOT {
          R_FUNCTION(abline)
          R_FUNCTION(segments)
          R_FUNCTION(curve)
-
+	 	 
          //NOTE:this method should be improved to support TObjects
          //A new class TREnvironment/TRBinding should be created.
          Rcpp::Environment::Binding operator[](const TString& name);
