@@ -1842,34 +1842,41 @@ void TStreamerInfo::BuildOld()
          offset += asize;
       }
 
-      if ( !wasCompiled && rules && rules->HasRuleWithSource( element->GetName(), kTRUE ) ) {
+      if (!wasCompiled && rules) {
+         if (rules->HasRuleWithSource( element->GetName(), kTRUE ) ) {
 
-         if (allocClass == 0) {
-            infoalloc  = (TStreamerInfo *)Clone(TString::Format("%s@@%d",GetName(),GetOnFileClassVersion()));
-            if (!infoalloc) {
-               Error("BuildOld","Unable to create the StreamerInfo for %s.",TString::Format("%s@@%d",GetName(),GetOnFileClassVersion()).Data());
-            } else {
-               infoalloc->BuildCheck();
-               infoalloc->BuildOld();
-               allocClass = infoalloc->GetClass();
+            if (allocClass == 0) {
+               infoalloc  = (TStreamerInfo *)Clone(TString::Format("%s@@%d",GetName(),GetOnFileClassVersion()));
+               if (!infoalloc) {
+                  Error("BuildOld","Unable to create the StreamerInfo for %s.",TString::Format("%s@@%d",GetName(),GetOnFileClassVersion()).Data());
+               } else {
+                  infoalloc->BuildCheck();
+                  infoalloc->BuildOld();
+                  allocClass = infoalloc->GetClass();
+               }
             }
-         }
 
-         // Now that we are caching the unconverted element, we do not assign it to the real type even if we could have!
-         if (element->GetNewType()>0 /* intentionally not including base class for now */
-             && !rules->HasRuleWithTarget( element->GetName(), kTRUE ) )
-         {
-            TStreamerElement *copy = (TStreamerElement*)element->Clone();
-            R__TObjArray_InsertBefore( fElements, copy, element );
-            next(); // move the cursor passed the insert object.
-            copy->SetBit(TStreamerElement::kRepeat);
-            element = copy;
+            // Now that we are caching the unconverted element, we do not assign it to the real type even if we could have!
+            if (element->GetNewType()>0 /* intentionally not including base class for now */
+                && !rules->HasRuleWithTarget( element->GetName(), kTRUE ) )
+               {
+                  TStreamerElement *copy = (TStreamerElement*)element->Clone();
+                  R__TObjArray_InsertBefore( fElements, copy, element );
+                  next(); // move the cursor passed the insert object.
+                  copy->SetBit(TStreamerElement::kRepeat);
+                  element = copy;
 
-            // Warning("BuildOld","%s::%s is not set from the version %d of %s (You must add a rule for it)\n",GetName(), element->GetName(), GetClassVersion(), GetName() );
+                  // Warning("BuildOld","%s::%s is not set from the version %d of %s (You must add a rule for it)\n",GetName(), element->GetName(), GetClassVersion(), GetName() );
+               }
+            element->SetBit(TStreamerElement::kCache);
+            element->SetNewType( element->GetType() );
+            element->SetOffset(infoalloc ? infoalloc->GetOffset(element->GetName()) : 0);
+         } else if (rules->HasRuleWithTarget( element->GetName(), kTRUE ) ) {
+            // The data member exist in the onfile StreamerInfo and there is a rule
+            // that has the same member 'only' has a target ... so this means we are
+            // asked to ignore the input data ...
+            element->SetOffset(kMissing);
          }
-         element->SetBit(TStreamerElement::kCache);
-         element->SetNewType( element->GetType() );
-         element->SetOffset(infoalloc ? infoalloc->GetOffset(element->GetName()) : 0);
       }
 
       if (element->GetNewType() == -2) {
@@ -3516,13 +3523,9 @@ void TStreamerInfo::InsertArtificialElements(const TObjArray *rules)
       if( rule->IsRenameRule() || rule->IsAliasRule() )
          continue;
       next.Reset();
-      Bool_t match = kFALSE;
       TStreamerElement *element;
       while ((element = (TStreamerElement*) next())) {
          if ( rule->HasTarget( element->GetName() ) ) {
-            // If the rule targets an existing member but it is also a source,
-            // we still need to insert the rule.
-            match = ! ((ROOT::TSchemaMatch*)rules)->HasRuleWithSource( element->GetName(), kTRUE );
 
             // Check whether this is an 'attribute' rule.
             if ( rule->GetAttributes()[0] != 0 ) {
@@ -3540,51 +3543,49 @@ void TStreamerInfo::InsertArtificialElements(const TObjArray *rules)
             break;
          }
       }
-      if (!match) {
-         TStreamerArtificial *newel;
-         if (rule->GetTarget()==0) {
-            TString newName;
-            newName.Form("%s_rule%d",fClass->GetName(),count);
-            newel = new TStreamerArtificial(newName,"",
-                                            fClass->GetDataMemberOffset(newName),
-                                            TStreamerInfo::kArtificial,
-                                            "void");
-            newel->SetReadFunc( rule->GetReadFunctionPointer() );
-            newel->SetReadRawFunc( rule->GetReadRawFunctionPointer() );
-            fElements->Add(newel);
-         } else {
-            TObjString * objstr = (TObjString*)(rule->GetTarget()->At(0));
-            if (objstr) {
-               TString newName = objstr->String();
-               if ( fClass->GetDataMember( newName ) ) {
-                  newel = new TStreamerArtificial(newName,"",
-                                                  fClass->GetDataMemberOffset(newName),
-                                                  TStreamerInfo::kArtificial,
-                                                  fClass->GetDataMember( newName )->GetTypeName());
-                  newel->SetReadFunc( rule->GetReadFunctionPointer() );
-                  newel->SetReadRawFunc( rule->GetReadRawFunctionPointer() );
-                  fElements->Add(newel);
-               } else {
-                  // This would be a completely new member (so it would need to be cached)
-                  // TOBEDONE
-               }
-               for(Int_t other = 1; other < rule->GetTarget()->GetEntries(); ++other) {
-                  objstr = (TObjString*)(rule->GetTarget()->At(other));
-                  if (objstr) {
-                     newName = objstr->String();
-                     if ( fClass->GetDataMember( newName ) ) {
-                        newel = new TStreamerArtificial(newName,"",
-                                                        fClass->GetDataMemberOffset(newName),
-                                                        TStreamerInfo::kArtificial,
-                                                        fClass->GetDataMember( newName )->GetTypeName());
-                        fElements->Add(newel);
-                     }
+      TStreamerArtificial *newel;
+      if (rule->GetTarget()==0) {
+         TString newName;
+         newName.Form("%s_rule%d",fClass->GetName(),count);
+         newel = new TStreamerArtificial(newName,"",
+                                         fClass->GetDataMemberOffset(newName),
+                                         TStreamerInfo::kArtificial,
+                                         "void");
+         newel->SetReadFunc( rule->GetReadFunctionPointer() );
+         newel->SetReadRawFunc( rule->GetReadRawFunctionPointer() );
+         fElements->Add(newel);
+      } else {
+         TObjString * objstr = (TObjString*)(rule->GetTarget()->At(0));
+         if (objstr) {
+            TString newName = objstr->String();
+            if ( fClass->GetDataMember( newName ) ) {
+               newel = new TStreamerArtificial(newName,"",
+                                               fClass->GetDataMemberOffset(newName),
+                                               TStreamerInfo::kArtificial,
+                                               fClass->GetDataMember( newName )->GetTypeName());
+               newel->SetReadFunc( rule->GetReadFunctionPointer() );
+               newel->SetReadRawFunc( rule->GetReadRawFunctionPointer() );
+               fElements->Add(newel);
+            } else {
+               // This would be a completely new member (so it would need to be cached)
+               // TOBEDONE
+            }
+            for(Int_t other = 1; other < rule->GetTarget()->GetEntries(); ++other) {
+               objstr = (TObjString*)(rule->GetTarget()->At(other));
+               if (objstr) {
+                  newName = objstr->String();
+                  if ( fClass->GetDataMember( newName ) ) {
+                     newel = new TStreamerArtificial(newName,"",
+                                                     fClass->GetDataMemberOffset(newName),
+                                                     TStreamerInfo::kArtificial,
+                                                     fClass->GetDataMember( newName )->GetTypeName());
+                     fElements->Add(newel);
                   }
                }
-            } // For each target of the rule
-         }
-      } // None of the target of the rule are on file.
-   }
+            }
+         } // For each target of the rule
+      }
+   } // None of the target of the rule are on file.
 }
 
 //______________________________________________________________________________
