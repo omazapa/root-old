@@ -177,10 +177,8 @@ void TRInterface::Xwin(TString opt)
 {
   //Initiliaze the window's system to do plots.
   //every platform has it owns system.
-  //see R manual for x11(linux),quartz(macosx),windows(windows)
-#if defined(R__MACOSX)
-   parseEvalQ((std::string)TString("quartz(" + opt + ")"));
-#elif defined(R__WIN32)
+  //see R manual for x11(linux),windows(windows)
+#if defined(R__WIN32)
    parseEvalQ((std::string)TString("windows(" + opt + ")"));
 #else
    parseEvalQ((std::string)TString("x11(" + opt + ")"));
