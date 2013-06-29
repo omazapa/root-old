@@ -6228,8 +6228,15 @@ if test ! "x$enable_r" = "xno"; then
          message "Checking for R version"
          r_version=`$REXE CMD config -v | head -n  1 | awk -F":" '{print $2}' | awk -F" " '{print $1}' | awk -F"." '{print $1"."$2}'`
          echo $r_version
+         
+         R_HOME=`echo 'cat(Sys.getenv("R_HOME"))'   | R --vanilla --slave 2> /dev/null`
+
          RCPPFLAGS=`$REXE CMD config --cppflags`
+         if test "x$platform" = "xmacosx" ; then
+         RLDFLAGS="-L$R_HOME/lib -lR"
+         else
          RLDFLAGS=`$REXE CMD config --ldflags`
+         fi
          RBLAS=`$REXE CMD config BLAS_LIBS`
          RLAPACK=`$REXE CMD config LAPACK_LIBS`
          
