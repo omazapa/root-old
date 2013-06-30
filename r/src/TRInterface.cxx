@@ -120,7 +120,7 @@ TRInterface::TRInterface(const int argc, const char *const argv[], const bool lo
 {
 // The command line arguments are by deafult argc=0 and argv=NULL,
 // The verbose mode are by default enabled and shows procedures information in stdout/stderr
-  
+
 
 }
 
@@ -167,17 +167,17 @@ void TRInterface::SetVerbose(Bool_t status)
 }
 
 //______________________________________________________________________________
-Rcpp::Environment::Binding TRInterface::operator[](const TString& name)
+TRInterface::Binding TRInterface::operator[](const TString& name)
 {
-   return RInside::operator[](name.Data());
+   return Binding(this, name);
 }
 
 //______________________________________________________________________________
 void TRInterface::Xwin(TString opt)
 {
-  //Initiliaze the window's system to do plots.
-  //every platform has it owns system.
-  //see R manual for x11(linux),windows(windows)
+   //Initiliaze the window's system to do plots.
+   //every platform has it owns system.
+   //see R manual for x11(linux),windows(windows)
 #if defined(R__WIN32)
    parseEvalQ((std::string)TString("windows(" + opt + ")"));
 #else
@@ -190,4 +190,3 @@ void TRInterface::assign(const TRFunction &obj, const TString & name)
 {
    RInside::assign(*obj.f, name.Data());
 }
-

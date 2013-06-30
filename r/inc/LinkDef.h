@@ -19,7 +19,6 @@
 #pragma link C++ nestedtypedef;
 
 //classes
-#pragma link C++ class ROOT::R::TRObjectProxy+;
 #pragma link C++ class ROOT::R::TRFunction+;
 
 #pragma link C++ class ROOT::R::TRInterface+;
@@ -30,6 +29,14 @@
 #pragma link C++ function ROOT::R::TRInterface::assign<TVectorD>(const TVectorD&,const TString&);
 #pragma link C++ function ROOT::R::TRInterface::assign<TMatrixD>(const TMatrixD&,const TString&);
 
+#pragma link C++ function ROOT::R::TRInterface::Binding::operator=(Int_t&);
+#pragma link C++ function ROOT::R::TRInterface::Binding::operator=(Double_t&);
+#pragma link C++ function ROOT::R::TRInterface::Binding::operator=(Float_t&);
+#pragma link C++ function ROOT::R::TRInterface::Binding::operator=(TString&);
+#pragma link C++ function ROOT::R::TRInterface::Binding::operator=(TVectorD&);
+#pragma link C++ function ROOT::R::TRInterface::Binding::operator=(TMatrixD&);
+
+#pragma link C++ class ROOT::R::TRObjectProxy+;
 #pragma link C++ function  ROOT::R::TRObjectProxy::toScalar<Double_t>();
 #pragma link C++ function  ROOT::R::TRObjectProxy::toScalar<Float_t>();
 #pragma link C++ function  ROOT::R::TRObjectProxy::toScalar<Int_t>();
@@ -42,6 +49,7 @@
 #pragma link C++ function  ROOT::R::TRObjectProxy::toArray<TArrayI,Int_t>();
 
 #pragma link C++ function  ROOT::R::TRObjectProxy::toMatrix<Double_t>();
+
 
 #pragma link C++ global gR;
 

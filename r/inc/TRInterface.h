@@ -55,6 +55,23 @@ namespace ROOT {
    namespace R {
       class TRInterface: public RInside, public TObject {
       public:
+         //Proxy class to use operators for assignation Ex: r["name"]=object;
+         class Binding {
+         public:
+            Binding(TRInterface *rnt, TString name): fInterface(rnt), fName(name) {}
+            Binding& operator=(const Binding& obj) {
+               fInterface = obj.fInterface;
+               fName = obj.fName;
+               return *this;
+            }
+            template <class T> Binding& operator=(const T &data) {
+               fInterface->assign<T>(data, fName);
+               return *this;
+            }
+         private:
+            TRInterface *fInterface;
+            TString fName;
+         };
          TRInterface(const int argc = 0, const char *const argv[] = NULL, const bool loadRcpp = false, const bool verbose = true, const bool interactive = false);
          ~TRInterface() {}
 
@@ -65,10 +82,15 @@ namespace ROOT {
 
          TRObjectProxy parseEval(const TString &code, Bool_t exception = kTRUE);
 
-         template<typename T >void assign(const T &var, const TString & name);
+         template<typename T >void assign(const T &var, const TString & name) {
+            // This method lets you pass variables from ROOT to R.
+            // The template T should be a supported ROOT datatype and
+            // the TString's name is the name of the variable in the R enviroment.
+            RInside::assign<T>(var, name.Data());
+         }
          void assign(const TRFunction &fun, const TString & name);
          //utility methods for plots
-	 
+
          void Xwin(TString opt = "");//calls X11/quartz/windows to init graphical system
          R_FUNCTION(plot)
          R_FUNCTION(points)
@@ -77,25 +99,17 @@ namespace ROOT {
          R_FUNCTION(abline)
          R_FUNCTION(segments)
          R_FUNCTION(curve)
-	 	 
-         //NOTE:this method should be improved to support TObjects
-         //A new class TREnvironment/TRBinding should be created.
-         Rcpp::Environment::Binding operator[](const TString& name);
+
+         Binding operator[](const TString& name);
+
+         TRInterface& Instance() {
+            return *this;
+         }
          ClassDef(TRInterface, 1) //
       };
-
-#ifndef __CINT__
-      template<typename T >void TRInterface::assign(const T &var, const TString & name)
-      {
-         // This method lets you pass variables from ROOT to R.
-         // The template T should be a supported ROOT datatype and
-         // the TString's name is the name of the variable in the R enviroment.
-         RInside::assign(var, name.Data());
-      }
-
-#endif
    }
 }
+
 R__EXTERN ROOT::R::TRInterface *gR;
 
 #endif
