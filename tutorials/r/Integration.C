@@ -33,11 +33,13 @@ void Integration()
   return;
   #endif
 
-  gR->SetVerbose(kFALSE);
-  gR->assign(ROOT::R::TRFunction(BreitWignerVectorized),"BreitWigner");
-  Double_t value=gR->parseEval("integrate(BreitWigner, lower = -2, upper = 2)$value");
+  ROOT::R::TRInterface r=gR->Instance();
+  
+  r["BreitWigner"]=ROOT::R::TRFunction(BreitWignerVectorized);
+  
+  Double_t value=r.ParseEval("integrate(BreitWigner, lower = -2, upper = 2)$value");
 
-  cout.precision(18);
+  std::cout.precision(18);
   std::cout<<"Integral of BreitWigner Function in the interval [-2, 2] R        = "<<value<<std::endl;
 
   
@@ -52,8 +54,7 @@ void Integration()
   std::cout<<"Integral of BreitWigner Function in the interval [-2, 2] TF1      = "<<value<<std::endl;
   
   //infinte limits
-  value=gR->parseEval("integrate(BreitWigner, lower = -Inf, upper = Inf)$value");
+  value=r.ParseEval("integrate(BreitWigner, lower = -Inf, upper = Inf)$value");
   std::cout<<"Integral of BreitWigner Function in the interval [-Inf, Inf] R    = "<<value<<std::endl;
 
-  
 }

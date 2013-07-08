@@ -22,12 +22,12 @@
 #pragma link C++ class ROOT::R::TRFunction+;
 
 #pragma link C++ class ROOT::R::TRInterface+;
-#pragma link C++ function ROOT::R::TRInterface::assign<Int_t>(const Int_t&,const TString&);
-#pragma link C++ function ROOT::R::TRInterface::assign<Double_t>(const Double_t&,const TString&);
-#pragma link C++ function ROOT::R::TRInterface::assign<Float_t>(const Float_t&,const TString&);
-#pragma link C++ function ROOT::R::TRInterface::assign<TString>(const TString&,const TString&);
-#pragma link C++ function ROOT::R::TRInterface::assign<TVectorD>(const TVectorD&,const TString&);
-#pragma link C++ function ROOT::R::TRInterface::assign<TMatrixD>(const TMatrixD&,const TString&);
+#pragma link C++ function ROOT::R::TRInterface::Assign<Int_t>(const Int_t&,const TString&);
+#pragma link C++ function ROOT::R::TRInterface::Assign<Double_t>(const Double_t&,const TString&);
+#pragma link C++ function ROOT::R::TRInterface::Assign<Float_t>(const Float_t&,const TString&);
+#pragma link C++ function ROOT::R::TRInterface::Assign<TString>(const TString&,const TString&);
+#pragma link C++ function ROOT::R::TRInterface::Assign<TVectorD>(const TVectorD&,const TString&);
+#pragma link C++ function ROOT::R::TRInterface::Assign<TMatrixD>(const TMatrixD&,const TString&);
 
 #pragma link C++ function ROOT::R::TRInterface::Binding::operator=(Int_t&);
 #pragma link C++ function ROOT::R::TRInterface::Binding::operator=(Double_t&);
@@ -37,19 +37,18 @@
 #pragma link C++ function ROOT::R::TRInterface::Binding::operator=(TMatrixD&);
 
 #pragma link C++ class ROOT::R::TRObjectProxy+;
-#pragma link C++ function  ROOT::R::TRObjectProxy::toScalar<Double_t>();
-#pragma link C++ function  ROOT::R::TRObjectProxy::toScalar<Float_t>();
-#pragma link C++ function  ROOT::R::TRObjectProxy::toScalar<Int_t>();
+#pragma link C++ function  ROOT::R::TRObjectProxy::ToScalar<Double_t>();
+#pragma link C++ function  ROOT::R::TRObjectProxy::ToScalar<Float_t>();
+#pragma link C++ function  ROOT::R::TRObjectProxy::ToScalar<Int_t>();
 
-#pragma link C++ function  ROOT::R::TRObjectProxy::toVector<Double_t>();
-#pragma link C++ function  ROOT::R::TRObjectProxy::toVector<Float_t>();
+#pragma link C++ function  ROOT::R::TRObjectProxy::ToVector<Double_t>();
+#pragma link C++ function  ROOT::R::TRObjectProxy::ToVector<Float_t>();
 
-#pragma link C++ function  ROOT::R::TRObjectProxy::toArray<TArrayD,Double_t>();
-#pragma link C++ function  ROOT::R::TRObjectProxy::toArray<TArrayF,Float_t>();
-#pragma link C++ function  ROOT::R::TRObjectProxy::toArray<TArrayI,Int_t>();
+#pragma link C++ function  ROOT::R::TRObjectProxy::ToArray<TArrayD,Double_t>();
+#pragma link C++ function  ROOT::R::TRObjectProxy::ToArray<TArrayF,Float_t>();
+#pragma link C++ function  ROOT::R::TRObjectProxy::ToArray<TArrayI,Int_t>();
 
-#pragma link C++ function  ROOT::R::TRObjectProxy::toMatrix<Double_t>();
-
+#pragma link C++ function  ROOT::R::TRObjectProxy::ToMatrix<Double_t>();
 
 #pragma link C++ global gR;
 

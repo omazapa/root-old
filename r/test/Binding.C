@@ -1,9 +1,14 @@
 // Author: Omar Zapata
 #include<TRInterface.h>
+
+Double_t Function(Double_t x)
+{
+  return x/(x-1);
+}
+
 void Binding(){
 ROOT::R::TRInterface r=gR->Instance();
-r.SetVerbose(kFALSE);
-
+r.SetVerbose(kTRUE);
 //creating variables
 TVectorD v(3);
 TString str("ROOTR");
@@ -26,36 +31,45 @@ m[1][1]=3.01;
 r["a"]=1;
 r["v"]=v;
 r["m"]=m;
-(*gR)["b"]=123.456;
+r["b"]=123.456;
 r["i"]=i;
 r["d"]=d;
 r["f"]=f;
-r["s"]="ROOT";
+(*gR)["s"]="ROOT";
 
 
 //printting results
-r.parse("print(a)");
-cout<<"--------------------\n";
-r.parse("print(v)");
-cout<<"--------------------\n";
-r.parse("print(m)");
-cout<<"--------------------\n";
-r.parse("print(b)");
-cout<<"--------------------\n";
-r.parse("print(i)");
-cout<<"--------------------\n";
-r.parse("print(d)");
-cout<<"--------------------\n";
-r.parse("print(f)");
-cout<<"--------------------\n";
-r.parse("print(s)");
-cout<<"--------------------\n";
+gR->Parse("print(a)");
+std::cout<<"--------------------\n";
+gR->Parse("print(v)");
+std::cout<<"--------------------\n";
+gR->Parse("print(m)");
+std::cout<<"--------------------\n";
+gR->Parse("print(b)");
+std::cout<<"--------------------\n";
+gR->Parse("print(i)");
+std::cout<<"--------------------\n";
+gR->Parse("print(d)");
+std::cout<<"--------------------\n";
+gR->Parse("print(f)");
+std::cout<<"--------------------\n";
+gR->Parse("print(s)");
+std::cout<<"--------------------\n";
 
 //reassigning the variable s
 r["s"]=str;//string with string
-r.parse("print(s)");
+gR->Parse("print(s)");
 
-cout<<"--------------------\n";
-r["d"]=str;//double with string
-r.parse("print(d)");
+std::cout<<"--------------------\n";
+(*gR)["d"]=str;//double with string
+gR->Parse("print(d)");
+
+#if defined(__ACLIC__)
+(*gR)["Function"]=ROOT::R::TRFunction(Function);
+gR->Parse("print(Function(-1))");
+
+gR->Parse("print(Function(1))");//division by zero producess Inf.
+#else
+#pragma message ( "Require ACLiC compilation to test Functions" )
+#endif
 }

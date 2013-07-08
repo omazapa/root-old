@@ -37,16 +37,16 @@
    gr2->SetMarkerStyle(8);
    gr2->SetMarkerSize(1);
    mg->Add(gr2);
-   //Creating a RInterface Object
    //passing to R x and y values to fit
-   gR->assign(TVectorD(n, x1), "x");
-   gR->assign(TVectorD(n, y1), "y");
+   ROOT::R::TRInterface r=gR->Instance();
+   r["x"]=TVectorD(n, x1);
+   r["y"]=TVectorD(n, y1);
    //creating a R data frame
-   gR->parse("ds<-data.frame(x=x,y=y)");
+   r.Parse("ds<-data.frame(x=x,y=y)");
    //fitting x and y to X^power using Nonlinear Least Squares
-   gR->parse("m <- nls(y ~ I(x^power),data = ds, start = list(power = 1),trace = T)");
+   r.Parse("m <- nls(y ~ I(x^power),data = ds, start = list(power = 1),trace = T)");
    //getting the value fitted(power)
-   Double_t power=gR->parseEval("summary(m)$coefficients[1]").toScalar();
+   Double_t power=r.ParseEval("summary(m)$coefficients[1]").ToScalar();
 
    TF1 *f_fitted=new TF1("f_fitted","pow(x,[0])",0,1);
    f_fitted->SetParameter(0,power);

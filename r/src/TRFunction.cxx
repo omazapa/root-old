@@ -32,13 +32,13 @@ Begin_Latex
 Let f(x,y)=(x-1)^{2} + 100(y-x^{2})^{2}, which is called the Rosenbrock
 function.
 
-This function is 0 when y = x^{2} , and x = 1, so (1, 1) is a minimum. 
+This function is 0 when y = x^{2} , and x = 1, so (1, 1) is a minimum.
 Let's get the minimum using optim package from R through ROOT R interface.
 In the code this function was called "Double_t RosenBrock(const TVectorD xx )", because for
 optim the input in your function deﬁnition must be a single vector.
 
 
-The Hessian is formed by
+The Gradient is formed by
 #frac{#partial f}{#partial x} =  -400x(y - x^{2}) - 2(1 - x)
 
 #frac{#partial f}{#partial y} =  200(y - x^{2});
@@ -53,15 +53,15 @@ Begin_Html
 <p>
 <i style="color:red;">NOTE</i>  The macro requires compilation with ACLiC, to compile it you should to use <br>
 a rootlogon.C macro that have the directives for compilation,<br>
-you can find it in $ROOTSYS/tutorials/r/ <br> 
+you can find it in $ROOTSYS/tutorials/r/ <br>
 </p>
 <hr>
 End_Html
 
 #include<TRInterface.h>
 
-//in the next function the pointer *double should be change by TVectorD, because the pointer has no
-//sense into R enviroment.
+///in the next function the pointer *double should be change by TVectorD, because the pointer has no
+///sense into R enviroment.
 Double_t RosenBrock(const TVectorD xx )
 {
   const Double_t x = xx[0];
@@ -82,50 +82,52 @@ TVectorD RosenBrockGrad(const TVectorD xx )
 }
 
 
-void NumericalMinimization()
+void Minimization()
 {
-#if defined(__CINT__) && !defined(__MAKECINT__) 
+#if defined(__CINT__) && !defined(__MAKECINT__)
   cout << "WARNING: This tutorial can run only using ACliC, you must run it by doing: " << endl;
   cout << "cd  $ROOTSYS/tutorials/r/" << endl;
-  cout << "\t .x $ROOTSYS/tutorials/r/NumericalMinimization.C+" << endl; 
+  cout << "\t .x Minimization.C+" << endl;
   return;
 #endif
- gR->SetVerbose(kFALSE);//Set this KTRUE to show R messages
- 
+ ROOT::R::TRInterface r=gR->Instance();
+
  //passsing RosenBrock funtion to R
- gR->assign(ROOT::R::TRFunction(RosenBrock),"RosenBrock");
- 
+ r["RosenBrock"]=ROOT::R::TRFunction(RosenBrock);
+
  //passsing RosenBrockGrad funtion to R
- gR->assign(ROOT::R::TRFunction(RosenBrockGrad),"RosenBrockGrad");
- 
+ r["RosenBrockGrad"]=ROOT::R::TRFunction(RosenBrockGrad);
+
  //the option "method" could be "Nelder-Mead", "BFGS", "CG", "L-BFGS-B", "SANN","Brent"
- //the option "control" let you put some constraints like 
+ //the option "control" let you put some constraints like
  //"maxit" The maximum number of iterations
  //"abstol" The absolute convergence tolerance.
  //"reltol" Relative convergence tolerance.
- gR->parse("result <- optim( c(0.01,0.01), RosenBrock,method='BFGS',control = list(maxit = 1000000) )");
- 
+ r.Parse("result <- optim( c(0.01,0.01), RosenBrock,method='BFGS',control = list(maxit = 1000000) )");
+
  //Getting result from R
- TVectorD  min=gR->parseEval("result$par").toVector<Double_t>();
- 
+ TVectorD  min=r.ParseEval("result$par").ToVector<Double_t>();
+
+ std::cout.precision(8);
  //printing results
  std::cout<<"-----------------------------------------"<<std::endl;
  std::cout<<"Minimum x="<<min[0]<<" y="<<min[1]<<std::endl;
  std::cout<<"Value at minimum ="<<RosenBrock(min)<<std::endl;
- 
- //using the hessian
- gR->parse("optimHess(result$par, RosenBrock, RosenBrockGrad)");
- gR->parse("hresult <- optim(c(-1.2,1), RosenBrock, NULL, method = 'BFGS', hessian = TRUE)");
- //getting the min calculated with the hessian
- TVectorD  hmin=gR->parseEval("hresult$par").toVector<Double_t>();
+
+ //using the gradient
+ r.Parse("optimHess(result$par, RosenBrock, RosenBrockGrad)");
+ r.Parse("hresult <- optim(c(-1.2,1), RosenBrock, NULL, method = 'BFGS', hessian = TRUE)");
+ //getting the min calculated with the gradient
+ TVectorD  hmin=r.ParseEval("hresult$par").ToVector<Double_t>();
 
  //printing results
  std::cout<<"-----------------------------------------"<<std::endl;
- std::cout<<"Minization with the Hessian"<<endl;
+ std::cout<<"Minimization with the Gradient"<<endl;
  std::cout<<"Minimum x="<<hmin[0]<<" y="<<hmin[1]<<std::endl;
  std::cout<<"Value at minimum ="<<RosenBrock(hmin)<<std::endl;
- 
-}*/
+
+}
+*/
 
 
 using namespace ROOT::R;

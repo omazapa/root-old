@@ -50,9 +50,4 @@ namespace Rcpp {
       NumericMatrix mat =::Rcpp::as<NumericMatrix>(m);
       return TMatrixD(mat.rows(), mat.cols(), mat.begin(), "F");
    }
-
-   template<> SEXP wrap(const ROOT::R::TRFunction &f)
-   {
-      return *f.f;
-   }
 }

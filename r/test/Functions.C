@@ -29,25 +29,31 @@ Double_t fun4(Double_t x)
 
 void Functions()
 {
+#if defined(__CINT__) && !defined(__MAKECINT__) 
+  cout << "WARNING: This test can run only using ACliC, you must run it by doing: " << endl;
+  cout << "cd  $ROOTSYS/r/tests" << endl; 
+  cout << "\t .x Functions.C+" << endl; 
+  return;
+#endif
 
 
    gR->SetVerbose(kFALSE);
 
-   gR->assign(ROOT::R::TRFunction(funv), "funv");
-   gR->parse("print(funv(c(2,3)))");
+   gR->Assign(ROOT::R::TRFunction(funv), "funv");
+   gR->Parse("print(funv(c(2,3)))");
 
-   gR->assign(ROOT::R::TRFunction(funm), "funm");
-   gR->parse("cat(funm(matrix(c(1,2,3,4),2,2)))");
+   gR->Assign(ROOT::R::TRFunction(funm), "funm");
+   gR->Parse("cat(funm(matrix(c(1,2,3,4),2,2)))");
 
-   gR->assign(ROOT::R::TRFunction(funs), "funs");
-   gR->parse("cat(funs('ROOTR'))");
+   gR->Assign(ROOT::R::TRFunction(funs), "funs");
+   gR->Parse("cat(funs('ROOTR'))");
 
-   gR->assign(ROOT::R::TRFunction(TMath::DiLog), "DiLog");
-   gR->parse("print(DiLog(2))");
+   gR->Assign(ROOT::R::TRFunction(TMath::DiLog), "DiLog");
+   gR->Parse("print(DiLog(2))");
 
-   gR->parse("x <- seq(0,10,0.01)");
-   gR->parse("y <- NULL ");
-   gR->parse("for(i in seq(along=x)) { \
+   gR->Parse("x <- seq(0,10,0.01)");
+   gR->Parse("y <- NULL ");
+   gR->Parse("for(i in seq(along=x)) { \
 		y <- c(y,DiLog(i)) \
 	     }");
    gR->Xwin();

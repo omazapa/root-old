@@ -19,10 +19,10 @@
 The TRObjectProxy's class lets you to get ROOT's objects from R's objects.<br>
 It have some basic template methods to convert R's objects into ROOT datatypes<br>
 <UL>
-<LI>toScalar(): That let you get Double_t and Int_t
-<LI>toArray():  To get TArray class objects
-<LI>toVector(): To get TVectorT class objects
-<LI>toMatrix(): To get TMatrixT class objects
+<LI>ToScalar(): That let you get Double_t and Int_t
+<LI>ToArray():  To get TArray class objects
+<LI>ToVector(): To get TVectorT class objects
+<LI>ToMatrix(): To get TMatrixT class objects
 </UL>
 </p>
 A simple example<br>
@@ -31,11 +31,19 @@ A simple example<br>
 </p>
 <hr>
 End_Html
+#include<TRInterface.h>
+void Proxy()
+{
 ROOT::R::TRObjectProxy obj;
-obj=gR->parseEval("seq(1,10)");
-TVectorD v=obj.toVector();
+obj=gR->ParseEval("seq(1,10)");
+#if defined(__ACLIC__)
+//for ACLiC support you should to set the template type
+TVectorD v=obj.ToVector<Double_t>();
+#else
+TVectorD v=obj.ToVector();
+#endif
 v.Print();
-return v;
+}
 */
 
 using namespace ROOT::R;
@@ -45,7 +53,7 @@ ClassImp(TRObjectProxy)
 TRObjectProxy::TRObjectProxy(SEXP xx): x(xx) { }
 
 //______________________________________________________________________________
-TString TRObjectProxy::toString()
+TString TRObjectProxy::ToString()
 {
    return TString(::Rcpp::as<std::string>(x));
 }

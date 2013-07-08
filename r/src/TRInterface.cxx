@@ -11,7 +11,7 @@
 *************************************************************************/
 #include<TRInterface.h>
 #include<vector>
-ROOT::R::TRInterface *gR = new ROOT::R::TRInterface(0, 0, true, true);
+ROOT::R::TRInterface *gR = new ROOT::R::TRInterface();
 
 //______________________________________________________________________________
 /* Begin_Html
@@ -75,15 +75,15 @@ Begin_Macro(source)
    mg->Add(gr2);
 
    //passing to R x and y values to fit
-   gR->assign(TVectorD(n, x1), "x");
-   gR->assign(TVectorD(n, y1), "y");
+   gR->Assign(TVectorD(n, x1), "x");
+   gR->Assign(TVectorD(n, y1), "y");
    //creating a R data frame
-   gR->parse("ds<-data.frame(x=x,y=y)");
+   gR->Parse("ds<-data.frame(x=x,y=y)");
    //fitting x and y to X^power using Nonlinear Least Squares
-   gR->parse("m <- nls(y ~ I(x^power),data = ds, start = list(power = 1),trace = T)");
+   gR->Parse("m <- nls(y ~ I(x^power),data = ds, start = list(power = 1),trace = T)");
    //getting the fitted value (power)
-   ROOT::R::TRObjectProxy robj=gR->parseEval("summary(m)$coefficients[1]");
-   Double_t power=robj.toScalar();
+   ROOT::R::TRObjectProxy robj=gR->ParseEval("summary(m)$coefficients[1]");
+   Double_t power=robj.ToScalar();
 
    TF1 *f_fitted=new TF1("f_fitted","pow(x,[0])",0,1);
    f_fitted->SetParameter(0,power);
@@ -116,46 +116,46 @@ using namespace ROOT::R;
 ClassImp(TRInterface)
 
 //______________________________________________________________________________
-TRInterface::TRInterface(const int argc, const char *const argv[], const bool loadRcpp, const bool verbose, const bool interactive): RInside(argc, argv, loadRcpp, verbose, interactive)
+TRInterface::TRInterface(const int argc, const char *const argv[], const bool loadRcpp, const bool verbose, const bool interactive)
 {
 // The command line arguments are by deafult argc=0 and argv=NULL,
-// The verbose mode are by default enabled and shows procedures information in stdout/stderr
-
-
+// The verbose mode are by default disabled but you can enable it to show procedures information in stdout/stderr
+   if (RInside::instancePtr()) throw std::runtime_error("Can only have one TRInterface instance");
+   fR = new RInside(argc, argv, loadRcpp, verbose, interactive);
 }
 
 
 
 //______________________________________________________________________________
-Int_t  TRInterface::parseEval(const TString &code, TRObjectProxy  &ans)
+Int_t  TRInterface::ParseEval(const TString &code, TRObjectProxy  &ans)
 {
 // Parse R code and returns status of execution.
 // the RObject's response is saved in  ans
    SEXP fans;
-   Int_t fResult = RInside::parseEval(code.Data(), fans);
+   Int_t fResult = fR->parseEval(code.Data(), fans);
    ans = fans;
    return fResult;
 }
 
 //______________________________________________________________________________
-void TRInterface::parse(const TString &code, Bool_t exception)
+void TRInterface::Parse(const TString &code, Bool_t exception)
 {
 // Parse R code. The argument exception is by defualt true, and
 // if the code has some error it launches an exception.
 //if exception if false, the code prints an error and continues executing.
-   if (exception) RInside::parseEvalQ((std::string)code);
-   else RInside::parseEvalQNT(code.Data());
+   if (exception) fR->parseEvalQ((std::string)code);
+   else fR->parseEvalQNT(code.Data());
 }
 
 //______________________________________________________________________________
-TRObjectProxy TRInterface::parseEval(const TString &code, Bool_t exception)
+TRObjectProxy TRInterface::ParseEval(const TString &code, Bool_t exception)
 {
 // Parse R code. The argument exception is by defualt true, and
 // if the code has some error launches an exception.
 //if exception if false, the code prints an error and continues executing.
 //The RObject result of execution is returned in TRObjectProxy
-   if (exception) return TRObjectProxy((SEXP)RInside::parseEval(code.Data()));
-   else return TRObjectProxy((SEXP)RInside::parseEvalNT(code.Data()));
+   if (exception) return TRObjectProxy((SEXP)fR->parseEval(code.Data()));
+   else return TRObjectProxy((SEXP)fR->parseEvalNT(code.Data()));
 }
 
 
@@ -163,7 +163,7 @@ void TRInterface::SetVerbose(Bool_t status)
 {
    //verbose mode shows you all procedures in stdout/stderr
    //very important to debug and to see the results.
-   RInside::setVerbose(status);
+   fR->setVerbose(status);
 }
 
 //______________________________________________________________________________
@@ -177,16 +177,26 @@ void TRInterface::Xwin(TString opt)
 {
    //Initiliaze the window's system to do plots.
    //every platform has it owns system.
-   //see R manual for x11(linux),windows(windows)
+   //see R manual for x11(unix based systems),windows(MS windows)
+   if (opt.IsNull()) {
 #if defined(R__WIN32)
-   parseEvalQ((std::string)TString("windows(" + opt + ")"));
+      Parse("windows()");
 #else
-   parseEvalQ((std::string)TString("x11(" + opt + ")"));
+      Parse("x11()");
 #endif
+   } else {
+#if defined(R__WIN32)
+      Parse(TString("windows(" + opt + ")").Data());
+#else
+      Parse(TString("x11(" + opt + ")").Data());
+#endif
+
+   }
 }
 
 //______________________________________________________________________________
-void TRInterface::assign(const TRFunction &obj, const TString & name)
+void TRInterface::Assign(const TRFunction &obj, const TString & name)
 {
-   RInside::assign(*obj.f, name.Data());
+   //This method let you to pass c++ functions to R environment.
+   fR->assign(*obj.f, name.Data());
 }

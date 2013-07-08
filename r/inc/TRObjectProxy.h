@@ -36,11 +36,11 @@ namespace ROOT {
          TRObjectProxy(SEXP xx);
 
          void operator=(SEXP xx);
-         TString toString();
-         template<class Type> Type toScalar();
-         template<class Type> TVectorT<Type> toVector();
-         template<class TypeClass, class TypeData> TypeClass   toArray();
-         template<class Type> TMatrixT<Type>   toMatrix();
+         TString ToString();
+         template<class Type> Type ToScalar();
+         template<class Type> TVectorT<Type> ToVector();
+         template<class TypeClass, class TypeData> TypeClass   ToArray();
+         template<class Type> TMatrixT<Type>   ToMatrix();
          template <typename T> operator T() {
             return ::Rcpp::as<T>(x);
          }
@@ -51,28 +51,28 @@ namespace ROOT {
 
 #ifndef __CINT__
 //______________________________________________________________________________
-   template<class Type> Type ROOT::R::TRObjectProxy::toScalar()
+   template<class Type> Type ROOT::R::TRObjectProxy::ToScalar()
    {
       //Return R's scalars like  Integers and Doubles to Int_t and Doublet_t
       return ::Rcpp::as<Type>(x);
    }
 
 //______________________________________________________________________________
-   template<class Type> TVectorT<Type> ROOT::R::TRObjectProxy::toVector()
+   template<class Type> TVectorT<Type> ROOT::R::TRObjectProxy::ToVector()
    {
       std::vector<Type> vec =::Rcpp::as<std::vector<Type> >(x);
       return TVectorT<Type>(vec.size(), vec.data());
    }
 
 //______________________________________________________________________________
-   template<class TypeClass, class TypeData> TypeClass   ROOT::R::TRObjectProxy::toArray()
+   template<class TypeClass, class TypeData> TypeClass   ROOT::R::TRObjectProxy::ToArray()
    {
       std::vector<TypeData> vec =::Rcpp::as<std::vector<TypeData> >(x);
       return TypeClass(vec.size(), vec.data());
    }
 
 //______________________________________________________________________________
-   template<class Type> TMatrixT<Type>   ROOT::R::TRObjectProxy::toMatrix()
+   template<class Type> TMatrixT<Type>   ROOT::R::TRObjectProxy::ToMatrix()
    {
       Rcpp::NumericMatrix mat =::Rcpp::as<Rcpp::NumericMatrix>(x);
       return TMatrixT<Type>(mat.nrow(), mat.ncol(), mat.begin(), "F");

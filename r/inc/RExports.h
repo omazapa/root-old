@@ -76,8 +76,6 @@ namespace Rcpp {
 
    template<> SEXP wrap(const TMatrixD &m);
    template<> TMatrixD as(SEXP) ;
-
-   template<> SEXP wrap(const ROOT::R::TRFunction &f);
 }
 #include<Rcpp.h>//this headers should be called after of templates definitions
 #include<RInside.h>
