@@ -13,12 +13,22 @@ ROOT_USE_PACKAGE(core)
 ROOT_USE_PACKAGE(cint)
 ROOT_USE_PACKAGE(math/matrix)
 
-include_directories(${CMAKE_SOURCE_DIR}/r/inc ${R_INCLUDE_DIR} ${RCPP_INCLUDE_DIR} ${RINSIDE_INCLUDE_DIR})
+if(${R_FOUND} AND ${RCPP_FOUND} AND ${RINSIDE_FOUND})
 
-set(R_HEADERS ${CMAKE_SOURCE_DIR}/r/inc/TRInterface.h ${CMAKE_SOURCE_DIR}/r/inc/TRObjectProxy.h)
+FILE(WRITE ${CMAKE_SOURCE_DIR}/r/inc/compilerdata.h
+     "#define RINCLUDEPATH \" ${R_INCLUDE_DIRS} ${RCPP_INCLUDE_DIRS} ${RINSIDE_INCLUDE_DIRS} \"\n"
+     "#define RLINKEDLIBS  \" ${R_LIBRARIES} ${RCPP_LIBRARIES} ${RINSIDE_LIBRARIES} \"\n")
+
+include_directories(${CMAKE_SOURCE_DIR}/r/inc )
+set(CMAKE_CXX_FLAGS "${CMAKE_CXXS_FLAGS} ${RCPP_INCLUDE_DIR} ${RINSIDE_INCLUDE_DIR} ${R_INCLUDE_DIR}")
 
 
-
+set(R_HEADERS ${CMAKE_SOURCE_DIR}/r/inc/TRInterface.h 
+              ${CMAKE_SOURCE_DIR}/r/inc/TRObjectProxy.h 
+              ${CMAKE_SOURCE_DIR}/r/inc/TRFunction.h
+              ${CMAKE_SOURCE_DIR}/r/inc/RExports.h
+              ${CMAKE_SOURCE_DIR}/r/inc/compilerdata.h
+              )
 
 ROOT_GENERATE_DICTIONARY(G__RInterface ${R_HEADERS} LINKDEF LinkDef.h)
 
@@ -27,9 +37,8 @@ ROOT_GENERATE_ROOTMAP(RInterface LINKDEF LinkDef.h)
 add_definitions(-DUSE_ROOT_ERROR )
 
 ROOT_LINKER_LIBRARY(RInterface *.cxx G__RInterface.cxx LIBRARIES ${R_LIBRARIES} ${RCPP_LIBRARIES} ${RINSIDE_LIBRARIES} DEPENDENCIES Core Cint Matrix)
-
 ROOT_INSTALL_HEADERS()
-
+endif()
 
 
 
