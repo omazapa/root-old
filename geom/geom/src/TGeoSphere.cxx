@@ -78,14 +78,18 @@ TGeoSphere::TGeoSphere(const char *name, Double_t rmin, Double_t rmax, Double_t 
 }
 
 //_____________________________________________________________________________
-TGeoSphere::TGeoSphere(Double_t *param, Int_t /*nparam*/)
+TGeoSphere::TGeoSphere(Double_t *param, Int_t nparam)
            :TGeoBBox(0, 0, 0)
 {
 // Default constructor specifying minimum and maximum radius
 // param[0] = Rmin
 // param[1] = Rmax
+// param[2] = theta1
+// param[3] = theta2
+// param[4] = phi1
+// param[5] = phi2
    SetShapeBit(TGeoShape::kGeoSph);
-   SetDimensions(param);
+   SetDimensions(param, nparam);
    ComputeBBox();
    SetNumberOfDivisions(20);
 }
@@ -186,7 +190,7 @@ void TGeoSphere::ComputeBBox()
 }   
 
 //_____________________________________________________________________________   
-void TGeoSphere::ComputeNormal(Double_t *point, Double_t *dir, Double_t *norm)
+void TGeoSphere::ComputeNormal(const Double_t *point, const Double_t *dir, Double_t *norm)
 {
 // Compute normal to closest surface from POINT. 
    Double_t rxy2 = point[0]*point[0]+point[1]*point[1];
@@ -242,7 +246,7 @@ void TGeoSphere::ComputeNormal(Double_t *point, Double_t *dir, Double_t *norm)
 }
 
 //_____________________________________________________________________________
-Int_t TGeoSphere::IsOnBoundary(Double_t *point) const
+Int_t TGeoSphere::IsOnBoundary(const Double_t *point) const
 {
 // Check if a point in local sphere coordinates is close to a boundary within
 // shape tolerance. Return values:
@@ -292,7 +296,7 @@ Int_t TGeoSphere::IsOnBoundary(Double_t *point) const
 }      
 
 //_____________________________________________________________________________
-Bool_t TGeoSphere::IsPointInside(Double_t *point, Bool_t checkR, Bool_t checkTh, Bool_t checkPh) const
+Bool_t TGeoSphere::IsPointInside(const Double_t *point, Bool_t checkR, Bool_t checkTh, Bool_t checkPh) const
 {
 // Check if a point is inside radius/theta/phi ranges for the spherical sector.
    Double_t r2 = point[0]*point[0]+point[1]*point[1]+point[2]*point[2];
@@ -318,7 +322,7 @@ Bool_t TGeoSphere::IsPointInside(Double_t *point, Bool_t checkR, Bool_t checkTh,
 }
 
 //_____________________________________________________________________________
-Bool_t TGeoSphere::Contains(Double_t *point) const
+Bool_t TGeoSphere::Contains(const Double_t *point) const
 {
 // test if point is inside this sphere
    // check Rmin<=R<=Rmax
@@ -356,7 +360,7 @@ Int_t TGeoSphere::DistancetoPrimitive(Int_t px, Int_t py)
 }
 
 //_____________________________________________________________________________
-Double_t TGeoSphere::DistFromOutside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoSphere::DistFromOutside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // compute distance from outside point to surface of the sphere
 // Check if the bounding box is crossed within the requested distance
@@ -658,7 +662,7 @@ Double_t TGeoSphere::DistFromOutside(Double_t *point, Double_t *dir, Int_t iact,
 }   
 
 //_____________________________________________________________________________
-Double_t TGeoSphere::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoSphere::DistFromInside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // compute distance from inside point to surface of the sphere
    Double_t saf[6];
@@ -882,7 +886,7 @@ Double_t TGeoSphere::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, 
 }   
 
 //_____________________________________________________________________________
-Double_t TGeoSphere::DistToSphere(Double_t *point, Double_t *dir, Double_t rsph, Bool_t check, Bool_t firstcross) const
+Double_t TGeoSphere::DistToSphere(const Double_t *point, const Double_t *dir, Double_t rsph, Bool_t check, Bool_t firstcross) const
 {
 // compute distance to sphere of radius rsph. Direction has to be a unit vector
    if (rsph<=0) return TGeoShape::Big();
@@ -1416,7 +1420,7 @@ void TGeoSphere::SetSegsAndPols(TBuffer3D & buff) const
 }   
    
 //_____________________________________________________________________________
-Double_t TGeoSphere::Safety(Double_t *point, Bool_t in) const
+Double_t TGeoSphere::Safety(const Double_t *point, Bool_t in) const
 {
 // computes the closest distance from given point to this shape, according
 // to option. The matching point on the shape is stored in spoint.
@@ -1493,7 +1497,7 @@ void TGeoSphere::SetSphDimensions(Double_t rmin, Double_t rmax, Double_t theta1,
 }   
 
 //_____________________________________________________________________________
-void TGeoSphere::SetDimensions(Double_t *param)
+void TGeoSphere::SetDimensions(Double_t *param, Int_t nparam)
 {
 // Set dimensions of the spherical segment starting from a list of parameters.
    Double_t rmin = param[0];
@@ -1502,11 +1506,19 @@ void TGeoSphere::SetDimensions(Double_t *param)
    Double_t theta2 = 180.;
    Double_t phi1 = 0;
    Double_t phi2 = 360.;
-//   if (nparam > 2) theta1 = param[2];
-//   if (nparam > 3) theta2 = param[3];
-//   if (nparam > 4) phi1   = param[4];
-//   if (nparam > 5) phi2   = param[5];
+   if (nparam > 2) theta1 = param[2];
+   if (nparam > 3) theta2 = param[3];
+   if (nparam > 4) phi1   = param[4];
+   if (nparam > 5) phi2   = param[5];
    SetSphDimensions(rmin, rmax, theta1, theta2, phi1, phi2);
+}   
+
+//_____________________________________________________________________________
+void TGeoSphere::SetDimensions(Double_t *param)
+{
+// Set dimensions of the spherical segment starting from a list of parameters.
+// Only takes rmin and rmax
+   SetDimensions(param,2);
 }   
 
 //_____________________________________________________________________________
@@ -1852,4 +1864,45 @@ const TBuffer3D & TGeoSphere::GetBuffer3D(Int_t reqSections, Bool_t localFrame) 
    }
       
    return buffer;
+}
+
+//_____________________________________________________________________________
+void TGeoSphere::Contains_v(const Double_t *points, Bool_t *inside, Int_t vecsize) const
+{
+// Check the inside status for each of the points in the array.
+// Input: Array of point coordinates + vector size
+// Output: Array of Booleans for the inside of each point
+   for (Int_t i=0; i<vecsize; i++) inside[i] = Contains(&points[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoSphere::ComputeNormal_v(const Double_t *points, const Double_t *dirs, Double_t *norms, Int_t vecsize)
+{
+// Compute the normal for an array o points so that norm.dot.dir is positive
+// Input: Arrays of point coordinates and directions + vector size
+// Output: Array of normal directions
+   for (Int_t i=0; i<vecsize; i++) ComputeNormal(&points[3*i], &dirs[3*i], &norms[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoSphere::DistFromInside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromInside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoSphere::DistFromOutside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromOutside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoSphere::Safety_v(const Double_t *points, const Bool_t *inside, Double_t *safe, Int_t vecsize) const
+{
+// Compute safe distance from each of the points in the input array.
+// Input: Array of point coordinates, array of statuses for these points, size of the arrays
+// Output: Safety values
+   for (Int_t i=0; i<vecsize; i++) safe[i] = Safety(&points[3*i], inside[i]);
 }

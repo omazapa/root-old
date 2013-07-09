@@ -182,7 +182,7 @@ Double_t TGeoBBox::Capacity() const
 }
 
 //_____________________________________________________________________________
-void TGeoBBox::ComputeNormal(Double_t *point, Double_t *dir, Double_t *norm)
+void TGeoBBox::ComputeNormal(const Double_t *point, const Double_t *dir, Double_t *norm)
 {
 // Computes normal to closest surface from POINT. 
    memset(norm,0,3*sizeof(Double_t));
@@ -196,7 +196,7 @@ void TGeoBBox::ComputeNormal(Double_t *point, Double_t *dir, Double_t *norm)
 }
 
 //_____________________________________________________________________________
-Bool_t TGeoBBox::CouldBeCrossed(Double_t *point, Double_t *dir) const
+Bool_t TGeoBBox::CouldBeCrossed(const Double_t *point, const Double_t *dir) const
 {
 // Decides fast if the bounding box could be crossed by a vector.
    Double_t mind = fDX;
@@ -279,7 +279,7 @@ void TGeoBBox::ComputeBBox()
 }   
 
 //_____________________________________________________________________________
-Bool_t TGeoBBox::Contains(Double_t *point) const
+Bool_t TGeoBBox::Contains(const Double_t *point) const
 {
 // Test if point is inside this shape.
    if (TMath::Abs(point[2]-fOrigin[2]) > fDZ) return kFALSE;
@@ -291,7 +291,8 @@ Bool_t TGeoBBox::Contains(Double_t *point) const
 //_____________________________________________________________________________
 Bool_t TGeoBBox::Contains(const Double_t *point, Double_t dx, Double_t dy, Double_t dz, const Double_t *origin)
 {
-// Test if point is inside this shape.
+// Static method to check if point[3] is located inside a box of having dx, dy, dz
+// as half-lengths.
    if (TMath::Abs(point[2]-origin[2]) > dz) return kFALSE;
    if (TMath::Abs(point[0]-origin[0]) > dx) return kFALSE;
    if (TMath::Abs(point[1]-origin[1]) > dy) return kFALSE;
@@ -299,7 +300,7 @@ Bool_t TGeoBBox::Contains(const Double_t *point, Double_t dx, Double_t dy, Doubl
 }
 
 //_____________________________________________________________________________
-Double_t TGeoBBox::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoBBox::DistFromInside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // Compute distance from inside point to surface of the box.
 // Boundary safe algorithm.
@@ -363,7 +364,7 @@ Double_t TGeoBBox::DistFromInside(const Double_t *point,const Double_t *dir,
 }
 
 //_____________________________________________________________________________
-Double_t TGeoBBox::DistFromOutside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoBBox::DistFromOutside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // Compute distance from outside point to surface of the box.
 // Boundary safe algorithm.
@@ -775,7 +776,7 @@ void TGeoBBox::SetSegsAndPols(TBuffer3D &buff) const
 }
 
 //_____________________________________________________________________________
-Double_t TGeoBBox::Safety(Double_t *point, Bool_t in) const
+Double_t TGeoBBox::Safety(const Double_t *point, Bool_t in) const
 {
 // Computes the closest distance from given point to this shape.
 
@@ -959,4 +960,45 @@ void TGeoBBox::FillBuffer3D(TBuffer3D & buffer, Int_t reqSections, Bool_t localF
       }
       buffer.SetSectionsValid(TBuffer3D::kBoundingBox);
    }
+}
+
+//_____________________________________________________________________________
+void TGeoBBox::Contains_v(const Double_t *points, Bool_t *inside, Int_t vecsize) const
+{
+// Check the inside status for each of the points in the array.
+// Input: Array of point coordinates + vector size
+// Output: Array of Booleans for the inside of each point
+   for (Int_t i=0; i<vecsize; i++) inside[i] = Contains(&points[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoBBox::ComputeNormal_v(const Double_t *points, const Double_t *dirs, Double_t *norms, Int_t vecsize)
+{
+// Compute the normal for an array o points so that norm.dot.dir is positive
+// Input: Arrays of point coordinates and directions + vector size
+// Output: Array of normal directions
+   for (Int_t i=0; i<vecsize; i++) ComputeNormal(&points[3*i], &dirs[3*i], &norms[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoBBox::DistFromInside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromInside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoBBox::DistFromOutside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromOutside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoBBox::Safety_v(const Double_t *points, const Bool_t *inside, Double_t *safe, Int_t vecsize) const
+{
+// Compute safe distance from each of the points in the input array.
+// Input: Array of point coordinates, array of statuses for these points, size of the arrays
+// Output: Safety values
+   for (Int_t i=0; i<vecsize; i++) safe[i] = Safety(&points[3*i], inside[i]);
 }

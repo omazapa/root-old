@@ -143,7 +143,7 @@ void TGeoHype::ComputeBBox()
 }   
 
 //_____________________________________________________________________________   
-void TGeoHype::ComputeNormal(Double_t *point, Double_t *dir, Double_t *norm)
+void TGeoHype::ComputeNormal(const Double_t *point, const Double_t *dir, Double_t *norm)
 {
 // Compute normal to closest surface from POINT. 
    Double_t saf[3];
@@ -179,7 +179,7 @@ void TGeoHype::ComputeNormal(Double_t *point, Double_t *dir, Double_t *norm)
 }
 
 //_____________________________________________________________________________
-Bool_t TGeoHype::Contains(Double_t *point) const
+Bool_t TGeoHype::Contains(const Double_t *point) const
 {
 // test if point is inside this tube
    if (TMath::Abs(point[2]) > fDz) return kFALSE;
@@ -201,7 +201,7 @@ Int_t TGeoHype::DistancetoPrimitive(Int_t px, Int_t py)
 }
 
 //_____________________________________________________________________________
-Double_t TGeoHype::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoHype::DistFromInside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // Compute distance from inside point to surface of the hyperboloid.
    if (iact<3 && safe) {
@@ -240,7 +240,7 @@ Double_t TGeoHype::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, Do
 
 
 //_____________________________________________________________________________
-Double_t TGeoHype::DistFromOutside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoHype::DistFromOutside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // compute distance from outside point to surface of the hyperboloid.
    if (iact<3 && safe) {
@@ -298,7 +298,7 @@ Double_t TGeoHype::DistFromOutside(Double_t *point, Double_t *dir, Int_t iact, D
 }
 
 //_____________________________________________________________________________
-Int_t TGeoHype::DistToHype(Double_t *point, Double_t *dir, Double_t *s, Bool_t inner, Bool_t in) const
+Int_t TGeoHype::DistToHype(const Double_t *point, const Double_t *dir, Double_t *s, Bool_t inner, Bool_t in) const
 {
 // Compute distance from an arbitrary point to inner/outer surface of hyperboloid.
 // Returns number of positive solutions. S[2] contains the solutions.
@@ -684,7 +684,7 @@ Double_t TGeoHype::ZHypeSq(Double_t r, Bool_t inner) const
 }     
 
 //_____________________________________________________________________________
-Double_t TGeoHype::Safety(Double_t *point, Bool_t in) const
+Double_t TGeoHype::Safety(const Double_t *point, Bool_t in) const
 {
 // computes the closest distance from given point to this shape, according
 // to option. The matching point on the shape is stored in spoint.
@@ -706,7 +706,7 @@ Double_t TGeoHype::Safety(Double_t *point, Bool_t in) const
 }
 
 //_____________________________________________________________________________
-Double_t TGeoHype::SafetyToHype(Double_t *point, Bool_t inner, Bool_t in) const
+Double_t TGeoHype::SafetyToHype(const Double_t *point, Bool_t inner, Bool_t in) const
 {
 // Compute an underestimate of the closest distance from a point to inner or
 // outer infinite hyperbolas.
@@ -946,4 +946,45 @@ const TBuffer3D & TGeoHype::GetBuffer3D(Int_t reqSections, Bool_t localFrame) co
    }
       
    return buffer;
+}
+
+//_____________________________________________________________________________
+void TGeoHype::Contains_v(const Double_t *points, Bool_t *inside, Int_t vecsize) const
+{
+// Check the inside status for each of the points in the array.
+// Input: Array of point coordinates + vector size
+// Output: Array of Booleans for the inside of each point
+   for (Int_t i=0; i<vecsize; i++) inside[i] = Contains(&points[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoHype::ComputeNormal_v(const Double_t *points, const Double_t *dirs, Double_t *norms, Int_t vecsize)
+{
+// Compute the normal for an array o points so that norm.dot.dir is positive
+// Input: Arrays of point coordinates and directions + vector size
+// Output: Array of normal directions
+   for (Int_t i=0; i<vecsize; i++) ComputeNormal(&points[3*i], &dirs[3*i], &norms[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoHype::DistFromInside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromInside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoHype::DistFromOutside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromOutside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoHype::Safety_v(const Double_t *points, const Bool_t *inside, Double_t *safe, Int_t vecsize) const
+{
+// Compute safe distance from each of the points in the input array.
+// Input: Array of point coordinates, array of statuses for these points, size of the arrays
+// Output: Safety values
+   for (Int_t i=0; i<vecsize; i++) safe[i] = Safety(&points[3*i], inside[i]);
 }

@@ -339,7 +339,7 @@ Double_t TGeoArb8::GetTwist(Int_t iseg) const
 }   
 
 //_____________________________________________________________________________
-Double_t TGeoArb8::GetClosestEdge(Double_t *point, Double_t *vert, Int_t &isegment) const
+Double_t TGeoArb8::GetClosestEdge(const Double_t *point, Double_t *vert, Int_t &isegment) const
 {
 // Get index of the edge of the quadrilater represented by vert closest to point.
 // If [P1,P2] is the closest segment and P is the point, the function returns the fraction of the
@@ -407,7 +407,7 @@ Double_t TGeoArb8::GetClosestEdge(Double_t *point, Double_t *vert, Int_t &isegme
 }   
 
 //_____________________________________________________________________________
-void TGeoArb8::ComputeNormal(Double_t *point, Double_t *dir, Double_t *norm)
+void TGeoArb8::ComputeNormal(const Double_t *point, const Double_t *dir, Double_t *norm)
 {
 // Compute normal to closest surface from POINT. 
    Double_t safc;
@@ -471,7 +471,7 @@ void TGeoArb8::ComputeNormal(Double_t *point, Double_t *dir, Double_t *norm)
 }
 
 //_____________________________________________________________________________
-Bool_t TGeoArb8::Contains(Double_t *point) const
+Bool_t TGeoArb8::Contains(const Double_t *point) const
 {
 // Test if point is inside this shape.
    // first check Z range
@@ -490,7 +490,7 @@ Bool_t TGeoArb8::Contains(Double_t *point) const
 }
 
 //_____________________________________________________________________________
-Double_t TGeoArb8::DistToPlane(Double_t *point, Double_t *dir, Int_t ipl, Bool_t in) const 
+Double_t TGeoArb8::DistToPlane(const Double_t *point, const Double_t *dir, Int_t ipl, Bool_t in) const 
 {
 // Computes distance to plane ipl :
 // ipl=0 : points 0,4,1,5
@@ -614,7 +614,7 @@ Double_t TGeoArb8::DistToPlane(Double_t *point, Double_t *dir, Int_t ipl, Bool_t
 }      
       
 //_____________________________________________________________________________
-Double_t TGeoArb8::DistFromOutside(Double_t *point, Double_t *dir, Int_t /*iact*/, Double_t step, Double_t * /*safe*/) const
+Double_t TGeoArb8::DistFromOutside(const Double_t *point, const Double_t *dir, Int_t /*iact*/, Double_t step, Double_t * /*safe*/) const
 {
 // Computes distance from outside point to surface of the shape.
    Double_t sdist = TGeoBBox::DistFromOutside(point,dir, fDX, fDY, fDZ, fOrigin, step);
@@ -641,7 +641,7 @@ Double_t TGeoArb8::DistFromOutside(Double_t *point, Double_t *dir, Int_t /*iact*
 }   
 
 //_____________________________________________________________________________
-Double_t TGeoArb8::DistFromInside(Double_t *point, Double_t *dir, Int_t /*iact*/, Double_t /*step*/, Double_t * /*safe*/) const
+Double_t TGeoArb8::DistFromInside(const Double_t *point, const Double_t *dir, Int_t /*iact*/, Double_t /*step*/, Double_t * /*safe*/) const
 {
 // Compute distance from inside point to surface of the shape.
    Int_t i;
@@ -977,7 +977,7 @@ void TGeoArb8::InspectShape() const
 }
 
 //_____________________________________________________________________________
-Double_t TGeoArb8::Safety(Double_t *point, Bool_t in) const
+Double_t TGeoArb8::Safety(const Double_t *point, Bool_t in) const
 {
 // Computes the closest distance from given point to this shape.
    Double_t safz = fDz-TMath::Abs(point[2]);
@@ -1053,7 +1053,7 @@ Double_t TGeoArb8::Safety(Double_t *point, Bool_t in) const
 }
 
 //_____________________________________________________________________________
-Double_t TGeoArb8::SafetyToFace(Double_t *point, Int_t iseg, Bool_t in) const
+Double_t TGeoArb8::SafetyToFace(const Double_t *point, Int_t iseg, Bool_t in) const
 {
 // Estimate safety to lateral plane defined by segment iseg in range [0,3]
 // Might be negative: plane seen only from inside.
@@ -1203,6 +1203,47 @@ void TGeoArb8::Streamer(TBuffer &R__b)
    }
 }   
 
+//_____________________________________________________________________________
+void TGeoArb8::Contains_v(const Double_t *points, Bool_t *inside, Int_t vecsize) const
+{
+// Check the inside status for each of the points in the array.
+// Input: Array of point coordinates + vector size
+// Output: Array of Booleans for the inside of each point
+   for (Int_t i=0; i<vecsize; i++) inside[i] = Contains(&points[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoArb8::ComputeNormal_v(const Double_t *points, const Double_t *dirs, Double_t *norms, Int_t vecsize)
+{
+// Compute the normal for an array o points so that norm.dot.dir is positive
+// Input: Arrays of point coordinates and directions + vector size
+// Output: Array of normal directions
+   for (Int_t i=0; i<vecsize; i++) ComputeNormal(&points[3*i], &dirs[3*i], &norms[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoArb8::DistFromInside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromInside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoArb8::DistFromOutside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromOutside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoArb8::Safety_v(const Double_t *points, const Bool_t *inside, Double_t *safe, Int_t vecsize) const
+{
+// Compute safe distance from each of the points in the input array.
+// Input: Array of point coordinates, array of statuses for these points, size of the arrays
+// Output: Safety values
+   for (Int_t i=0; i<vecsize; i++) safe[i] = Safety(&points[3*i], inside[i]);
+}
+
 ClassImp(TGeoTrap)
 
 //_____________________________________________________________________________
@@ -1314,7 +1355,7 @@ TGeoTrap::~TGeoTrap()
 }
 
 //_____________________________________________________________________________
-Double_t TGeoTrap::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoTrap::DistFromInside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // Compute distance from inside point to surface of the trapezoid
    if (iact<3 && safe) {
@@ -1366,7 +1407,7 @@ Double_t TGeoTrap::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, Do
 }   
 
 //_____________________________________________________________________________
-Double_t TGeoTrap::DistFromOutside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoTrap::DistFromOutside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // Compute distance from outside point to surface of the trapezoid
    if (iact<3 && safe) {
@@ -1565,7 +1606,7 @@ TGeoShape *TGeoTrap::GetMakeRuntimeShape(TGeoShape *mother, TGeoMatrix * /*mat*/
 }
 
 //_____________________________________________________________________________
-Double_t TGeoTrap::Safety(Double_t *point, Bool_t in) const
+Double_t TGeoTrap::Safety(const Double_t *point, Bool_t in) const
 {
 // Computes the closest distance from given point to this shape.
    Double_t safe = TGeoShape::Big();
@@ -1689,6 +1730,29 @@ void TGeoTrap::SetDimensions(Double_t *param)
    else TGeoArb8::ComputeBBox();
 }   
 
+//_____________________________________________________________________________
+void TGeoTrap::DistFromInside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromInside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoTrap::DistFromOutside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromOutside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoTrap::Safety_v(const Double_t *points, const Bool_t *inside, Double_t *safe, Int_t vecsize) const
+{
+// Compute safe distance from each of the points in the input array.
+// Input: Array of point coordinates, array of statuses for these points, size of the arrays
+// Output: Safety values
+   for (Int_t i=0; i<vecsize; i++) safe[i] = Safety(&points[3*i], inside[i]);
+}
+
 ClassImp(TGeoGtra)
 
 //_____________________________________________________________________________
@@ -1782,7 +1846,7 @@ TGeoGtra::~TGeoGtra()
 }
 
 //_____________________________________________________________________________
-Double_t TGeoGtra::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoGtra::DistFromInside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // Compute distance from inside point to surface of the shape.
    if (iact<3 && safe) {
@@ -1796,7 +1860,7 @@ Double_t TGeoGtra::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, Do
 }   
 
 //_____________________________________________________________________________
-Double_t TGeoGtra::DistFromOutside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoGtra::DistFromOutside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // Compute distance from inside point to surface of the shape.
    if (iact<3 && safe) {
@@ -1850,7 +1914,7 @@ TGeoShape *TGeoGtra::GetMakeRuntimeShape(TGeoShape *mother, TGeoMatrix * /*mat*/
 }
 
 //_____________________________________________________________________________
-Double_t TGeoGtra::Safety(Double_t *point, Bool_t in) const
+Double_t TGeoGtra::Safety(const Double_t *point, Bool_t in) const
 {
 // Computes the closest distance from given point to this shape.
    return TGeoArb8::Safety(point,in);
@@ -1926,3 +1990,26 @@ void TGeoGtra::SetDimensions(Double_t *param)
        (fH2<0) || (fBl2<0) || (fTl2<0)) SetShapeBit(kGeoRunTimeShape);
    else TGeoArb8::ComputeBBox();
 }   
+
+//_____________________________________________________________________________
+void TGeoGtra::DistFromInside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromInside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoGtra::DistFromOutside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromOutside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoGtra::Safety_v(const Double_t *points, const Bool_t *inside, Double_t *safe, Int_t vecsize) const
+{
+// Compute safe distance from each of the points in the input array.
+// Input: Array of point coordinates, array of statuses for these points, size of the arrays
+// Output: Safety values
+   for (Int_t i=0; i<vecsize; i++) safe[i] = Safety(&points[3*i], inside[i]);
+}

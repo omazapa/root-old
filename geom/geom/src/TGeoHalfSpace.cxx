@@ -63,7 +63,7 @@ TGeoHalfSpace::~TGeoHalfSpace()
 }
 
 //_____________________________________________________________________________   
-void TGeoHalfSpace::ComputeNormal(Double_t * /*point*/, Double_t *dir, Double_t *norm)
+void TGeoHalfSpace::ComputeNormal(const Double_t * /*point*/, const Double_t *dir, Double_t *norm)
 {
 // Compute normal to closest surface from POINT.
    memcpy(norm, fN, 3*sizeof(Double_t));
@@ -75,7 +75,7 @@ void TGeoHalfSpace::ComputeNormal(Double_t * /*point*/, Double_t *dir, Double_t 
 }
 
 //_____________________________________________________________________________
-Bool_t TGeoHalfSpace::Contains(Double_t *point) const
+Bool_t TGeoHalfSpace::Contains(const Double_t *point) const
 {
 // test if point is inside the half-space
    Double_t r[3];
@@ -95,7 +95,7 @@ Int_t TGeoHalfSpace::DistancetoPrimitive(Int_t /*px*/, Int_t /*py*/)
 }   
 
 //_____________________________________________________________________________
-Double_t TGeoHalfSpace::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoHalfSpace::DistFromInside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // compute distance from inside point to the plane
    Double_t r[3];
@@ -118,7 +118,7 @@ Double_t TGeoHalfSpace::DistFromInside(Double_t *point, Double_t *dir, Int_t iac
 }
 
 //_____________________________________________________________________________
-Double_t TGeoHalfSpace::DistFromOutside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoHalfSpace::DistFromOutside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // compute distance from inside point to the plane
    Double_t r[3];
@@ -168,7 +168,7 @@ void TGeoHalfSpace::InspectShape() const
 }
 
 //_____________________________________________________________________________
-Double_t TGeoHalfSpace::Safety(Double_t *point, Bool_t /*in*/) const
+Double_t TGeoHalfSpace::Safety(const Double_t *point, Bool_t /*in*/) const
 {
 // computes the closest distance from given point to this shape, according
 // to option. The matching point on the shape is stored in spoint.
@@ -207,3 +207,44 @@ void TGeoHalfSpace::SetDimensions(Double_t *param)
    fN[1] /= nsq;
    fN[2] /= nsq;
 }   
+
+//_____________________________________________________________________________
+void TGeoHalfSpace::Contains_v(const Double_t *points, Bool_t *inside, Int_t vecsize) const
+{
+// Check the inside status for each of the points in the array.
+// Input: Array of point coordinates + vector size
+// Output: Array of Booleans for the inside of each point
+   for (Int_t i=0; i<vecsize; i++) inside[i] = Contains(&points[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoHalfSpace::ComputeNormal_v(const Double_t *points, const Double_t *dirs, Double_t *norms, Int_t vecsize)
+{
+// Compute the normal for an array o points so that norm.dot.dir is positive
+// Input: Arrays of point coordinates and directions + vector size
+// Output: Array of normal directions
+   for (Int_t i=0; i<vecsize; i++) ComputeNormal(&points[3*i], &dirs[3*i], &norms[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoHalfSpace::DistFromInside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromInside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoHalfSpace::DistFromOutside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromOutside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoHalfSpace::Safety_v(const Double_t *points, const Bool_t *inside, Double_t *safe, Int_t vecsize) const
+{
+// Compute safe distance from each of the points in the input array.
+// Input: Array of point coordinates, array of statuses for these points, size of the arrays
+// Output: Safety values
+   for (Int_t i=0; i<vecsize; i++) safe[i] = Safety(&points[3*i], inside[i]);
+}
