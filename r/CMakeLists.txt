@@ -29,7 +29,7 @@ set(R_HEADERS ${CMAKE_SOURCE_DIR}/r/inc/TRInterface.h
               ${CMAKE_SOURCE_DIR}/r/inc/RExports.h
               ${CMAKE_SOURCE_DIR}/r/inc/compilerdata.h
               )
-
+SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 ROOT_GENERATE_DICTIONARY(G__RInterface ${R_HEADERS} LINKDEF LinkDef.h)
 
 ROOT_GENERATE_ROOTMAP(RInterface LINKDEF LinkDef.h)
