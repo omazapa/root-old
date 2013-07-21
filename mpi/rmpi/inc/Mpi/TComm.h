@@ -139,11 +139,6 @@ namespace ROOT {
             return fComm.Get_size();
          }
 
-         inline void SetExceptionMessage(Bool_t status = true) {
-            bShowExceptionMessage = status;
-         }
-
-
          typedef void Errhandler_function(MPI::Comm&, int*, ...);
          typedef int Copy_attr_function(const MPI::Comm& oldcomm, int comm_keyval,
                                         void* extra_state, void* attribute_val_in,
@@ -409,7 +404,6 @@ namespace ROOT {
          //internal cache variables.
       protected:
          TCommCore fComm;
-         Bool_t bShowExceptionMessage; //let show a exception messages
 
          ClassDef(TComm, 1) //
       };

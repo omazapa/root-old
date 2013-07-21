@@ -138,12 +138,12 @@ RECLIBDEPM             = $(IOLIB) $(TREELIB) $(GUILIB) $(THREADLIB)
 FITSIOLIBDEPM          = $(HISTLIB) $(GPADLIB) $(GRAFLIB) $(MATRIXLIB)
 
 MPILIBDEPM             = $(MATHCORELIB) $(MATHMORELIB) $(HISTLIB) $(MATRIXLIB) \
-			 $(IOLIB) $(TABLELIBDEP) $(NETLIB) $(GLLIB) \
+			 $(IOLIB) $(TABLELIBDEP) $(NETLIB)  \
 			 $(RINTLIB) $(TREELIB)  $(TREEPLAYERLIB) $(PHYSICSLIB) $(MINUITLIB) \
 			 $(GENVECTORLIB) $(CINTLIB)
 
 MPIMATHLIBDEPM         = $(MATHCORELIB) $(MATHMORELIB) $(HISTLIB) $(MATRIXLIB) \
-			 $(IOLIB) $(TABLELIBDEP) $(NETLIB) $(GLLIB) \
+			 $(IOLIB) $(TABLELIBDEP) $(NETLIB)  \
 			 $(RINTLIB) $(TREELIB)  $(TREEPLAYERLIB) $(PHYSICSLIB) $(MPILIB) \
 			 $(MINUITLIB) $(GENVECTORLIB) $(CINTLIB)
 
@@ -511,11 +511,11 @@ HISTFACTORYLIBEXTRA     = -Llib -lRooFit -lRooFitCore -lTree -lRIO -lHist \
                           -lRooStats -lXMLParser
 MPILIBEXTRA             = -Llib -lCore -lMatrix -lMathCore -lCint -lRint \
                           -lNet -lRIO -lHist -lGenVector -lPhysics \
-                          -lGraf3d -lRGL -lTable -lTree -lTreePlayer -lMinuit 
+                          -lGraf3d -lTable -lTree -lTreePlayer -lMinuit 
 
 MPIMATHLIBEXTRA         = -Llib -lCore -lMatrix -lMathCore -lCint -lRint \
                           -lNet -lRIO -lHist -lGenVector -lPhysics \
-                          -lGraf3d -lRGL -lTable -lTree -lTreePlayer -lMinuit -lRMpi
+                          -lGraf3d -lTable -lTree -lTreePlayer -lMinuit -lRMpi
                           
                           
 ifeq ($(BUILDMATHMORE),yes)

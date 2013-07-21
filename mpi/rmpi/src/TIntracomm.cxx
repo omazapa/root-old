@@ -29,7 +29,6 @@ ClassImp(TIntracomm)
 //______________________________________________________________________________
 TIntracomm::TIntracomm(const TIntracomm& comm): TComm(comm)
 {
-   bShowExceptionMessage = comm.bShowExceptionMessage;
 }
 
 //______________________________________________________________________________
@@ -46,7 +45,6 @@ TIntracomm& TIntracomm::Clone() const
    MPI_Comm newcomm;
    (void)MPI_Comm_dup((MPI_Comm)fComm, &newcomm);
    TIntracomm *newintracomm = new TIntracomm(newcomm);
-   newintracomm->bShowExceptionMessage = bShowExceptionMessage;
    return  *newintracomm;
 }
 

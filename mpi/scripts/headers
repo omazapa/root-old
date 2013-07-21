@@ -22,7 +22,6 @@
 #include<TF12.h>
 #include<TF1Editor.h>
 #include<TF2.h>
-#include<TF2GL.h>
 #include<TF3.h>
 #include<TMatrixTUtils.h>
 #include<TObject.h>
@@ -65,7 +64,6 @@
 #include<TBits.h>
 #include<TParameter.h>
 #include<TPointSet3D.h>
-#include<TPointSet3DGL.h>
 #include<TPoints.h>
 #include<TPoints3D.h>
 #include<TPoints3DABC.h>

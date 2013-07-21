@@ -29,7 +29,6 @@ TView   *view   = NULL;
 
 void Init()
 {
- gStyle->SetCanvasPreferGL(true);
  gStyle->SetFrameFillColor(42);
  canvas = new TCanvas("canvas", "canvas", 300, 10, 700, 500);
  canvas->SetFillColor(14);
