@@ -355,6 +355,7 @@
 #include "TGeoScaledShape.h"
 #include "TGeoCompositeShape.h"
 #include "TGeoVoxelFinder.h"
+#include "TGeoExtension.h"
 
 ClassImp(TGeoVolume)
 
@@ -378,14 +379,16 @@ TGeoVolume::TGeoVolume()
 // dummy constructor
    fNodes    = 0;
    fShape    = 0;
+   fMedium   = 0;
    fFinder   = 0;
    fVoxels   = 0;
+   fGeoManager = gGeoManager;
    fField    = 0;
-   fMedium   = 0;
+   fOption   = "";
    fNumber   = 0;
    fNtotal   = 0;
-   fOption   = "";
-   fGeoManager = gGeoManager;
+   fUserExtension = 0;
+   fFWExtension = 0;
    TObject::ResetBit(kVolumeImportNodes);
 }
 
@@ -405,17 +408,17 @@ TGeoVolume::TGeoVolume(const char *name, const TGeoShape *shape, const TGeoMediu
          Fatal("ctor", "Shape of volume %s invalid. Aborting!", fName.Data());
       }   
    }      
+   fMedium   = (TGeoMedium*)med;
+   if (fMedium && fMedium->GetMaterial()) fMedium->GetMaterial()->SetUsed();
    fFinder   = 0;
    fVoxels   = 0;
+   fGeoManager = gGeoManager;
    fField    = 0;
    fOption   = "";
-   fMedium   = (TGeoMedium*)med;
-   if (fMedium) {
-      if (fMedium->GetMaterial()) fMedium->GetMaterial()->SetUsed();
-   }   
    fNumber   = 0;
    fNtotal   = 0;
-   fGeoManager = gGeoManager;
+   fUserExtension = 0;
+   fFWExtension = 0;
    if (fGeoManager) fNumber = fGeoManager->AddVolume(this);
    TObject::ResetBit(kVolumeImportNodes);
 }
@@ -436,7 +439,9 @@ TGeoVolume::TGeoVolume(const TGeoVolume& gv) :
   fField(gv.fField),
   fOption(gv.fOption),
   fNumber(gv.fNumber),
-  fNtotal(gv.fNtotal)
+  fNtotal(gv.fNtotal),
+  fUserExtension(gv.fUserExtension->Grab()),
+  fFWExtension(gv.fFWExtension->Grab())
 { 
    //copy constructor
 }
@@ -461,6 +466,8 @@ TGeoVolume& TGeoVolume::operator=(const TGeoVolume& gv)
       fOption=gv.fOption;
       fNumber=gv.fNumber;
       fNtotal=gv.fNtotal;
+      fUserExtension = gv.fUserExtension->Grab();
+      fFWExtension = gv.fFWExtension->Grab();
    } 
    return *this;
 }
@@ -478,6 +485,8 @@ TGeoVolume::~TGeoVolume()
    }
    if (fFinder && !TObject::TestBit(kVolumeImportNodes | kVolumeClone) ) delete fFinder;
    if (fVoxels) delete fVoxels;
+   if (fUserExtension) {fUserExtension->Release(); fUserExtension=0;}
+   if (fFWExtension) {fFWExtension->Release(); fFWExtension=0;}
 }
 
 //_____________________________________________________________________________
@@ -491,7 +500,7 @@ void TGeoVolume::Browse(TBrowser *b)
    TString title;
    for (Int_t i=0; i<GetNdaughters(); i++) { 
       daughter = GetNode(i)->GetVolume();
-      if(!strlen(daughter->GetTitle())) {
+      if(daughter->GetTitle()[0]) {
          if (daughter->IsAssembly()) title.TString::Format("Assembly with %d daughter(s)", 
                                                 daughter->GetNdaughters());
          else if (daughter->GetFinder()) {
@@ -619,7 +628,7 @@ void TGeoVolume::CheckShapes()
    for (Int_t i=0; i<nd; i++) {
       node=(TGeoNode*)fNodes->At(i);
       // check if node has name
-      if (!strlen(node->GetName())) printf("Daughter %i of volume %s - NO NAME!!!\n",
+      if (!node->GetName()[0]) printf("Daughter %i of volume %s - NO NAME!!!\n",
                                            i, GetName());
       old_vol = node->GetVolume();
       shape = old_vol->GetShape();
@@ -629,6 +638,10 @@ void TGeoVolume::CheckShapes()
 //         old_vol->InspectShape();
          // make a copy of the node
          new_node = node->MakeCopyNode();
+         if (!new_node) {
+            Fatal("CheckShapes", "Cannot make copy node for %s", node->GetName());
+            return;
+         }   
          TGeoShape *new_shape = shape->GetMakeRuntimeShape(fShape, node->GetMatrix());
          if (!new_shape) {
             Error("CheckShapes","cannot resolve runtime shape for volume %s/%s\n",
@@ -795,7 +808,7 @@ TGeoVolume *TGeoVolume::Import(const char *filename, const char *name, Option_t 
          printf("Error: TGeoVolume::Import : Cannot open file %s\n", filename);
          return 0;
       }
-      if (name && strlen(name) > 0) {
+      if (name && name[0]) {
          volume = (TGeoVolume*)f->Get(name);
       } else {
          TIter next(f->GetListOfKeys());
@@ -898,8 +911,8 @@ void TGeoVolume::AddNode(const TGeoVolume *vol, Int_t copy_no, TGeoMatrix *mat, 
    node->SetMotherVolume(this);
    fNodes->Add(node);
    TString name = TString::Format("%s_%d", vol->GetName(), copy_no);
-   if (fNodes->FindObject(name))
-      Warning("AddNode", "Volume %s : added node %s with same name", GetName(), name.Data());
+//   if (fNodes->FindObject(name))
+//      Warning("AddNode", "Volume %s : added node %s with same name", GetName(), name.Data());
    node->SetName(name);
    node->SetNumber(copy_no);
 }
@@ -1083,7 +1096,7 @@ void TGeoVolume::Draw(Option_t *option)
    TVirtualGeoPainter *painter = fGeoManager->GetGeomPainter();
    TGeoAtt::SetVisRaytrace(kFALSE);
    if (!IsVisContainers()) SetVisLeaves();
-   if (option && strlen(option) > 0) {
+   if (option && option[0] > 0) {
       painter->DrawVolume(this, option); 
    } else {
       painter->DrawVolume(this, gEnv->GetValue("Viewer3D.DefaultDrawOption",""));
@@ -1102,7 +1115,7 @@ void TGeoVolume::DrawOnly(Option_t *option)
    SetVisOnly();
    TGeoAtt::SetVisRaytrace(kFALSE);
    TVirtualGeoPainter *painter = fGeoManager->GetGeomPainter();
-   if (option && strlen(option) > 0) {
+   if (option && option[0] > 0) {
       painter->DrawVolume(this, option); 
    } else {
       painter->DrawVolume(this, gEnv->GetValue("Viewer3D.DefaultDrawOption",""));
@@ -1126,7 +1139,7 @@ void TGeoVolume::Paint(Option_t *option)
    TVirtualGeoPainter *painter = fGeoManager->GetGeomPainter();
    painter->SetTopVolume(this);
 //   painter->Paint(option);   
-   if (option && strlen(option) > 0) {
+   if (option && option[0] > 0) {
       painter->Paint(option); 
    } else {
       painter->Paint(gEnv->GetValue("Viewer3D.DefaultDrawOption",""));
@@ -1277,8 +1290,8 @@ void TGeoVolume::SaveAs(const char *filename, Option_t *option) const
 {
 //  Save geometry having this as top volume as a C++ macro.
    if (!filename) return;
-   ofstream out;
-   out.open(filename, ios::out);
+   std::ofstream out;
+   out.open(filename, std::ios::out);
    if (out.bad()) {
       Error("SavePrimitive", "Bad file name: %s", filename);
       return;
@@ -1288,18 +1301,68 @@ void TGeoVolume::SaveAs(const char *filename, Option_t *option) const
    TString fname(filename);
    Int_t ind = fname.Index(".");
    if (ind>0) fname.Remove(ind);
-   out << "void "<<fname<<"() {" << endl;
-   out << "   gSystem->Load(\"libGeom\");" << endl;
+   out << "void "<<fname<<"() {" << std::endl;
+   out << "   gSystem->Load(\"libGeom\");" << std::endl;
    ((TGeoVolume*)this)->SavePrimitive(out,option);
-   out << "}" << endl;
+   out << "}" << std::endl;
 }   
 
 //______________________________________________________________________________
-void TGeoVolume::SavePrimitive(ostream &out, Option_t *option /*= ""*/)
+void TGeoVolume::SetUserExtension(TGeoExtension *ext)
+{
+// Connect user-defined extension to the volume. The volume "grabs" a copy, so
+// the original object can be released by the producer. Release the previously 
+// connected extension if any.
+//==========================================================================
+// NOTE: This interface is intended for user extensions and is guaranteed not
+// to be used by TGeo
+//==========================================================================
+   if (fUserExtension) fUserExtension->Release();
+   fUserExtension = 0;
+   if (ext) fUserExtension = ext->Grab();
+}   
+
+//_____________________________________________________________________________
+void TGeoVolume::SetFWExtension(TGeoExtension *ext)
+{
+// Connect framework defined extension to the volume. The volume "grabs" a copy,
+// so the original object can be released by the producer. Release the previously 
+// connected extension if any.
+//==========================================================================
+// NOTE: This interface is intended for the use by TGeo and the users should
+//       NOT connect extensions using this method
+//==========================================================================
+   if (fFWExtension) fFWExtension->Release();
+   fFWExtension = 0;
+   if (ext) fFWExtension = ext->Grab();
+}   
+
+//_____________________________________________________________________________
+TGeoExtension *TGeoVolume::GrabUserExtension() const
+{
+// Get a copy of the user extension pointer. The user must call Release() on
+// the copy pointer once this pointer is not needed anymore (equivalent to
+// delete() after calling new())
+   if (fUserExtension) return fUserExtension->Grab();
+   return 0;
+}   
+   
+//_____________________________________________________________________________
+TGeoExtension *TGeoVolume::GrabFWExtension() const
+{
+// Get a copy of the framework extension pointer. The user must call Release() on
+// the copy pointer once this pointer is not needed anymore (equivalent to
+// delete() after calling new())
+   if (fFWExtension) return fFWExtension->Grab();
+   return 0;
+}   
+   
+//_____________________________________________________________________________
+void TGeoVolume::SavePrimitive(std::ostream &out, Option_t *option /*= ""*/)
 {
    // Save a primitive as a C++ statement(s) on output stream "out".
    out.precision(6);
-   out.setf(ios::fixed);
+   out.setf(std::ios::fixed);
    Int_t i,icopy;
    Int_t nd = GetNdaughters();
    TGeoVolume *dvol;
@@ -1309,50 +1372,50 @@ void TGeoVolume::SavePrimitive(ostream &out, Option_t *option /*= ""*/)
    // check if we need to save shape/volume
    Bool_t mustDraw = kFALSE;
    if (fGeoManager->GetGeomPainter()->GetTopVolume()==this) mustDraw = kTRUE;
-   if (!strlen(option)) {
+   if (!option[0]) {
       fGeoManager->SetAllIndex();
-      out << "   new TGeoManager(\"" << fGeoManager->GetName() << "\", \"" << fGeoManager->GetTitle() << "\");" << endl << endl;
-//      if (mustDraw) out << "   Bool_t mustDraw = kTRUE;" << endl;
-//      else          out << "   Bool_t mustDraw = kFALSE;" << endl;
-      out << "   Double_t dx,dy,dz;" << endl;
-      out << "   Double_t dx1, dx2, dy1, dy2;" << endl;
-      out << "   Double_t vert[20], par[20];" << endl;
-      out << "   Double_t theta, phi, h1, bl1, tl1, alpha1, h2, bl2, tl2, alpha2;" << endl;
-      out << "   Double_t twist;" << endl;
-      out << "   Double_t origin[3];" << endl;
-      out << "   Double_t rmin, rmax, rmin1, rmax1, rmin2, rmax2;" << endl;
-      out << "   Double_t r, rlo, rhi;" << endl;
-      out << "   Double_t phi1, phi2;" << endl;
-      out << "   Double_t a,b;" << endl;
-      out << "   Double_t point[3], norm[3];" << endl;
-      out << "   Double_t rin, stin, rout, stout;" << endl;
-      out << "   Double_t thx, phx, thy, phy, thz, phz;" << endl;
-      out << "   Double_t alpha, theta1, theta2, phi1, phi2, dphi;" << endl;
-      out << "   Double_t tr[3], rot[9];" << endl;
-      out << "   Double_t z, density, radl, absl, w;" << endl;
-      out << "   Double_t lx,ly,lz,tx,ty,tz;" << endl;
-      out << "   Double_t xvert[50], yvert[50];" << endl;
-      out << "   Double_t zsect,x0,y0,scale0;" << endl;
-      out << "   Int_t nel, numed, nz, nedges, nvert;" << endl;
-      out << "   TGeoBoolNode *pBoolNode = 0;" << endl << endl;
+      out << "   new TGeoManager(\"" << fGeoManager->GetName() << "\", \"" << fGeoManager->GetTitle() << "\");" << std::endl << std::endl;
+//      if (mustDraw) out << "   Bool_t mustDraw = kTRUE;" << std::endl;
+//      else          out << "   Bool_t mustDraw = kFALSE;" << std::endl;
+      out << "   Double_t dx,dy,dz;" << std::endl;
+      out << "   Double_t dx1, dx2, dy1, dy2;" << std::endl;
+      out << "   Double_t vert[20], par[20];" << std::endl;
+      out << "   Double_t theta, phi, h1, bl1, tl1, alpha1, h2, bl2, tl2, alpha2;" << std::endl;
+      out << "   Double_t twist;" << std::endl;
+      out << "   Double_t origin[3];" << std::endl;
+      out << "   Double_t rmin, rmax, rmin1, rmax1, rmin2, rmax2;" << std::endl;
+      out << "   Double_t r, rlo, rhi;" << std::endl;
+      out << "   Double_t phi1, phi2;" << std::endl;
+      out << "   Double_t a,b;" << std::endl;
+      out << "   Double_t point[3], norm[3];" << std::endl;
+      out << "   Double_t rin, stin, rout, stout;" << std::endl;
+      out << "   Double_t thx, phx, thy, phy, thz, phz;" << std::endl;
+      out << "   Double_t alpha, theta1, theta2, phi1, phi2, dphi;" << std::endl;
+      out << "   Double_t tr[3], rot[9];" << std::endl;
+      out << "   Double_t z, density, radl, absl, w;" << std::endl;
+      out << "   Double_t lx,ly,lz,tx,ty,tz;" << std::endl;
+      out << "   Double_t xvert[50], yvert[50];" << std::endl;
+      out << "   Double_t zsect,x0,y0,scale0;" << std::endl;
+      out << "   Int_t nel, numed, nz, nedges, nvert;" << std::endl;
+      out << "   TGeoBoolNode *pBoolNode = 0;" << std::endl << std::endl;
       // first save materials/media
-      out << "   // MATERIALS, MIXTURES AND TRACKING MEDIA" << endl;
+      out << "   // MATERIALS, MIXTURES AND TRACKING MEDIA" << std::endl;
       SavePrimitive(out, "m");
       // then, save matrices
-      out << endl << "   // TRANSFORMATION MATRICES" << endl;
+      out << std::endl << "   // TRANSFORMATION MATRICES" << std::endl;
       SavePrimitive(out, "x");
       // save this volume and shape
       SavePrimitive(out, "s");
-      out << endl << "   // SET TOP VOLUME OF GEOMETRY" << endl;
-      out << "   gGeoManager->SetTopVolume(" << GetPointerName() << ");" << endl;
+      out << std::endl << "   // SET TOP VOLUME OF GEOMETRY" << std::endl;
+      out << "   gGeoManager->SetTopVolume(" << GetPointerName() << ");" << std::endl;
       // save daughters
-      out << endl << "   // SHAPES, VOLUMES AND GEOMETRICAL HIERARCHY" << endl;
+      out << std::endl << "   // SHAPES, VOLUMES AND GEOMETRICAL HIERARCHY" << std::endl;
       SavePrimitive(out, "d");
-      out << endl << "   // CLOSE GEOMETRY" << endl;
-      out << "   gGeoManager->CloseGeometry();" << endl;
+      out << std::endl << "   // CLOSE GEOMETRY" << std::endl;
+      out << "   gGeoManager->CloseGeometry();" << std::endl;
       if (mustDraw) {
-         if (!IsRaytracing()) out << "   gGeoManager->GetTopVolume()->Draw();" << endl;
-         else                 out << "   gGeoManager->GetTopVolume()->Raytrace();" << endl;
+         if (!IsRaytracing()) out << "   gGeoManager->GetTopVolume()->Draw();" << std::endl;
+         else                 out << "   gGeoManager->GetTopVolume()->Raytrace();" << std::endl;
       }
       return;
    }
@@ -1362,19 +1425,19 @@ void TGeoVolume::SavePrimitive(ostream &out, Option_t *option /*= ""*/)
       if (TestAttBit(TGeoAtt::kSavePrimitiveAtt)) return;
       if (!IsAssembly()) {
          fShape->SavePrimitive(out,option);      
-         out << "   // Volume: " << GetName() << endl;
-         out << "   " << GetPointerName() << " = new TGeoVolume(\"" << GetName() << "\"," << fShape->GetPointerName() << ", "<< fMedium->GetPointerName() << ");" << endl;
+         out << "   // Volume: " << GetName() << std::endl;
+         out << "   " << GetPointerName() << " = new TGeoVolume(\"" << GetName() << "\"," << fShape->GetPointerName() << ", "<< fMedium->GetPointerName() << ");" << std::endl;
       } else {
-         out << "   // Assembly: " << GetName() << endl;
-         out << "   " << GetPointerName() << " = new TGeoVolumeAssembly(\"" << GetName() << "\"" << ");" << endl;
+         out << "   // Assembly: " << GetName() << std::endl;
+         out << "   " << GetPointerName() << " = new TGeoVolumeAssembly(\"" << GetName() << "\"" << ");" << std::endl;
       }           
-      if (fLineColor != 1) out << "   " << GetPointerName() << "->SetLineColor(" << fLineColor << ");" << endl;
-      if (fLineWidth != 1) out << "   " << GetPointerName() << "->SetLineWidth(" << fLineWidth << ");" << endl;
-      if (fLineStyle != 1) out << "   " << GetPointerName() << "->SetLineStyle(" << fLineStyle << ");" << endl;
-      if (!IsVisible() && !IsAssembly()) out << "   " << GetPointerName() << "->SetVisibility(kFALSE);" << endl;
-      if (!IsVisibleDaughters()) out << "   " << GetPointerName() << "->VisibleDaughters(kFALSE);" << endl;
-      if (IsVisContainers()) out << "   " << GetPointerName() << "->SetVisContainers(kTRUE);" << endl;
-      if (IsVisLeaves()) out << "   " << GetPointerName() << "->SetVisLeaves(kTRUE);" << endl;
+      if (fLineColor != 1) out << "   " << GetPointerName() << "->SetLineColor(" << fLineColor << ");" << std::endl;
+      if (fLineWidth != 1) out << "   " << GetPointerName() << "->SetLineWidth(" << fLineWidth << ");" << std::endl;
+      if (fLineStyle != 1) out << "   " << GetPointerName() << "->SetLineStyle(" << fLineStyle << ");" << std::endl;
+      if (!IsVisible() && !IsAssembly()) out << "   " << GetPointerName() << "->SetVisibility(kFALSE);" << std::endl;
+      if (!IsVisibleDaughters()) out << "   " << GetPointerName() << "->VisibleDaughters(kFALSE);" << std::endl;
+      if (IsVisContainers()) out << "   " << GetPointerName() << "->SetVisContainers(kTRUE);" << std::endl;
+      if (IsVisLeaves()) out << "   " << GetPointerName() << "->SetVisLeaves(kTRUE);" << std::endl;
       SetAttBit(TGeoAtt::kSavePrimitiveAtt);
    }   
    // check if we need to save the media
@@ -1416,7 +1479,7 @@ void TGeoVolume::SavePrimitive(ostream &out, Option_t *option /*= ""*/)
          if (fMedium != dvol->GetMedium()) {
             out << ", " << dvol->GetMedium()->GetId();
          }
-         out << ");" << endl;   
+         out << ");" << std::endl;   
          dvol->SavePrimitive(out,"d");   
          return;
       }
@@ -1431,7 +1494,7 @@ void TGeoVolume::SavePrimitive(ostream &out, Option_t *option /*= ""*/)
          if (dnode->IsOverlapping()) out << "Overlap";
          out << "(" << dvol->GetPointerName() << ", " << icopy;
          if (!matrix->IsIdentity()) out << ", " << matrix->GetPointerName();
-         out << ");" << endl;
+         out << ");" << std::endl;
       }
       // Recursive loop to daughters
       for (i=0; i<nd; i++) {
@@ -1593,6 +1656,9 @@ TGeoVolume *TGeoVolume::CloneVolume() const
    vol->SetOption(fOption);
    vol->SetNumber(fNumber);
    vol->SetNtotal(fNtotal);
+   // copy extensions
+   vol->SetUserExtension(fUserExtension);
+   vol->SetFWExtension(fFWExtension);
    return vol;
 }
 
@@ -1612,6 +1678,10 @@ void TGeoVolume::CloneNodesAndConnect(TGeoVolume *newmother) const
    for (Int_t i=0; i<nd; i++) {
       //create copies of nodes and add them to list
       node = GetNode(i)->MakeCopyNode();
+      if (!node) {
+         Fatal("CloneNodesAndConnect", "cannot make copy node");
+         return;
+      }   
       node->SetMotherVolume(newmother);
       list->Add(node);
    }
@@ -1652,6 +1722,9 @@ TGeoVolume *TGeoVolume::MakeCopyVolume(TGeoShape *newshape)
 //       Error("MakeCopyVolume", "volume %s divided", GetName());
       vol->SetFinder(fFinder);
    }   
+   // Copy extensions
+   vol->SetUserExtension(fUserExtension);
+   vol->SetFWExtension(fFWExtension);  
    CloneNodesAndConnect(vol);
 //   ((TObject*)vol)->SetBit(kVolumeImportNodes);
    ((TObject*)vol)->SetBit(kVolumeClone);
@@ -1669,13 +1742,17 @@ TGeoVolume *TGeoVolume::MakeReflectedVolume(const char *newname) const
    }   
    TGeoVolume *vol = (TGeoVolume*)map.GetValue(this);
    if (vol) {
-      if (strlen(newname)) vol->SetName(newname);
+      if (newname && newname[0]) vol->SetName(newname);
       return vol;
    }
 //   printf("Making reflection for volume: %s\n", GetName());   
    vol = CloneVolume();
+   if (!vol) {
+      Fatal("MakeReflectedVolume", "Cannot clone volume %s\n", GetName());
+      return 0;
+   }   
    map.Add((TObject*)this, vol);
-   if (strlen(newname)) vol->SetName(newname);
+   if (newname && newname[0]) vol->SetName(newname);
    delete vol->GetNodes();
    vol->SetNodes(NULL);
    vol->SetBit(kVolumeImportNodes, kFALSE);
@@ -1725,6 +1802,10 @@ TGeoVolume *TGeoVolume::MakeReflectedVolume(const char *newname) const
    // Volume is divided, so we have to reflect the division.
 //   printf("   ... divided %s\n", fFinder->ClassName());
    TGeoPatternFinder *new_finder = fFinder->MakeCopy(kTRUE);
+   if (!new_finder) {
+      Fatal("MakeReflectedVolume", "Could not copy finder for volume %s", GetName());
+      return 0;
+   }   
    new_finder->SetVolume(vol);
    vol->SetFinder(new_finder);
    TGeoNodeOffset *nodeoff;
@@ -1878,9 +1959,9 @@ Int_t TGeoVolume::GetByteCount() const
 {
 // get the total size in bytes for this volume
    Int_t count = 28+2+6+4+0;    // TNamed+TGeoAtt+TAttLine+TAttFill+TAtt3D
-   count += strlen(GetName()) + strlen(GetTitle()); // name+title
-   count += 4+4+4+4+4; // fShape + fMedium + fFinder + fField + fNodes
-   count += 8 + strlen(fOption.Data()); // fOption
+   count += fName.Capacity() + fTitle.Capacity(); // name+title
+   count += 7*sizeof(char*); // fShape + fMedium + fFinder + fField + fNodes + 2 extensions
+   count += fOption.Capacity(); // fOption
    if (fShape)  count += fShape->GetByteCount();
    if (fFinder) count += fFinder->GetByteCount();
    if (fNodes) {
@@ -1954,6 +2035,10 @@ TGeoNode *TGeoVolume::ReplaceNode(TGeoNode *nodeorig, TGeoShape *newshape, TGeoM
    // Make a copy of the node
    TGeoNode *newnode = nodeorig->MakeCopyNode();
    // Change the volume for the new node
+   if (!newnode) {
+      Fatal("ReplaceNode", "Cannot make copy node for %s", nodeorig->GetName());
+      return 0;
+   }   
    newnode->SetVolume(vol);
    // Replace the matrix
    if (newpos && !nodeorig->IsOffset()) {
@@ -2058,6 +2143,7 @@ Bool_t TGeoVolume::FindMatrixOfDaughterVolume(TGeoVolume *vol) const
    Int_t nd = GetNdaughters();
    if (!nd) return kFALSE;
    TGeoHMatrix *global = fGeoManager->GetHMatrix();
+   if (!global) return kFALSE;
    TGeoNode *dnode;
    TGeoVolume *dvol;
    TGeoMatrix *local;
@@ -2244,6 +2330,10 @@ void TGeoVolumeMulti::AddVolume(TGeoVolume *vol)
    TGeoVolume *cell;
    if (fDivision) {
       div = (TGeoVolumeMulti*)vol->Divide(fDivision->GetName(), fAxis, fNdiv, fStart, fStep, fNumed, fOption.Data());
+      if (!div) {
+         Fatal("AddVolume", "Cannot divide volume %s", vol->GetName());
+         return;
+      }   
       for (Int_t i=0; i<div->GetNvolumes(); i++) {
          cell = div->GetVolume(i);
          fDivision->AddVolume(cell);
@@ -2300,7 +2390,15 @@ void TGeoVolumeMulti::AddNodeOverlap(const TGeoVolume *vol, Int_t copy_no, TGeoM
 //   printf("--- vmulti %s : node ovlp %s added to %i components\n", GetName(), vol->GetName(), nvolumes);
 }
 
-
+//_____________________________________________________________________________
+TGeoShape *TGeoVolumeMulti::GetLastShape() const
+{
+// Returns the last shape.
+   TGeoVolume *vol = GetVolume(fVolumes->GetEntriesFast()-1);
+   if (!vol) return 0;
+   return vol->GetShape();
+}
+   
 //_____________________________________________________________________________
 TGeoVolume *TGeoVolumeMulti::Divide(const char *divname, Int_t iaxis, Int_t ndiv, Double_t start, Double_t step, Int_t numed, const char *option)
 {
@@ -2367,6 +2465,9 @@ TGeoVolume *TGeoVolumeMulti::MakeCopyVolume(TGeoShape *newshape)
    vol->SetFillStyle(GetFillStyle());
    // copy field
    vol->SetField(fField);
+   // Copy extensions
+   vol->SetUserExtension(fUserExtension);
+   vol->SetFWExtension(fFWExtension);
    // if divided, copy division object
 //    if (fFinder) {
 //       Error("MakeCopyVolume", "volume %s divided", GetName());
@@ -2375,6 +2476,10 @@ TGeoVolume *TGeoVolumeMulti::MakeCopyVolume(TGeoShape *newshape)
    if (fDivision) {
       TGeoVolume *cell;
       TGeoVolumeMulti *div = (TGeoVolumeMulti*)vol->Divide(fDivision->GetName(), fAxis, fNdiv, fStart, fStep, fNumed, fOption.Data());
+      if (!div) {
+         Fatal("MakeCopyVolume", "Cannot divide volume %s", vol->GetName());
+         return 0;
+      }   
       for (i=0; i<div->GetNvolumes(); i++) {
          cell = div->GetVolume(i);
          fDivision->AddVolume(cell);
@@ -2393,6 +2498,10 @@ TGeoVolume *TGeoVolumeMulti::MakeCopyVolume(TGeoShape *newshape)
    for (i=0; i<nd; i++) {
       //create copies of nodes and add them to list
       node = GetNode(i)->MakeCopyNode();
+      if (!node) {
+         Fatal("MakeCopyNode", "cannot make copy node for daughter %d of %s", i, GetName());
+         return 0;
+      }   
       node->SetMotherVolume(vol);
       list->Add(node);
    }
@@ -2527,6 +2636,7 @@ void TGeoVolumeAssembly::CreateThreadData(Int_t nthreads)
          fThreadData[tid] = new ThreadData_t;
       }
    }      
+   TGeoVolume::CreateThreadData(nthreads);
    TThread::UnLock();
 }
 

@@ -145,7 +145,7 @@ void TGeoShapeAssembly::RecomputeBoxLast()
 }  
 
 //_____________________________________________________________________________   
-void TGeoShapeAssembly::ComputeNormal(Double_t *point, Double_t *dir, Double_t *norm)
+void TGeoShapeAssembly::ComputeNormal(const Double_t *point, const Double_t *dir, Double_t *norm)
 {
 // Compute normal to closest surface from POINT. Should not be called.
    if (!fBBoxOK) ((TGeoShapeAssembly*)this)->ComputeBBox();
@@ -167,7 +167,7 @@ void TGeoShapeAssembly::ComputeNormal(Double_t *point, Double_t *dir, Double_t *
 }
 
 //_____________________________________________________________________________
-Bool_t TGeoShapeAssembly::Contains(Double_t *point) const
+Bool_t TGeoShapeAssembly::Contains(const Double_t *point) const
 {
 // Test if point is inside the assembly
    if (!fBBoxOK) ((TGeoShapeAssembly*)this)->ComputeBBox();
@@ -182,7 +182,7 @@ Bool_t TGeoShapeAssembly::Contains(Double_t *point) const
       // get the list of nodes passing thorough the current voxel
       TGeoNavigator *nav = gGeoManager->GetCurrentNavigator();
       TGeoStateInfo &td = *nav->GetCache()->GetInfo();
-      check_list = voxels->GetCheckList(&point[0], ncheck, td);
+      check_list = voxels->GetCheckList(point, ncheck, td);
       if (!check_list) {
          nav->GetCache()->ReleaseInfo();
          return kFALSE;
@@ -223,7 +223,7 @@ Int_t TGeoShapeAssembly::DistancetoPrimitive(Int_t /*px*/, Int_t /*py*/)
 }
 
 //_____________________________________________________________________________
-Double_t TGeoShapeAssembly::DistFromInside(Double_t * /*point*/, Double_t * /*dir*/, Int_t /*iact*/, Double_t /*step*/, Double_t * /*safe*/) const
+Double_t TGeoShapeAssembly::DistFromInside(const Double_t * /*point*/, const Double_t * /*dir*/, Int_t /*iact*/, Double_t /*step*/, Double_t * /*safe*/) const
 {
 // Compute distance from inside point to surface of the hyperboloid.
    Info("DistFromInside", "Cannot compute distance from inside the assembly (but from a component)"); 
@@ -232,7 +232,7 @@ Double_t TGeoShapeAssembly::DistFromInside(Double_t * /*point*/, Double_t * /*di
 
 
 //_____________________________________________________________________________
-Double_t TGeoShapeAssembly::DistFromOutside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoShapeAssembly::DistFromOutside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // compute distance from outside point to surface of the hyperboloid.
 //   fVolume->SetNextNodeIndex(-1);
@@ -350,7 +350,7 @@ void TGeoShapeAssembly::SetSegsAndPols(TBuffer3D & /*buff*/) const
 }
 
 //_____________________________________________________________________________
-Double_t TGeoShapeAssembly::Safety(Double_t *point, Bool_t in) const
+Double_t TGeoShapeAssembly::Safety(const Double_t *point, Bool_t in) const
 {
 // computes the closest distance from given point to this shape, according
 // to option. The matching point on the shape is stored in spoint.
@@ -405,7 +405,7 @@ Double_t TGeoShapeAssembly::Safety(Double_t *point, Bool_t in) const
 }
 
 //_____________________________________________________________________________
-void TGeoShapeAssembly::SavePrimitive(ostream & /*out*/, Option_t * /*option*/ /*= ""*/)
+void TGeoShapeAssembly::SavePrimitive(std::ostream & /*out*/, Option_t * /*option*/ /*= ""*/)
 {
 // Save a primitive as a C++ statement(s) on output stream "out".
 }
@@ -433,3 +433,43 @@ void TGeoShapeAssembly::GetMeshNumbers(Int_t &nvert, Int_t &nsegs, Int_t &npols)
    npols = 0;
 }
 
+//_____________________________________________________________________________
+void TGeoShapeAssembly::Contains_v(const Double_t *points, Bool_t *inside, Int_t vecsize) const
+{
+// Check the inside status for each of the points in the array.
+// Input: Array of point coordinates + vector size
+// Output: Array of Booleans for the inside of each point
+   for (Int_t i=0; i<vecsize; i++) inside[i] = Contains(&points[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoShapeAssembly::ComputeNormal_v(const Double_t *points, const Double_t *dirs, Double_t *norms, Int_t vecsize)
+{
+// Compute the normal for an array o points so that norm.dot.dir is positive
+// Input: Arrays of point coordinates and directions + vector size
+// Output: Array of normal directions
+   for (Int_t i=0; i<vecsize; i++) ComputeNormal(&points[3*i], &dirs[3*i], &norms[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoShapeAssembly::DistFromInside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromInside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoShapeAssembly::DistFromOutside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromOutside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoShapeAssembly::Safety_v(const Double_t *points, const Bool_t *inside, Double_t *safe, Int_t vecsize) const
+{
+// Compute safe distance from each of the points in the input array.
+// Input: Array of point coordinates, array of statuses for these points, size of the arrays
+// Output: Safety values
+   for (Int_t i=0; i<vecsize; i++) safe[i] = Safety(&points[3*i], inside[i]);
+}

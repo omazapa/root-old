@@ -331,7 +331,7 @@ void TGeoPcon::ComputeBBox()
 }   
 
 //_____________________________________________________________________________   
-void TGeoPcon::ComputeNormal(Double_t *point, Double_t *dir, Double_t *norm)
+void TGeoPcon::ComputeNormal(const Double_t *point, const Double_t *dir, Double_t *norm)
 {
 // Compute normal to closest surface from POINT. 
    memset(norm,0,3*sizeof(Double_t));
@@ -391,7 +391,7 @@ void TGeoPcon::ComputeNormal(Double_t *point, Double_t *dir, Double_t *norm)
 }
 
 //_____________________________________________________________________________
-Bool_t TGeoPcon::Contains(Double_t *point) const
+Bool_t TGeoPcon::Contains(const Double_t *point) const
 {
 // test if point is inside this shape
    // check total z range
@@ -442,7 +442,7 @@ Int_t TGeoPcon::DistancetoPrimitive(Int_t px, Int_t py)
 }
 
 //_____________________________________________________________________________
-Double_t TGeoPcon::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoPcon::DistFromInside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // compute distance from inside point to surface of the polycone
    if (iact<3 && safe) {
@@ -505,7 +505,7 @@ Double_t TGeoPcon::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, Do
 }
 
 //_____________________________________________________________________________
-Double_t TGeoPcon::DistToSegZ(Double_t *point, Double_t *dir, Int_t &iz) const
+Double_t TGeoPcon::DistToSegZ(const Double_t *point, const Double_t *dir, Int_t &iz) const
 {
 // compute distance to a pcon Z slice. Segment iz must be valid
    Double_t zmin=fZ[iz];
@@ -544,7 +544,7 @@ Double_t TGeoPcon::DistToSegZ(Double_t *point, Double_t *dir, Int_t &iz) const
 }      
 
 //_____________________________________________________________________________
-Double_t TGeoPcon::DistFromOutside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoPcon::DistFromOutside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // compute distance from outside point to surface of the tube
    if ((iact<3) && safe) {
@@ -1024,7 +1024,7 @@ void TGeoPcon::SetSegsAndPols(TBuffer3D &buff) const
 }   
 
 //_____________________________________________________________________________
-Double_t TGeoPcon::SafetyToSegment(Double_t *point, Int_t ipl, Bool_t in, Double_t safmin) const
+Double_t TGeoPcon::SafetyToSegment(const Double_t *point, Int_t ipl, Bool_t in, Double_t safmin) const
 {
 // Compute safety from POINT to segment between planes ipl, ipl+1 within safmin.
 
@@ -1055,7 +1055,7 @@ Double_t TGeoPcon::SafetyToSegment(Double_t *point, Int_t ipl, Bool_t in, Double
 }
 
 //_____________________________________________________________________________
-Double_t TGeoPcon::Safety(Double_t *point, Bool_t in) const
+Double_t TGeoPcon::Safety(const Double_t *point, Bool_t in) const
 {
 // computes the closest distance from given point to this shape, according
 // to option. The matching point on the shape is stored in spoint.
@@ -1144,22 +1144,22 @@ Double_t TGeoPcon::Safety(Double_t *point, Bool_t in) const
 }
 
 //_____________________________________________________________________________
-void TGeoPcon::SavePrimitive(ostream &out, Option_t * /*option*/ /*= ""*/)
+void TGeoPcon::SavePrimitive(std::ostream &out, Option_t * /*option*/ /*= ""*/)
 {
 // Save a primitive as a C++ statement(s) on output stream "out".
    if (TObject::TestBit(kGeoSavePrimitive)) return;
-   out << "   // Shape: " << GetName() << " type: " << ClassName() << endl;
-   out << "   phi1  = " << fPhi1 << ";" << endl;
-   out << "   dphi  = " << fDphi << ";" << endl;
-   out << "   nz    = " << fNz << ";" << endl;
-   out << "   TGeoPcon *pcon = new TGeoPcon(\"" << GetName() << "\",phi1,dphi,nz);" << endl;
+   out << "   // Shape: " << GetName() << " type: " << ClassName() << std::endl;
+   out << "   phi1  = " << fPhi1 << ";" << std::endl;
+   out << "   dphi  = " << fDphi << ";" << std::endl;
+   out << "   nz    = " << fNz << ";" << std::endl;
+   out << "   TGeoPcon *pcon = new TGeoPcon(\"" << GetName() << "\",phi1,dphi,nz);" << std::endl;
    for (Int_t i=0; i<fNz; i++) {
-      out << "      z     = " << fZ[i] << ";" << endl;
-      out << "      rmin  = " << fRmin[i] << ";" << endl;
-      out << "      rmax  = " << fRmax[i] << ";" << endl;
-      out << "   pcon->DefineSection(" << i << ", z,rmin,rmax);" << endl;
+      out << "      z     = " << fZ[i] << ";" << std::endl;
+      out << "      rmin  = " << fRmin[i] << ";" << std::endl;
+      out << "      rmax  = " << fRmax[i] << ";" << std::endl;
+      out << "   pcon->DefineSection(" << i << ", z,rmin,rmax);" << std::endl;
    }
-   out << "   TGeoShape *" << GetPointerName() << " = pcon;" << endl;
+   out << "   TGeoShape *" << GetPointerName() << " = pcon;" << std::endl;
    TObject::SetBit(TGeoShape::kGeoSavePrimitive);
 }
          
@@ -1349,4 +1349,45 @@ void TGeoPcon::Streamer(TBuffer &R__b)
    } else {
       R__b.WriteClassBuffer(TGeoPcon::Class(),this);
    }
+}
+
+//_____________________________________________________________________________
+void TGeoPcon::Contains_v(const Double_t *points, Bool_t *inside, Int_t vecsize) const
+{
+// Check the inside status for each of the points in the array.
+// Input: Array of point coordinates + vector size
+// Output: Array of Booleans for the inside of each point
+   for (Int_t i=0; i<vecsize; i++) inside[i] = Contains(&points[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoPcon::ComputeNormal_v(const Double_t *points, const Double_t *dirs, Double_t *norms, Int_t vecsize)
+{
+// Compute the normal for an array o points so that norm.dot.dir is positive
+// Input: Arrays of point coordinates and directions + vector size
+// Output: Array of normal directions
+   for (Int_t i=0; i<vecsize; i++) ComputeNormal(&points[3*i], &dirs[3*i], &norms[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoPcon::DistFromInside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromInside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoPcon::DistFromOutside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromOutside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoPcon::Safety_v(const Double_t *points, const Bool_t *inside, Double_t *safe, Int_t vecsize) const
+{
+// Compute safe distance from each of the points in the input array.
+// Input: Array of point coordinates, array of statuses for these points, size of the arrays
+// Output: Safety values
+   for (Int_t i=0; i<vecsize; i++) safe[i] = Safety(&points[3*i], inside[i]);
 }

@@ -1894,6 +1894,41 @@ Int_t TCint::UnloadLibraryMap(const char *library)
 }
 
 //______________________________________________________________________________
+Int_t TCint::SetClassSharedLibs(const char *cls, const char *libs)
+{
+   // Register the autoloading information for a class.
+   // libs is a space separated list of libraries.
+   
+   if (!cls || !*cls)
+      return 0;
+
+   G__set_class_autoloading_table((char*)cls,(char*)libs);
+
+   TString key = TString("Library.") + cls;
+   // convert "::" to "@@", we used "@@" because TEnv
+   // considers "::" a terminator
+   key.ReplaceAll("::", "@@");
+   // convert "-" to " ", since class names may have
+   // blanks and TEnv considers a blank a terminator
+   key.ReplaceAll(" ", "-");
+
+   R__LOCKGUARD(gCINTMutex);
+   if (!fMapfile) {
+      fMapfile = new TEnv(".rootmap");
+      fMapfile->IgnoreDuplicates(kTRUE);
+
+      fRootmapFiles = new TObjArray;
+      fRootmapFiles->SetOwner();
+
+      // Make sure that this information will be useable by inserting our
+      // autoload call back!
+      G__set_class_autoloading_callback(&TCint_AutoLoadCallback);
+   }
+   fMapfile->SetValue(key,libs);
+   return 1;
+}
+
+//______________________________________________________________________________
 Int_t TCint::AutoLoad(const char *cls)
 {
    // Load library containing the specified class. Returns 0 in case of error
@@ -1936,9 +1971,22 @@ Int_t TCint::AutoLoad(const char *cls)
                     lib, cls);
       }
       delete tokens;
+      G__set_class_autoloading(oldvalue);
+   } else {
+      G__set_class_autoloading(oldvalue);
+      // Try the cint only autoloading
+      const char *lib = G__get_class_autoloading_table((char*)cls);
+      if (lib && lib[0]) {
+        if (gROOT->LoadClass(cls, lib) == 0) {
+            if (gDebug > 0)
+               ::Info("TCint::AutoLoad", "loaded library %s for class %s",
+                      lib, cls);
+            status = 1;
+         } else
+            ::Error("TCint::AutoLoad", "failure loading library %s for class %s",
+                    lib, cls);
+      }
    }
-
-   G__set_class_autoloading(oldvalue);
    return status;
 }
 
@@ -3191,6 +3239,15 @@ MethodInfo_t *TCint::MethodInfo_Factory() const
    return info;
 }
 //______________________________________________________________________________
+MethodInfo_t *TCint::MethodInfo_Factory(ClassInfo_t * clinfo) const
+{
+   // Interface to CINT function
+   G__ClassInfo* clinfo1 = (G__ClassInfo*) clinfo;
+   if (clinfo1)
+      return new G__MethodInfo(*clinfo1);
+   return new G__MethodInfo();
+}
+//______________________________________________________________________________
 MethodInfo_t *TCint::MethodInfo_FactoryCopy(MethodInfo_t *minfo) const
 {
    // Interface to CINT function
@@ -3329,6 +3386,15 @@ MethodArgInfo_t *TCint::MethodArgInfo_Factory() const
 
    G__MethodArgInfo *info = new G__MethodArgInfo();
    return info;
+}
+//______________________________________________________________________________
+MethodArgInfo_t *TCint::MethodArgInfo_Factory(MethodInfo_t * minfo) const
+{
+   // Interface to CINT function
+   G__MethodInfo* minfo1 = (G__MethodInfo*)minfo;
+   if (minfo1)
+      return new G__MethodArgInfo(*minfo1);
+   return new G__MethodArgInfo();
 }
 //______________________________________________________________________________
 MethodArgInfo_t *TCint::MethodArgInfo_FactoryCopy(MethodArgInfo_t *marginfo) const
@@ -3528,6 +3594,14 @@ Bool_t  TCint::TypedefInfo_IsValid(TypedefInfo_t *tinfo) const
 
    G__TypedefInfo *info = (G__TypedefInfo*)tinfo;
    return info->IsValid();
+}
+//______________________________________________________________________________
+int  TCint::TypedefInfo_Next(TypedefInfo_t *tinfo) const
+{
+   // Interface to CINT function
+
+   G__TypedefInfo *info = (G__TypedefInfo*)tinfo;
+   return info->Next();
 }
 //______________________________________________________________________________
 Long_t  TCint::TypedefInfo_Property(TypedefInfo_t *tinfo) const

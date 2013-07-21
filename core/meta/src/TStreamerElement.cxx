@@ -252,7 +252,8 @@ TClass *TStreamerElement::GetClassPointer() const
    if (fClassObject!=(TClass*)(-1)) return fClassObject;
    TString className = fTypeName.Strip(TString::kTrailing, '*');
    if (className.Index("const ")==0) className.Remove(0,6);
-   ((TStreamerElement*)this)->fClassObject = TClass::GetClass(className);
+   bool quiet = fType == TVirtualStreamerInfo::kArtificial;
+   ((TStreamerElement*)this)->fClassObject = TClass::GetClass(className,kTRUE,quiet);
    return fClassObject;
 }
 
@@ -521,7 +522,8 @@ TStreamerBase::TStreamerBase(const char *name, const char *title, Int_t offset)
    if (strcmp(name,"TNamed")  == 0) fType = TVirtualStreamerInfo::kTNamed;
    fNewType = fType;
    fBaseClass = TClass::GetClass(GetName());
-   fBaseVersion = fBaseClass->GetClassVersion();
+   if (fBaseClass) fBaseVersion = fBaseClass->GetClassVersion();
+   else fBaseVersion = 0;
    fNewBaseClass = 0;
    Init();
 }

@@ -40,17 +40,13 @@ End_Html */
 #include "THLimitsFinder.h"
 #include "TColor.h"
 
-#ifdef R__SUNCCBUG
-const Double_t kRad = 1.74532925199432955e-02;
-#else
-const Double_t kRad = TMath::ATan(1)*Double_t(4)/Double_t(180);
-#endif
+const Double_t kRad  = TMath::ATan(1)*Double_t(4)/Double_t(180);
 const Double_t kFdel = 0.;
-const Double_t kDel = 0.0001;
-const Int_t kNiso = 4;
+const Double_t kDel  = 0.0001;
+const Int_t kNiso  = 4;
 const Int_t kNmaxp = kNiso*13;
 const Int_t kNmaxt = kNiso*12;
-const Int_t kLmax = 12;
+const Int_t kLmax  = 12;
 const Int_t kF3FillColor1 = 201;
 const Int_t kF3FillColor2 = 202;
 const Int_t kF3LineColor  = 203;
@@ -67,6 +63,9 @@ static Double_t gV[kVSizeMax];
 static Double_t gTT[4*kVSizeMax];
 static Int_t gColorMain[kVSizeMax+1];
 static Int_t gColorDark[kVSizeMax+1];
+static Int_t gEdgeColor[kVSizeMax+1];
+static Int_t gEdgeStyle[kVSizeMax+1];
+static Int_t gEdgeWidth[kVSizeMax+1];
 
 extern TH1  *gCurrentHist; //these 3 globals should be replaced by class members
 extern Hoption_t Hoption;
@@ -86,12 +85,12 @@ TPainter3dAlgorithms::TPainter3dAlgorithms(): TObject(), TAttLine(1,1,1), TAttFi
    fRaster          = 0;
    fColorTop        = 1;
    fColorBottom     = 1;
+   fEdgeIdx         = -1;
    fNlevel          = 0;
    fSystem          = kCARTESIAN;
    fDrawFace        = 0;
    fLegoFunction    = 0;
    fSurfaceFunction = 0;
-
 
    TList *stack = 0;
    if (gCurrentHist) stack = gCurrentHist->GetPainter()->GetStack();
@@ -100,13 +99,19 @@ TPainter3dAlgorithms::TPainter3dAlgorithms(): TObject(), TAttLine(1,1,1), TAttFi
    if (fNStack > kVSizeMax) {
       fColorMain  = new Int_t[fNStack+1];
       fColorDark  = new Int_t[fNStack+1];
+      fEdgeColor  = new Int_t[fNStack+1];
+      fEdgeStyle  = new Int_t[fNStack+1];
+      fEdgeWidth  = new Int_t[fNStack+1];
    } else {
       fColorMain = &gColorMain[0];
       fColorDark = &gColorDark[0];
+      fEdgeColor = &gEdgeColor[0];
+      fEdgeStyle = &gEdgeStyle[0];
+      fEdgeWidth = &gEdgeWidth[0];
    }
 
-   for (i=0;i<fNStack;i++) { fColorMain[i] = 1; fColorDark[i] = 1; }
-   for (i=0;i<3;i++)       { fRmin[i] = 0, fRmax[i] = 1; }
+   for (i=0;i<fNStack;i++) { fColorMain[i] = 1; fColorDark[i] = 1; fEdgeColor[i] = 1; fEdgeStyle[i] = 1; fEdgeWidth[i] = 1; }
+   for (i=0;i<3;i++)       { fRmin[i] = 0; fRmax[i] = 1; }
    for (i=0;i<4;i++)       { fYls[i] = 0; }
 
    for (i=0;i<30;i++)      { fJmask[i] = 0; }
@@ -163,6 +168,7 @@ TPainter3dAlgorithms::TPainter3dAlgorithms(Double_t *rmin, Double_t *rmax, Int_t
    fRaster       = 0;
    fColorTop     = 1;
    fColorBottom  = 1;
+   fEdgeIdx      = -1;
    fNlevel       = 0;
    fSystem       = system;
    if (system == kCARTESIAN || system == kPOLAR) psi =  0;
@@ -177,13 +183,19 @@ TPainter3dAlgorithms::TPainter3dAlgorithms(Double_t *rmin, Double_t *rmax, Int_t
    if (fNStack > kVSizeMax) {
       fColorMain  = new Int_t[fNStack+1];
       fColorDark  = new Int_t[fNStack+1];
+      fEdgeColor  = new Int_t[fNStack+1];
+      fEdgeStyle  = new Int_t[fNStack+1];
+      fEdgeWidth  = new Int_t[fNStack+1];
    } else {
       fColorMain = &gColorMain[0];
       fColorDark = &gColorDark[0];
+      fEdgeColor = &gEdgeColor[0];
+      fEdgeStyle = &gEdgeStyle[0];
+      fEdgeWidth = &gEdgeWidth[0];
    }
 
-   for (i=0;i<fNStack;i++) { fColorMain[i] = 1; fColorDark[i] = 1; }
-   for (i=0;i<3;i++)       { fRmin[i] = rmin[i], fRmax[i] = rmax[i]; }
+   for (i=0;i<fNStack;i++) { fColorMain[i] = 1; fColorDark[i] = 1; fEdgeColor[i] = 1; fEdgeStyle[i] = 1; fEdgeWidth[i] = 1; }
+   for (i=0;i<3;i++)       { fRmin[i] = rmin[i]; fRmax[i] = rmax[i]; }
    for (i=0;i<4;i++)       { fYls[i] = 0; }
 
    for (i=0;i<30;i++)      { fJmask[i] = 0; }
@@ -240,6 +252,9 @@ TPainter3dAlgorithms::~TPainter3dAlgorithms()
    if (fNStack > kVSizeMax) {
       delete [] fColorMain;
       delete [] fColorDark;
+      delete [] fEdgeColor;
+      delete [] fEdgeStyle;
+      delete [] fEdgeWidth;
    }
 }
 
@@ -525,10 +540,17 @@ void TPainter3dAlgorithms::DrawFaceMode2(Int_t *icodes, Double_t *xyz, Int_t np,
    //          D R A W   F A C E   &   B O R D E R
    FillPolygon(np, p3, &t[1]);
    if (fMesh == 1) {
-      SetFillColor(1);
-      SetFillStyle(0);
-      TAttFill::Modify();
-      gPad->PaintFillArea(np, x, y);
+      if (Hoption.Lego!=0 && Hoption.Surf==0) {  // i.e. PaintFillArea for lego, not for surf
+         SetFillColor(fEdgeColor[fEdgeIdx]);
+         SetFillStyle(0);
+         TAttFill::Modify();
+         gPad->PaintFillArea(np, x, y);
+      }
+      SetLineColor(fEdgeColor[fEdgeIdx]);
+      SetLineStyle(fEdgeStyle[fEdgeIdx]);
+      SetLineWidth(fEdgeWidth[fEdgeIdx]);
+      TAttLine::Modify();
+      gPad->PaintPolyLine(np, x, y);
    }
 }
 
@@ -588,9 +610,14 @@ void TPainter3dAlgorithms::DrawFaceMode3(Int_t *icodes, Double_t *xyz, Int_t np,
    gPad->PaintFillArea(np, x, y);
    if (fMesh) {
       SetFillStyle(0);
-      SetFillColor(1);
+      SetFillColor(fEdgeColor[fEdgeIdx]);
       TAttFill::Modify();
       gPad->PaintFillArea(np, x, y);
+      SetLineColor(fEdgeColor[fEdgeIdx]);
+      SetLineStyle(fEdgeStyle[fEdgeIdx]);
+      SetLineWidth(fEdgeWidth[fEdgeIdx]);
+      TAttLine::Modify();
+      gPad->PaintPolyLine(np, x, y);
    }
 }
 
@@ -644,6 +671,13 @@ void TPainter3dAlgorithms::DrawFaceMove1(Int_t *icodes, Double_t *xyz, Int_t np,
 
    //          D R A W   L E V E L   L I N E S
    SetLineStyle(3);
+   if (icodes[3]==0) {  // front & back boxes
+      SetLineColor(1);
+      SetLineWidth(1);
+   } else {
+      SetLineColor(fEdgeColor[fEdgeIdx]);
+      SetLineWidth(fEdgeWidth[fEdgeIdx]);
+   }
    TAttLine::Modify();
    for (il = 1; il <= fNlines; ++il) {
       FindVisibleDraw(&fPlines[(2*il + 1)*3 - 9], &fPlines[(2*il + 2)*3 - 9]);
@@ -661,7 +695,15 @@ void TPainter3dAlgorithms::DrawFaceMove1(Int_t *icodes, Double_t *xyz, Int_t np,
    }
 
    //          D R A W   F A C E
-   SetLineStyle(1);
+   if (icodes[3]==0) {  // front & back boxes
+      SetLineColor(1);
+      SetLineStyle(1);
+      SetLineWidth(1);
+   } else {
+      SetLineColor(fEdgeColor[fEdgeIdx]);
+      SetLineStyle(fEdgeStyle[fEdgeIdx]);
+      SetLineWidth(fEdgeWidth[fEdgeIdx]);
+   }
    TAttLine::Modify();
    for (i = 1; i <= np; ++i) {
       i1 = i;
@@ -739,6 +781,15 @@ void TPainter3dAlgorithms::DrawFaceMove3(Int_t *icodes, Double_t *xyz, Int_t np,
    FindLevelLines(np, p3, &tt[1]);
 
    // Draw level lines
+   if (icodes[3]==0) {  // front and back boxes
+      SetLineColor(1);
+      SetLineStyle(1);
+      SetLineWidth(1);
+   } else {
+      SetLineColor(fEdgeColor[fEdgeIdx]);
+      SetLineStyle(fEdgeStyle[fEdgeIdx]);
+      SetLineWidth(fEdgeWidth[fEdgeIdx]);
+   }
    TAttLine::Modify();
    for (il = 1; il <= fNlines; ++il) {
       FindVisibleDraw(&fPlines[(2*il + 1)*3 - 9], &fPlines[(2*il + 2)*3 - 9]);
@@ -787,7 +838,7 @@ void TPainter3dAlgorithms::DrawFaceMove2(Int_t *icodes, Double_t *xyz, Int_t np,
    //                       (not used in this routine)
 
    Double_t xdel, ydel;
-   Int_t i, k, icol, i1, i2, it;
+   Int_t i, k, i1, i2, it;
    Double_t x[2], y[2];
    Double_t p1[3], p2[3], p3[36]        /* was [3][12] */;
    TView *view = 0;
@@ -810,9 +861,15 @@ void TPainter3dAlgorithms::DrawFaceMove2(Int_t *icodes, Double_t *xyz, Int_t np,
    }
 
    //          D R A W   F A C E
-   icol = icodes[3];
-   if (icol) SetLineColor(fColorMain[icol - 1]);
-   else      SetLineColor(1);
+   if (icodes[3]==0) {  // front & back boxes
+      SetLineColor(1);
+      SetLineStyle(1);
+      SetLineWidth(1);
+   } else {
+      SetLineColor(fEdgeColor[fEdgeIdx]);
+      SetLineStyle(fEdgeStyle[fEdgeIdx]);
+      SetLineWidth(fEdgeWidth[fEdgeIdx]);
+   }
    TAttLine::Modify();
    for (i = 1; i <= np; ++i) {
       i1 = i;
@@ -893,6 +950,13 @@ void TPainter3dAlgorithms::DrawFaceRaster1(Int_t *icodes, Double_t *xyz, Int_t n
 
    //          D R A W   L E V E L   L I N E S
    SetLineStyle(3);
+   if (icodes[3]==0) {  // front & back boxes
+      SetLineColor(1);
+      SetLineWidth(1);
+   } else {
+      SetLineColor(fEdgeColor[fEdgeIdx]);
+      SetLineWidth(fEdgeWidth[fEdgeIdx]);
+   }
    TAttLine::Modify();
    for (il = 1; il <= fNlines; ++il) {
       view->WCtoNDC(&fPlines[(2*il + 1)*3 - 9], p1);
@@ -910,7 +974,15 @@ void TPainter3dAlgorithms::DrawFaceRaster1(Int_t *icodes, Double_t *xyz, Int_t n
    }
 
    //          D R A W   F A C E
-   SetLineStyle(1);
+   if (icodes[3]==0) {  // front & back boxes
+      SetLineColor(1);
+      SetLineStyle(1);
+      SetLineWidth(1);
+   } else {
+      SetLineColor(fEdgeColor[fEdgeIdx]);
+      SetLineStyle(fEdgeStyle[fEdgeIdx]);
+      SetLineWidth(fEdgeWidth[fEdgeIdx]);
+   }
    TAttLine::Modify();
    for (i = 1; i <= np; ++i) {
       if (iface[i] < 0) continue;
@@ -955,7 +1027,7 @@ void TPainter3dAlgorithms::DrawFaceRaster2(Int_t *icodes, Double_t *xyz, Int_t n
    //                       (not used in this routine)
 
    Double_t xdel, ydel;
-   Int_t i, k, icol, i1, i2, it;
+   Int_t i, k, i1, i2, it;
    Double_t p[3], x[2], y[2];
    Double_t pp[24]        /* was [2][12] */;
    TView *view = 0;
@@ -979,9 +1051,9 @@ void TPainter3dAlgorithms::DrawFaceRaster2(Int_t *icodes, Double_t *xyz, Int_t n
    }
 
    //          D R A W   F A C E
-   icol = icodes[3];
-   if (icol) SetLineColor(fColorMain[icol - 1]);
-   else      SetLineColor(1);
+   SetLineColor(fEdgeColor[fEdgeIdx]);
+   SetLineStyle(fEdgeStyle[fEdgeIdx]);
+   SetLineWidth(fEdgeWidth[fEdgeIdx]);
    TAttLine::Modify();
    for (i = 1; i <= np; ++i) {
       if (iface[i] < 0) continue;
@@ -2228,7 +2300,7 @@ void TPainter3dAlgorithms::LegoFunction(Int_t ia, Int_t ib, Int_t &nv, Double_t 
    //              Get the content of the table, and loop on the
    //              stack if necessary.
    vv[1] = Hparam.zmin;
-   vv[2] = Hparam.factor*gCurrentHist->GetCellContent(ixt, iyt);
+   vv[2] = Hparam.factor*gCurrentHist->GetBinContent(ixt, iyt);
 
    // In linear scale, 3D boxes all start from 0.
    if (Hparam.zmin<0 && !Hoption.Logz && gStyle->GetHistMinimumZero()) {
@@ -2246,7 +2318,7 @@ void TPainter3dAlgorithms::LegoFunction(Int_t ia, Int_t ib, Int_t &nv, Double_t 
    if (nids) {
       for (i = 2; i <= nids + 1; ++i) {
          TH1 *hid = (TH1*)stack->At(i-2);
-         vv[i + 1] = Hparam.factor*hid->GetCellContent(ixt, iyt) + vv[i];
+         vv[i + 1] = Hparam.factor*hid->GetBinContent(ixt, iyt) + vv[i];
          vv[i + 1] = TMath::Max(Hparam.zmin, vv[i + 1]);
          //vv[i + 1] = TMath::Min(Hparam.zmax, vv[i + 1]);
       }
@@ -2341,6 +2413,7 @@ void TPainter3dAlgorithms::LegoCartesian(Double_t ang, Int_t nx, Int_t ny, const
    Double_t xyz[24];   // was [3][8]
    Double_t *tn = 0;
    TView *view = 0;
+   Int_t firstStackNumberDrawn=-1 ;  // necessary to compute fColorBottom when the 0 option is set and when the stack is seen from below (bottomview, theta<0.)
 
    sina = TMath::Sin(ang*kRad);
    cosa = TMath::Cos(ang*kRad);
@@ -2422,6 +2495,7 @@ void TPainter3dAlgorithms::LegoCartesian(Double_t ang, Int_t nx, Int_t ny, const
             xyz[(i + 4)*3 - 2] = xyz[i*3 - 2];
          }
    //         D R A W   S T A C K
+         firstStackNumberDrawn = -1;
          for (iv = 1; iv < nv; ++iv) {
             for (i = 1; i <= 4; ++i) {
                xyz[i*3 - 1] = v[iv - 1];
@@ -2443,8 +2517,10 @@ void TPainter3dAlgorithms::LegoCartesian(Double_t ang, Int_t nx, Int_t ny, const
                tface[1] = tt[k2 + (iv << 2) - 5];
                tface[2] = tt[k2 + ((iv + 1) << 2) - 5];
                tface[3] = tt[k1 + ((iv + 1) << 2) - 5];
+               fEdgeIdx = iv-1;
                (this->*fDrawFace)(icodes, xyz, 4, iface, tface);
             }
+            if ( firstStackNumberDrawn==-1 ) firstStackNumberDrawn = fEdgeIdx;
          }
    //         D R A W   B O T T O M   F A C E
          view->FindNormal(0, 0, 1, zn);
@@ -2455,6 +2531,11 @@ void TPainter3dAlgorithms::LegoCartesian(Double_t ang, Int_t nx, Int_t ny, const
                xyz[i*3 - 1] = v[0];
                iface[i - 1] = 5 - i;
                tface[i - 1] = tt[5 - i - 1];
+            }
+            if (!Hoption.Zero) fEdgeIdx = 0;
+            else {
+               fEdgeIdx = firstStackNumberDrawn;
+               fColorBottom = fColorMain[fEdgeIdx];
             }
             (this->*fDrawFace)(icodes, xyz, 4, iface, tface);
          }
@@ -2467,9 +2548,15 @@ void TPainter3dAlgorithms::LegoCartesian(Double_t ang, Int_t nx, Int_t ny, const
                tface[i - 1] = tt[i + (nv << 2) - 5];
             }
             Int_t cs = fColorTop;
-            if ( nv > 2 && (v[nv-1] == v[nv-2])) {
-               for (iv = nv-1; iv>2; iv--) {
-                  if (v[nv-1] == v[iv-1]) fColorTop = fColorMain[iv-2];
+            if ( nv <= 3 ) fEdgeIdx = 0 ;  // no stack or stack with only one histo
+            else {
+               if ( nv > 2 && (v[nv-1] == v[nv-2])) {
+                  for (iv = nv-1; iv>2; iv--) {
+                     if (v[nv-1] == v[iv-1]) {
+                        fColorTop = fColorMain[iv-2];
+                        fEdgeIdx  = iv-2;
+                     }
+                  }
                }
             }
             (this->*fDrawFace)(icodes, xyz, 4, iface, tface);
@@ -2530,6 +2617,7 @@ void TPainter3dAlgorithms::LegoPolar(Int_t iordr, Int_t na, Int_t nb, const char
    Double_t xyz[24];     // was [3][8]
    ia = ib = 0;
    TView *view = 0;
+   Int_t firstStackNumberDrawn=-1 ;  // necessary to compute fColorBottom when the 0 option is set and when the stack is seen from below (bottomview, theta<0.)
 
    if (gPad) view = gPad->GetView();
    if (!view) {
@@ -2626,6 +2714,7 @@ L100:
          xyz[(j + 4)*3 - 2] = xyz[j*3 - 2];
       }
    //      D R A W   S T A C K
+      firstStackNumberDrawn = -1;
       for (iv = 1; iv < nv; ++iv) {
          for (i = 1; i <= 4; ++i) {
             xyz[i*3 - 1] = v[iv - 1];
@@ -2649,8 +2738,10 @@ L100:
             tface[2] = tt[k2 + ((iv + 1) << 2) - 5];
             tface[3] = tt[k1 + ((iv + 1) << 2) - 5];
             icodes[3] = i;
+            fEdgeIdx  = iv-1;
             (this->*fDrawFace)(icodes, xyz, 4, iface, tface);
          }
+         if ( firstStackNumberDrawn==-1 ) firstStackNumberDrawn = fEdgeIdx;
       }
    //         D R A W   B O T T O M   F A C E
       if (ivis[4] != 0) {
@@ -2660,6 +2751,11 @@ L100:
             xyz[i*3 - 1] = v[0];
             iface[i - 1] = 5 - i;
             tface[i - 1] = tt[5 - i - 1];
+         }
+         if (!Hoption.Zero) fEdgeIdx = 0;
+         else {
+            fEdgeIdx = firstStackNumberDrawn;
+            fColorBottom = fColorMain[fEdgeIdx];
          }
          (this->*fDrawFace)(icodes, xyz, 4, iface, tface);
       }
@@ -2672,9 +2768,15 @@ L100:
             tface[i - 1] = tt[i + (nv << 2) - 5];
          }
          Int_t cs = fColorTop;
-         if ( nv > 2 && (v[nv-1] == v[nv-2])) {
-            for (iv = nv-1; iv>2; iv--) {
-               if (v[nv-1] == v[iv-1]) fColorTop = fColorMain[iv-2];
+         if ( nv <= 3 ) fEdgeIdx = 0 ;  // no stack or stack with only one histo
+         else {
+            if ( nv > 2 && (v[nv-1] == v[nv-2])) {
+               for (iv = nv-1; iv>2; iv--) {
+                  if (v[nv-1] == v[iv-1]) {
+                     fColorTop = fColorMain[iv-2];
+                     fEdgeIdx = iv-2;
+                  }
+               }
             }
          }
          (this->*fDrawFace)(icodes, xyz, 4, iface, tface);
@@ -2752,6 +2854,7 @@ void TPainter3dAlgorithms::LegoCylindrical(Int_t iordr, Int_t na, Int_t nb, cons
    Double_t xyz[24];     // was [3][8]
    ia = ib = 0;
    TView *view = 0;
+   Int_t firstStackNumberDrawn=-1 ;  // necessary to compute fColorBottom when the 0 option is set and when the stack is seen from below (bottomview, theta<0.)
 
    if (gPad) view = gPad->GetView();
    if (!view) {
@@ -2849,6 +2952,7 @@ L100:
          xyz[(j + 4)*3 - 1] = ab[jz + 2*i - 3];
       }
    //      D R A W   S T A C K
+      firstStackNumberDrawn = -1;
       for (iv = 1; iv < nv; ++iv) {
          for (i = 1; i <= 4; ++i) {
             xyz[i*3 - 3] = v[iv - 1]*cosphi[i - 1];
@@ -2872,8 +2976,10 @@ L100:
             tface[2] = tt[k2 + ((iv + 1) << 2) - 5];
             tface[3] = tt[k1 + ((iv + 1) << 2) - 5];
             icodes[3] = i;
+            fEdgeIdx = iv-1;
             (this->*fDrawFace)(icodes, xyz, 4, iface, tface);
          }
+         if ( firstStackNumberDrawn==-1 ) firstStackNumberDrawn = fEdgeIdx;
       }
    //       D R A W   B O T T O M   F A C E
       if (ivis[4] != 0 && v[0] > 0) {
@@ -2884,6 +2990,11 @@ L100:
             xyz[i*3 - 2] = v[0]*sinphi[i - 1];
             iface[i - 1] = i;
             tface[i - 1] = tt[i - 1];
+         }
+         if (!Hoption.Zero) fEdgeIdx = 0;
+         else {
+            fEdgeIdx = firstStackNumberDrawn;
+            fColorBottom = fColorMain[fEdgeIdx];
          }
          (this->*fDrawFace)(icodes, xyz, 4, iface, tface);
       }
@@ -2896,9 +3007,15 @@ L100:
             tface[i - 1] = tt[5 - i + (nv << 2) - 5];
          }
          Int_t cs = fColorTop;
-         if ( nv > 2 && (v[nv-1] == v[nv-2])) {
-            for (iv = nv-1; iv>2; iv--) {
-               if (v[nv-1] == v[iv-1]) fColorTop = fColorMain[iv-2];
+         if ( nv <= 3 ) fEdgeIdx = 0 ;  // no stack or stack with only one histo
+         else {
+            if ( nv > 2 && (v[nv-1] == v[nv-2])) {
+               for (iv = nv-1; iv>2; iv--) {
+                  if (v[nv-1] == v[iv-1]) {
+                     fColorTop = fColorMain[iv-2];
+                     fEdgeIdx = iv-2;
+                  }
+               }
             }
          }
          (this->*fDrawFace)(icodes, xyz, 4, iface, tface);
@@ -2974,6 +3091,7 @@ void TPainter3dAlgorithms::LegoSpherical(Int_t ipsdr, Int_t iordr, Int_t na, Int
    Double_t phi1, phi2;
    ia = ib = 0;
    TView *view = 0;
+   Int_t firstStackNumberDrawn=-1 ;  // necessary to compute fColorBottom when the 0 option is set and when the stack is seen from below (bottomview, theta<0.)
 
    if (gPad) view = gPad->GetView();
    if (!view) {
@@ -3102,6 +3220,7 @@ L200:
       cosphi[j - 1] = TMath::Cos(kRad*ab[jphi + 2*i - 3]);
       sinphi[j - 1] = TMath::Sin(kRad*ab[jphi + 2*i - 3]);
    }
+   firstStackNumberDrawn = -1;
    for (iv = 1; iv < nv; ++iv) {
       if (ipsdr == 1) {
          for (i = 1; i <= 4; ++i) {
@@ -3138,8 +3257,10 @@ L200:
          tface[2] = tt[k2 + ((iv + 1) << 2) - 5];
          tface[3] = tt[k1 + ((iv + 1) << 2) - 5];
          icodes[3] = i;
+         fEdgeIdx = iv-1;
          (this->*fDrawFace)(icodes, xyz, 4, iface, tface);
       }
+      if ( firstStackNumberDrawn==-1 ) firstStackNumberDrawn = fEdgeIdx;
    }
    //      D R A W   B O T T O M   F A C E
    if (ivis[4] != 0 && v[0] > 0) {
@@ -3158,6 +3279,11 @@ L200:
          iface[i - 1] = 5 - i;
          tface[i - 1] = tt[5 - i - 1];
       }
+      if (!Hoption.Zero) fEdgeIdx = 0;
+      else {
+         fEdgeIdx = firstStackNumberDrawn;
+         fColorBottom = fColorMain[fEdgeIdx];
+      }
       (this->*fDrawFace)(icodes, xyz, 4, iface, tface);
    }
    //      D R A W   T O P   F A C E
@@ -3169,9 +3295,15 @@ L200:
          tface[i - 1] = tt[i + 4 + 2*nv - 5];
       }
       Int_t cs = fColorTop;
-      if ( nv > 2 && (v[nv-1] == v[nv-2])) {
-         for (iv = nv-1; iv>2; iv--) {
-            if (v[nv-1] == v[iv-1]) fColorTop = fColorMain[iv-2];
+      if ( nv <= 3 ) fEdgeIdx = 0 ;  // no stack or stack with only one histo
+      else {
+         if ( nv > 2 && (v[nv-1] == v[nv-2])) {
+            for (iv = nv-1; iv>2; iv--) {
+               if (v[nv-1] == v[iv-1]) {
+                  fColorTop = fColorMain[iv-2];
+                  fEdgeIdx  = iv-2;
+               }
+            }
          }
       }
       (this->*fDrawFace)(icodes, xyz, 4, iface, tface);
@@ -3500,6 +3632,18 @@ void TPainter3dAlgorithms::SetColorMain(Color_t color, Int_t n)
 
 
 //______________________________________________________________________________
+void TPainter3dAlgorithms::SetEdgeAtt(Color_t color, Style_t style, Width_t width, Int_t n)
+{
+
+   // Store edge attributes
+
+   fEdgeColor[n] = color;
+   fEdgeStyle[n] = style;
+   fEdgeWidth[n] = width;
+}
+
+
+//______________________________________________________________________________
 void TPainter3dAlgorithms::SideVisibilityDecode(Double_t val, Int_t &iv1, Int_t &iv2, Int_t &iv3, Int_t &iv4, Int_t &iv5, Int_t &iv6, Int_t &ir)
 {
    // Decode side visibilities and order along R for sector
@@ -3666,7 +3810,7 @@ void TPainter3dAlgorithms::SurfaceCartesian(Double_t ang, Int_t nx, Int_t ny, co
    Double_t cosa, sina, f[12]        /* was [3][4] */;
    Int_t i, incrx, incry, i1, ix, iy;
    Double_t tt[4];
-   Int_t icodes[2], ix1, iy1, ix2, iy2;
+   Int_t icodes[3], ix1, iy1, ix2, iy2;  // was icode[2]. One element more to differentiate front & back boxes from data
    Double_t xyz[12]        /* was [3][4] */;
    Double_t *tn;
 
@@ -3702,6 +3846,8 @@ void TPainter3dAlgorithms::SurfaceCartesian(Double_t ang, Int_t nx, Int_t ny, co
    iy2 = ny - iy1 + 1;
 
    //          D R A W   S U R F A C E
+   icodes[2] = -1;   // -1 for data, 0 for front a back boxes
+   fEdgeIdx = 0;   // constant since stacks are not (yet?) handled for surfaces
    THistPainter *painter = (THistPainter*)gCurrentHist->GetPainter();
    for (iy = iy1; incry < 0 ? iy >= iy2 : iy <= iy2; iy += incry) {
       for (ix = ix1; incrx < 0 ? ix >= ix2 : ix <= ix2; ix += incrx) {
@@ -3822,7 +3968,7 @@ void TPainter3dAlgorithms::SurfaceFunction(Int_t ia, Int_t ib, Double_t *f, Doub
    //          first channel should be used. */
       icx = ixt + ixa;
       if (icx > Hparam.xlast) icx = 1;
-      f[i*3+3] = Hparam.factor*gCurrentHist->GetCellContent(icx, iyt + iya);
+      f[i*3+3] = Hparam.factor*gCurrentHist->GetBinContent(icx, iyt + iya);
       if (Hoption.Logz) {
          if (f[i*3+3] > 0) f[i*3+3] = TMath::Log10(f[i*3+3]);
          else              f[i*3+3] = Hparam.zmin;
@@ -3834,7 +3980,7 @@ void TPainter3dAlgorithms::SurfaceFunction(Int_t ia, Int_t ib, Double_t *f, Doub
       }
 
    // The colors on the surface can represent the content or the errors.
-   // if (fSumw2.fN) t[i] = gCurrentHist->GetCellError(icx, iyt + iya);
+   // if (fSumw2.fN) t[i] = gCurrentHist->GetBinError(icx, iyt + iya);
    // else           t[i] = f[i * 3 + 3];
       t[i] = f[i * 3 + 3];
    }
@@ -3897,7 +4043,7 @@ void TPainter3dAlgorithms::SurfacePolar(Int_t iordr, Int_t na, Int_t nb, const c
    Double_t f[12]        /* was [3][4] */;
    Int_t i, j, incrr, ir1, ir2;
    Double_t z;
-   Int_t ia, ib, ir, jr, nr, icodes[2];
+   Int_t ia, ib, ir, jr, nr, icodes[3];  // was icode[2]. One element more to differentiate front & back boxes from data
    Double_t tt[4];
    Double_t phi, ttt[4], xyz[12]        /* was [3][4] */;
    ia = ib = 0;
@@ -3936,6 +4082,8 @@ void TPainter3dAlgorithms::SurfacePolar(Int_t iordr, Int_t na, Int_t nb, const c
    view->FindPhiSectors(iopt, kphi, fAphi, iphi1, iphi2);
 
    //       D R A W   S U R F A C E
+   icodes[2] = -1;   // -1 for data, 0 for front a back boxes
+   fEdgeIdx = 0;   // constant since stacks are not (yet?) handled for surfaces
    incr = 1;
    iphi = iphi1;
 L100:
@@ -4032,7 +4180,7 @@ void TPainter3dAlgorithms::SurfaceCylindrical(Int_t iordr, Int_t na, Int_t nb, c
 
    Int_t iphi, jphi, kphi, incr, nphi, iopt, iphi1, iphi2;
    Int_t i, j, incrz, nz, iz1, iz2;
-   Int_t ia, ib, iz, jz, icodes[2];
+   Int_t ia, ib, iz, jz, icodes[3];  // was icode[2]. One element more to differentiate front & back boxes from data
    Double_t f[12]        /* was [3][4] */;
    Double_t z;
    Double_t tt[4];
@@ -4090,6 +4238,8 @@ void TPainter3dAlgorithms::SurfaceCylindrical(Int_t iordr, Int_t na, Int_t nb, c
    iz2 = nz - iz1 + 1;
 
    //       D R A W   S U R F A C E
+   icodes[2] = -1;   // -1 for data, 0 for front a back boxes
+   fEdgeIdx = 0;   // constant since stacks are not (yet?) handled for surfaces
    incr = 1;
    iphi = iphi1;
 L100:
@@ -4164,7 +4314,7 @@ void TPainter3dAlgorithms::SurfaceSpherical(Int_t ipsdr, Int_t iordr, Int_t na, 
 
    Int_t iphi, jphi, kphi, incr, nphi, iopt, iphi1, iphi2;
    Int_t i, j, incrth, ith, jth, kth, nth, mth, ith1, ith2;
-   Int_t ia, ib, icodes[2];
+   Int_t ia, ib, icodes[3];  // was icode[2]. One element more to differentiate front & back boxes from data
    Double_t f[12]        /* was [3][4] */;
    Double_t tt[4];
    Double_t phi;
@@ -4231,6 +4381,8 @@ void TPainter3dAlgorithms::SurfaceSpherical(Int_t ipsdr, Int_t iordr, Int_t na, 
    }
 
    //       D R A W   S U R F A C E
+   icodes[2] = -1;   // -1 for data, 0 for front a back boxes
+   fEdgeIdx = 0;   // constant since stacks are not (yet?) handled for surfaces
    kth  = nth;
    incr = 1;
    iphi = iphi1;
@@ -5073,7 +5225,6 @@ L300:
    MarchingCubeSurfacePenetration(fF8[3], fF8[2], fF8[6], fF8[7],
                                   fF8[0], fF8[1], fF8[5], fF8[4], irep);
    if (irep != 2) goto L400;
-///   IHMCTT(NTRIA,IT8,ITRIA)
    ntria = 9;
    icase = 9;
 

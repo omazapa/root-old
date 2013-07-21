@@ -968,7 +968,14 @@ Int_t TProof::Init(const char *, const char *conffile,
    fAllMonitor->DeActivateAll();
 
    // By default go into parallel mode
-   GoParallel(9999, attach);
+   Int_t nwrk = -1;
+   TNamed *n = 0;
+   if (TProof::GetEnvVars() &&
+      (n = (TNamed *) TProof::GetEnvVars()->FindObject("PROOF_NWORKERS"))) {
+      TString s(n->GetTitle());
+      if (s.IsDigit()) nwrk = s.Atoi();
+   }
+   GoParallel(nwrk, attach);
 
    // Send relevant initial state to slaves
    if (!attach)
@@ -1135,7 +1142,7 @@ void TProof::ParseConfigField(const char *config)
          // Request for a given number of workers (within the max) or worker
          // startup combination:
          //      workers=5         start max 5 workers (or less, if less are assigned)
-         //      workers=2x        start max 2 workers (or less, if less are assigned)
+         //      workers=2x        start max 2 workers per node (or less, if less are assigned)
          opt.ReplaceAll("workers=","");
          TProof::AddEnvVar("PROOF_NWORKERS", opt);
       }
@@ -1336,8 +1343,14 @@ Int_t TProof::AddWorkers(TList *workerList)
    // use fEnabledPackages, fLoadedMacros,
    // gSystem->GetDynamicPath() and gSystem->GetIncludePath()
    // no need to load packages that are only loaded and not enabled (dyn mode)
-
-   SetParallel(99999, 0);
+   Int_t nwrk = -1;
+   TNamed *n = 0;
+   if (TProof::GetEnvVars() &&
+      (n = (TNamed *) TProof::GetEnvVars()->FindObject("PROOF_NWORKERS"))) {
+      TString s(n->GetTitle());
+      if (s.IsDigit()) nwrk = s.Atoi();
+   }
+   GoParallel(nwrk, kFALSE, 0);
       
    if (gProofServ && gProofServ->GetEnabledPackages() &&
        gProofServ->GetEnabledPackages()->GetSize() > 0) {
@@ -6586,6 +6599,33 @@ Int_t TProof::SendFile(const char *file, Int_t opt, const char *rfile, TSlave *w
 }
 
 //______________________________________________________________________________
+Int_t TProof::Echo(const TObject *obj)
+{
+   // Sends an object to master and workers and expect them to send back a
+   // message with the output of its TObject::Print(). Returns -1 on error, the
+   // number of workers that received the objects on success.
+
+   if (!IsValid() || !obj) return -1;
+   TMessage mess(kPROOF_ECHO);
+   mess.WriteObject(obj);
+   return Broadcast(mess);
+}
+
+//______________________________________________________________________________
+Int_t TProof::Echo(const char *str)
+{
+   // Sends a string to master and workers and expect them to echo it back to
+   // the client via a message. It is a special case of the generic Echo()
+   // that works with TObjects. Returns -1 on error, the number of workers that
+   // received the message on success.
+
+   TObjString *os = new TObjString(str);
+   Int_t rv = Echo(os);
+   delete os;
+   return rv;
+}
+
+//______________________________________________________________________________
 Int_t TProof::SendObject(const TObject *obj, ESlaves list)
 {
    // Send object to master or slave servers. Returns number of slaves object
@@ -6652,7 +6692,7 @@ Int_t TProof::SetParallelSilent(Int_t nodes, Bool_t random)
    if (!IsValid()) return -1;
 
    if (TestBit(TProof::kIsMaster)) {
-      GoParallel(nodes, kFALSE, random);
+      if (!fDynamicStartup) GoParallel(nodes, kFALSE, random);
       return SendCurrentState();
    } else {
       PDB(kGlobal,1) Info("SetParallelSilent", "request %d node%s", nodes,
@@ -6673,6 +6713,10 @@ Int_t TProof::SetParallel(Int_t nodes, Bool_t random)
    // Tell PROOF how many slaves to use in parallel. Returns the number of
    // parallel slaves. Returns -1 in case of error.
 
+   if (fDynamicStartup && nodes < 0) {
+      if (gSystem->Getenv("PROOF_NWORKERS")) gSystem->Unsetenv("PROOF_NWORKERS");
+   }
+   
    Int_t n = SetParallelSilent(nodes, random);
    if (TestBit(TProof::kIsClient)) {
       if (n < 1) {
@@ -6683,6 +6727,9 @@ Int_t TProof::SetParallel(Int_t nodes, Bool_t random)
             subfix += ", randomly selected";
          Printf("PROOF set to parallel mode (%d worker%s)", n, subfix.Data());
       }
+   } else if (fDynamicStartup && nodes >= 0) {
+      if (gSystem->Getenv("PROOF_NWORKERS")) gSystem->Unsetenv("PROOF_NWORKERS");
+      gSystem->Setenv("PROOF_NWORKERS", TString::Format("%d", nodes));
    }
    return n;
 }
@@ -6698,8 +6745,6 @@ Int_t TProof::GoParallel(Int_t nodes, Bool_t attach, Bool_t random)
    // Returns -1 in case of error.
 
    if (!IsValid()) return -1;
-
-   if (nodes < 0) nodes = 0;
 
    fActiveSlaves->Clear();
    fActiveMonitor->RemoveAll();
@@ -6725,7 +6770,7 @@ Int_t TProof::GoParallel(Int_t nodes, Bool_t attach, Bool_t random)
          sl->SetStatus(TSlave::kInactive);
       }
    }
-   Int_t nwrks = (nodes > wlst->GetSize()) ? wlst->GetSize() : nodes;
+   Int_t nwrks = (nodes < 0 || nodes > wlst->GetSize()) ? wlst->GetSize() : nodes;
    int cnt = 0;
    fEndMaster = TestBit(TProof::kIsMaster) ? kTRUE : kFALSE;
    while (cnt < nwrks) {

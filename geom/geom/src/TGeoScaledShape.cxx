@@ -104,7 +104,7 @@ void TGeoScaledShape::ComputeBBox()
 }   
 
 //_____________________________________________________________________________   
-void TGeoScaledShape::ComputeNormal(Double_t *point, Double_t *dir, Double_t *norm)
+void TGeoScaledShape::ComputeNormal(const Double_t *point, const Double_t *dir, Double_t *norm)
 {
 // Compute normal to closest surface from POINT.
    Double_t local[3], ldir[3], lnorm[3];
@@ -118,7 +118,7 @@ void TGeoScaledShape::ComputeNormal(Double_t *point, Double_t *dir, Double_t *no
 }
 
 //_____________________________________________________________________________
-Bool_t TGeoScaledShape::Contains(Double_t *point) const
+Bool_t TGeoScaledShape::Contains(const Double_t *point) const
 {
 // Test if point is inside the scaled shape
    Double_t local[3];
@@ -135,7 +135,7 @@ Int_t TGeoScaledShape::DistancetoPrimitive(Int_t px, Int_t py)
 }
 
 //_____________________________________________________________________________
-Double_t TGeoScaledShape::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoScaledShape::DistFromInside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // Compute distance from inside point to surface of the scaled shape.
    Double_t local[3], ldir[3];
@@ -152,7 +152,7 @@ Double_t TGeoScaledShape::DistFromInside(Double_t *point, Double_t *dir, Int_t i
 
 
 //_____________________________________________________________________________
-Double_t TGeoScaledShape::DistFromOutside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoScaledShape::DistFromOutside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // Compute distance from outside point to surface of the scaled shape.
    Double_t local[3], ldir[3];
@@ -281,7 +281,7 @@ void TGeoScaledShape::SetSegsAndPols(TBuffer3D &buff) const
 }
 
 //_____________________________________________________________________________
-Double_t TGeoScaledShape::Safety(Double_t *point, Bool_t in) const
+Double_t TGeoScaledShape::Safety(const Double_t *point, Bool_t in) const
 {
 // computes the closest distance from given point to this shape, according
 // to option. The matching point on the shape is stored in spoint.
@@ -293,23 +293,23 @@ Double_t TGeoScaledShape::Safety(Double_t *point, Bool_t in) const
 }
 
 //_____________________________________________________________________________
-void TGeoScaledShape::SavePrimitive(ostream &out, Option_t *option)
+void TGeoScaledShape::SavePrimitive(std::ostream &out, Option_t *option)
 {
 // Save a primitive as a C++ statement(s) on output stream "out".
    if (TObject::TestBit(kGeoSavePrimitive)) return;
-   out << "   // Shape: " << GetName() << " type: " << ClassName() << endl;
+   out << "   // Shape: " << GetName() << " type: " << ClassName() << std::endl;
    if (!fShape || !fScale) {
-      out << "##### Invalid shape or scale !. Aborting. #####" << endl;
+      out << "##### Invalid shape or scale !. Aborting. #####" << std::endl;
       return;
    }
    fShape->SavePrimitive(out, option);
    TString sname = fShape->GetPointerName();
    const Double_t *sc = fScale->GetScale();
-   out << "   // Scale factor:" << endl;
+   out << "   // Scale factor:" << std::endl;
    out << "   TGeoScale *pScale = new TGeoScale(\"" << fScale->GetName() 
-       << "\"," << sc[0] << "," << sc[1] << "," << sc[2] << ");" << endl;
+       << "\"," << sc[0] << "," << sc[1] << "," << sc[2] << ");" << std::endl;
    out << "   TGeoScaledShape *" << GetPointerName() << " = new TGeoScaledShape(\"" 
-       << GetName() << "\"," << sname << ", pScale);" << endl;
+       << GetName() << "\"," << sname << ", pScale);" << std::endl;
 }
 
 //_____________________________________________________________________________
@@ -344,4 +344,45 @@ void TGeoScaledShape::SetPoints(Float_t *points) const
       points[index+1] = master[1];
       points[index+2] = master[2];
    }   
+}
+
+//_____________________________________________________________________________
+void TGeoScaledShape::Contains_v(const Double_t *points, Bool_t *inside, Int_t vecsize) const
+{
+// Check the inside status for each of the points in the array.
+// Input: Array of point coordinates + vector size
+// Output: Array of Booleans for the inside of each point
+   for (Int_t i=0; i<vecsize; i++) inside[i] = Contains(&points[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoScaledShape::ComputeNormal_v(const Double_t *points, const Double_t *dirs, Double_t *norms, Int_t vecsize)
+{
+// Compute the normal for an array o points so that norm.dot.dir is positive
+// Input: Arrays of point coordinates and directions + vector size
+// Output: Array of normal directions
+   for (Int_t i=0; i<vecsize; i++) ComputeNormal(&points[3*i], &dirs[3*i], &norms[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoScaledShape::DistFromInside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromInside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoScaledShape::DistFromOutside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromOutside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoScaledShape::Safety_v(const Double_t *points, const Bool_t *inside, Double_t *safe, Int_t vecsize) const
+{
+// Compute safe distance from each of the points in the input array.
+// Input: Array of point coordinates, array of statuses for these points, size of the arrays
+// Output: Safety values
+   for (Int_t i=0; i<vecsize; i++) safe[i] = Safety(&points[3*i], inside[i]);
 }

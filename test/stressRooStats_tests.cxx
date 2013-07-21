@@ -1578,6 +1578,8 @@ public:
       fConfidenceLevel(confidenceLevel)
    {};
 
+   Double_t vtol() { return 2e-2 ; } // set value test tolerance to 2e-2 (inherited default is 1e-3)                                                                                                                                                                                                                                     
+
    // Basic checks for the parameters passed to the test
    // In case of invalid parameters, a warning is printed and the test is skipped
    Bool_t isTestAvailable() {

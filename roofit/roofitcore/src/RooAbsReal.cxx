@@ -2532,10 +2532,24 @@ RooPlot* RooAbsReal::plotOnWithErrorBand(RooPlot* frame,const RooFitResult& fr, 
   // that at least 30 curves are expected to be outside the N% interval, and is minimally 100 (e.g. Z=1->Ncurve=100, Z=2->Ncurve=659, Z=3->Ncurve=11111)
   // Intervals from the sampling method can be asymmetric, and may perform better in the presence of strong correlations
 
-  RooLinkedList plotArgList(argList) ;
+  RooLinkedList plotArgListTmp(argList) ;
   RooCmdConfig pc(Form("RooAbsPdf::plotOn(%s)",GetName())) ;
-  pc.stripCmdList(plotArgList,"VisualizeError,MoveToBack") ;  
+  pc.stripCmdList(plotArgListTmp,"VisualizeError,MoveToBack") ;  
 
+  // Strip any 'internal normalization' arguments from list
+  RooLinkedList plotArgList ;
+  RooFIter iter = plotArgListTmp.fwdIterator() ;
+  RooCmdArg* cmd ;
+  while ((cmd=(RooCmdArg*)iter.next())) {
+    if (std::string("Normalization")==cmd->GetName()) {
+      if (((RooCmdArg*)cmd)->getInt(1)!=0) {
+      } else {
+	plotArgList.Add(cmd) ;
+      }
+    } else {
+      plotArgList.Add(cmd) ;
+    }
+  }
 
   // Generate central value curve
   RooLinkedList tmp(plotArgList) ;
@@ -2627,8 +2641,9 @@ RooPlot* RooAbsReal::plotOnWithErrorBand(RooPlot* frame,const RooFitResult& fr, 
 		  fr.covarianceMatrix():
 		  fr.reducedCovarianceMatrix(paramList)) ;
     
+
     for (Int_t ivar=0 ; ivar<paramList.getSize() ; ivar++) {
-      
+
       RooRealVar& rrv = (RooRealVar&)fpf[fpf_idx[ivar]] ;
       
       Double_t cenVal = rrv.getVal() ;
@@ -2636,11 +2651,14 @@ RooPlot* RooAbsReal::plotOnWithErrorBand(RooPlot* frame,const RooFitResult& fr, 
       
       // Make Plus variation
       ((RooRealVar*)paramList.at(ivar))->setVal(cenVal+Z*errVal) ;
+
+
       RooLinkedList tmp2(plotArgList) ;
       cloneFunc->plotOn(frame,tmp2) ;
       plusVar.push_back(frame->getCurve()) ;
       frame->remove(0,kFALSE) ;
       
+
       // Make Minus variation
       ((RooRealVar*)paramList.at(ivar))->setVal(cenVal-Z*errVal) ;
       RooLinkedList tmp3(plotArgList) ;
@@ -4125,9 +4143,7 @@ RooAbsReal* RooAbsReal::createChi2(RooDataHist& data, const RooLinkedList& cmdLi
   }
   delete iter ;
   
-  // Construct chi2
-  string name = Form("chi2_%s_%s",GetName(),data.GetName()) ;
-  return new RooChi2Var(name.c_str(),name.c_str(),*this,data,*cmds[0],*cmds[1],*cmds[2],*cmds[3],*cmds[4],*cmds[5],*cmds[6],*cmds[7]) ;
+  return createChi2(data,*cmds[0],*cmds[1],*cmds[2],*cmds[3],*cmds[4],*cmds[5],*cmds[6],*cmds[7]) ;
   
 }
 

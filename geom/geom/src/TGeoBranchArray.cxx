@@ -218,6 +218,22 @@ void TGeoBranchArray::CleanMatrix()
 // Garbage collect the stored matrix.
    delete fMatrix; fMatrix = 0;
 }
+
+//______________________________________________________________________________
+void TGeoBranchArray::Init(TGeoNode **branch, TGeoMatrix *global, Int_t level)
+{
+// Init the branch array from an array of nodes, the global matrix for the path and 
+// the level.
+   if (!fMatrix) fMatrix = new TGeoHMatrix();
+   fMatrix->CopyFrom(global);
+   if (!fArray || level+1>fMaxLevel) {
+      delete [] fArray; 
+      fMaxLevel = level+1;
+      fArray = new TGeoNode*[fMaxLevel];
+   }
+   fLevel = level;
+   memcpy(fArray, branch, (fLevel+1)*sizeof(TGeoNode*));
+}
    
 //______________________________________________________________________________
 void TGeoBranchArray::InitFromNavigator(TGeoNavigator *nav)
@@ -228,7 +244,6 @@ void TGeoBranchArray::InitFromNavigator(TGeoNavigator *nav)
    Int_t level = cache->GetLevel();
    if (!fMatrix) fMatrix = new TGeoHMatrix();
    fMatrix->CopyFrom(cache->GetCurrentMatrix());
-//   TThread::Lock();
    if (!fArray || level+1>fMaxLevel) {
       delete [] fArray; 
       fMaxLevel = level+1;
@@ -236,7 +251,6 @@ void TGeoBranchArray::InitFromNavigator(TGeoNavigator *nav)
    }
    fLevel = level;
    memcpy(fArray, branch, (fLevel+1)*sizeof(TGeoNode*));
-//   TThread::UnLock();
 }
 
 //______________________________________________________________________________

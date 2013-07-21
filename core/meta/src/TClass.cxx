@@ -30,6 +30,7 @@
 #include "TBaseClass.h"
 #include "TBrowser.h"
 #include "TBuffer.h"
+#include "TClassAttributeMap.h"
 #include "TClassGenerator.h"
 #include "TClassEdit.h"
 #include "TClassMenuItem.h"
@@ -95,7 +96,13 @@ namespace {
 Int_t TClass::fgClassCount;
 TClass::ENewType TClass::fgCallingNew = kRealNew;
 
-static std::multimap<void*, Version_t> gObjectVersionRepository;
+struct ObjRepoValue {
+   ObjRepoValue(const TClass *what, Version_t version) : fClass(what),fVersion(version) {}
+   const TClass *fClass;
+   Version_t     fVersion;
+};
+typedef std::multimap<void*, ObjRepoValue> RepoCont_t;
+static RepoCont_t gObjectVersionRepository;
 
 static void RegisterAddressInRepository(const char * /*where*/, void *location, const TClass *what)
 {
@@ -107,15 +114,15 @@ static void RegisterAddressInRepository(const char * /*where*/, void *location, 
 //    } else {
 //       Warning(where, "Registering address %p again of class '%s' version %d", location, what->GetName(), version);
 //    }
-   gObjectVersionRepository.insert(std::pair<void* const,Version_t>(location, version));
+   gObjectVersionRepository.insert(RepoCont_t::value_type(location, RepoCont_t::mapped_type(what,version)));
 
 #if 0
    // This code could be used to prevent an address to be registered twice.
-   std::pair<std::map<void*, Version_t>::iterator, Bool_t> tmp = gObjectVersionRepository.insert(std::pair<void*,Version_t>(location, version));
+   std::pair<RepoCont_t::iterator, Bool_t> tmp = gObjectVersionRepository.insert(RepoCont_t::value_type>(location, RepoCont_t::mapped_type(what,version)));
    if (!tmp.second) {
       Warning(where, "Reregistering an object of class '%s' version %d at address %p", what->GetName(), version, p);
       gObjectVersionRepository.erase(tmp.first);
-      tmp = gObjectVersionRepository.insert(std::pair<void*,Version_t>(location, version));
+      tmp = gObjectVersionRepository.insert(RepoCont_t::value_type>(location, RepoCont_t::mapped_type(what,version)));
       if (!tmp.second) {
          Warning(where, "Failed to reregister an object of class '%s' version %d at address %p", what->GetName(), version, location);
       }
@@ -127,10 +134,10 @@ static void UnregisterAddressInRepository(const char * /*where*/, void *location
 {
    // Remove an address from the repository of address/object.
 
-   std::multimap<void*, Version_t>::iterator cur = gObjectVersionRepository.find(location);
+   RepoCont_t::iterator cur = gObjectVersionRepository.find(location);
    for (; cur != gObjectVersionRepository.end();) {
-      std::multimap<void*, Version_t>::iterator tmp = cur++;
-      if ((tmp->first == location) && (tmp->second == what->GetClassVersion())) {
+      RepoCont_t::iterator tmp = cur++;
+      if ((tmp->first == location) && (tmp->second.fVersion == what->GetClassVersion())) {
          // -- We still have an address, version match.
          // Info(where, "Unregistering address %p of class '%s' version %d", location, what->GetName(), what->GetClassVersion());
          gObjectVersionRepository.erase(tmp);
@@ -141,12 +148,27 @@ static void UnregisterAddressInRepository(const char * /*where*/, void *location
    }
 }
 
-static void MoveAddressInRepository(const char *where, void *oldadd, void *newadd, const TClass *what)
+static void MoveAddressInRepository(const char * /*where*/, void *oldadd, void *newadd, const TClass *what)
 {
    // Register in the repository that an object has moved.
 
-   UnregisterAddressInRepository(where,oldadd,what);
-   RegisterAddressInRepository(where,newadd,what);
+   // Move not only the object itself but also any base classes or sub-objects.
+   size_t objsize = what->Size();
+   long delta = (char*)newadd - (char*)oldadd;
+   RepoCont_t::iterator cur = gObjectVersionRepository.find(oldadd);
+   for (; cur != gObjectVersionRepository.end();) {
+      RepoCont_t::iterator tmp = cur++;
+      if (oldadd <= tmp->first && tmp->first < ( ((char*)oldadd) + objsize) ) {
+         // The location is within the object, let's move it.
+
+         gObjectVersionRepository.insert(RepoCont_t::value_type(((char*)tmp->first)+delta, RepoCont_t::mapped_type(tmp->second.fClass,tmp->second.fVersion)));
+         gObjectVersionRepository.erase(tmp);
+         
+      } else {
+         // -- No address, version match, we've reached the end.
+         break;
+      }
+   }
 }
 
 //______________________________________________________________________________
@@ -751,7 +773,7 @@ TClass::TClass() :
    TDictionary(),
    fStreamerInfo(0), fConversionStreamerInfo(0), fRealData(0),
    fBase(0), fData(0), fMethod(0), fAllPubData(0), fAllPubMethod(0),
-   fClassMenuList(0),
+   fClassMenuList(0), 
    fDeclFileName(""), fImplFileName(""), fDeclFileLine(0), fImplFileLine(0),
    fInstanceCount(0), fOnHeap(0),
    fCheckSum(0), fCollectionProxy(0), fClassVersion(0), fClassInfo(0),
@@ -762,12 +784,14 @@ TClass::TClass() :
    fCanSplit(-1), fProperty(0),fVersionUsed(kFALSE), 
    fIsOffsetStreamerSet(kFALSE), fOffsetStreamer(0), fStreamerType(TClass::kDefault),
    fCurrentInfo(0), fRefStart(0), fRefProxy(0),
-   fSchemaRules(0), fStreamerImpl(&TClass::StreamerDefault)
+   fSchemaRules(0), fAttributeMap(0), fStreamerImpl(&TClass::StreamerDefault)
+
 {
    // Default ctor.
 
    R__LOCKGUARD2(gCINTMutex);
    fDeclFileLine   = -2;    // -2 for standalone TClass (checked in dtor)
+   fAttributeMap = 0;
 }
 
 //______________________________________________________________________________
@@ -786,7 +810,7 @@ TClass::TClass(const char *name, Bool_t silent) :
    fCanSplit(-1), fProperty(0),fVersionUsed(kFALSE), 
    fIsOffsetStreamerSet(kFALSE), fOffsetStreamer(0), fStreamerType(TClass::kDefault),
    fCurrentInfo(0), fRefStart(0), fRefProxy(0),
-   fSchemaRules(0), fStreamerImpl(&TClass::StreamerDefault)
+   fSchemaRules(0), fAttributeMap(0), fStreamerImpl(&TClass::StreamerDefault)
 {
    // Create a TClass object. This object contains the full dictionary
    // of a class. It has list to baseclasses, datamembers and methods.
@@ -836,7 +860,7 @@ TClass::TClass(const char *name, Version_t cversion,
    fCanSplit(-1), fProperty(0),fVersionUsed(kFALSE), 
    fIsOffsetStreamerSet(kFALSE), fOffsetStreamer(0), fStreamerType(TClass::kDefault),
    fCurrentInfo(0), fRefStart(0), fRefProxy(0),
-   fSchemaRules(0), fStreamerImpl(&TClass::StreamerDefault)
+   fSchemaRules(0), fAttributeMap(0), fStreamerImpl(&TClass::StreamerDefault)
 {
    // Create a TClass object. This object contains the full dictionary
    // of a class. It has list to baseclasses, datamembers and methods.
@@ -865,7 +889,7 @@ TClass::TClass(const char *name, Version_t cversion,
    fCanSplit(-1), fProperty(0),fVersionUsed(kFALSE), 
    fIsOffsetStreamerSet(kFALSE), fOffsetStreamer(0), fStreamerType(TClass::kDefault),
    fCurrentInfo(0), fRefStart(0), fRefProxy(0),
-   fSchemaRules(0), fStreamerImpl(&TClass::StreamerDefault)
+   fSchemaRules(0), fAttributeMap(0), fStreamerImpl(&TClass::StreamerDefault)
 {
    // Create a TClass object. This object contains the full dictionary
    // of a class. It has list to baseclasses, datamembers and methods.
@@ -1141,6 +1165,7 @@ TClass::TClass(const TClass& cl) :
   fRefStart(cl.fRefStart),
   fRefProxy(cl.fRefProxy),
   fSchemaRules(cl.fSchemaRules),
+  fAttributeMap(cl.fAttributeMap ? (TClassAttributeMap*)cl.fAttributeMap->Clone() : 0 ),
   fStreamerImpl(cl.fStreamerImpl)
 {
    //copy constructor
@@ -1258,6 +1283,8 @@ TClass::~TClass()
       }
       delete fConversionStreamerInfo;
    }
+
+   delete fAttributeMap;
 }
 
 //------------------------------------------------------------------------------
@@ -2075,6 +2102,16 @@ void TClass::CopyCollectionProxy(const TVirtualCollectionProxy &orig)
    fCollectionProxy = orig.Generate();
 }
 
+
+//______________________________________________________________________________
+void TClass::CreateAttributeMap()
+{
+   //Create a TClassAttributeMap for a TClass to be able to add attribute pairs
+   //key-value to the TClass.
+
+   if (!fAttributeMap)
+      fAttributeMap = new TClassAttributeMap;
+}
 
 //______________________________________________________________________________
 void TClass::Draw(Option_t *option)
@@ -4216,7 +4253,7 @@ void TClass::Destructor(void *obj, Bool_t dtorOnly)
 
       // Was this object allocated through TClass?
       std::multiset<Version_t> knownVersions;
-      std::multimap<void*, Version_t>::iterator iter = gObjectVersionRepository.find(p);
+      RepoCont_t::iterator iter = gObjectVersionRepository.find(p);
       if (iter == gObjectVersionRepository.end()) {
          // No, it wasn't, skip special version handling.
          //Error("Destructor2", "Attempt to delete unregistered object of class '%s' at address %p!", GetName(), p);
@@ -4224,9 +4261,9 @@ void TClass::Destructor(void *obj, Bool_t dtorOnly)
       } else {
          //objVer = iter->second;
          for (; (iter != gObjectVersionRepository.end()) && (iter->first == p); ++iter) {
-            Version_t ver = iter->second;
+            Version_t ver = iter->second.fVersion;
             knownVersions.insert(ver);
-            if (ver == fClassVersion) {
+            if (ver == fClassVersion && this == iter->second.fClass) {
                verFound = kTRUE;
             }
          }
@@ -4327,16 +4364,16 @@ void TClass::DeleteArray(void *ary, Bool_t dtorOnly)
 
       // Was this array object allocated through TClass?
       std::multiset<Version_t> knownVersions;
-      std::multimap<void*, Version_t>::iterator iter = gObjectVersionRepository.find(p);
+      RepoCont_t::iterator iter = gObjectVersionRepository.find(p);
       if (iter == gObjectVersionRepository.end()) {
          // No, it wasn't, we cannot know what to do.
          //Error("DeleteArray", "Attempt to delete unregistered array object, element type '%s', at address %p!", GetName(), p);
          inRepo = kFALSE;
       } else {
          for (; (iter != gObjectVersionRepository.end()) && (iter->first == p); ++iter) {
-            Version_t ver = iter->second;
+            Version_t ver = iter->second.fVersion;
             knownVersions.insert(ver);
-            if (ver == fClassVersion) {
+            if (ver == fClassVersion && this == iter->second.fClass ) {
                verFound = kTRUE;
             }
          }
@@ -5645,4 +5682,3 @@ ROOT::DirAutoAdd_t TClass::GetDirectoryAutoAdd() const
 
    return fDirAutoAdd;
 }
-

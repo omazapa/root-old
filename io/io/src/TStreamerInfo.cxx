@@ -257,6 +257,13 @@ void TStreamerInfo::Build()
          element = new TStreamerSTLstring(bname, btitle, offset, bname, kFALSE);
       } else if (base->IsSTLContainer()) {
          element = new TStreamerSTL(bname, btitle, offset, bname, 0, kFALSE);
+         if (fClass->IsLoaded() && ((TStreamerSTL*)element)->GetSTLtype() != TClassEdit::kVector) {
+            if (!element->GetClassPointer()->IsLoaded()) {
+               Error("Build","The class \"%s\" is compiled and its base class \"%s\" is a collection and we do not have a dictionary for it, we will not be able to read or write this base class.",GetName(),bname);
+               delete element;
+               continue;
+            }
+         }
       } else {
          element = new TStreamerBase(bname, btitle, offset);
          TClass* clm = element->GetClassPointer();
@@ -383,6 +390,13 @@ void TStreamerInfo::Build()
             element = new TStreamerSTLstring(dmName, dmTitle, offset, dmFull, dmIsPtr);
          } else if (dm->IsSTLContainer()) {
             element = new TStreamerSTL(dmName, dmTitle, offset, dmFull, dm->GetTrueTypeName(), dmIsPtr);
+            if (fClass->IsLoaded() && ((TStreamerSTL*)element)->GetSTLtype() != TClassEdit::kVector) {
+               if (!element->GetClassPointer()->IsLoaded()) {
+                  Error("Build","The class \"%s\" is compiled and for its the data member \"%s\", we do not have a dictionary for the collection \"%s\", we will not be able to read or write this data member.",GetName(),dmName,element->GetClassPointer()->GetName());
+                  delete element;
+                  continue;
+               }
+            }
          } else {
             TClass* clm = TClass::GetClass(dmType);
             if (!clm) {
@@ -1213,10 +1227,20 @@ void TStreamerInfo::BuildOld()
 
    int nBaze = 0;
 
-   if (fClass->GetCollectionProxy() && (fElements->GetEntries() == 1) && !strcmp(fElements->At(0)->GetName(), "This")) {
-      element = (TStreamerElement*)next();
-      element->SetNewType( element->GetType() );
-      element->SetNewClass( fClass );
+   if ((fElements->GetEntries() == 1) && !strcmp(fElements->At(0)->GetName(), "This")) {
+      if (fClass->GetCollectionProxy())  {
+         element = (TStreamerElement*)next();
+         element->SetNewType( element->GetType() );
+         element->SetNewClass( fClass );
+      } else if (((TStreamerElement*)fElements->At(0))->GetType() == TStreamerInfo::kSTL && 
+                 !strcmp( ((TStreamerElement*)fElements->At(0))->GetTypeName(),GetName()) == 0) {
+         // We have a collection that was proxied but does not have a collection proxy,
+         // let's put one in place just for fun ... humm however we have no clue what is the value
+         // type ....
+         
+         // For now wild guess ....
+         
+      }
    }
 
    TClass *allocClass = 0;
@@ -1370,6 +1394,14 @@ void TStreamerInfo::BuildOld()
                if (!bc) {
                   Error("BuildOld", "Could not find STL base class: %s for %s\n", element->GetName(), GetName());
                   continue;
+               } else if (bc->GetClassPointer()->GetCollectionProxy()
+                          && !bc->GetClassPointer()->IsLoaded() 
+                          && bc->GetClassPointer()->GetCollectionProxy()->GetCollectionType() != TClassEdit::kVector) {
+                  Error("BuildOld","The class \"%s\" is compiled and its base class \"%s\" is a collection and we do not have a dictionary for it, we will not be able to read or write this base class.",GetName(),bc->GetName());
+                  offset = kMissing;
+                  element->SetOffset(kMissing);
+                  element->SetNewType(-1);
+                  continue;
                }
                baseOffset = bc->GetDelta();
                asize = bc->GetClassPointer()->Size();
@@ -1453,6 +1485,20 @@ void TStreamerInfo::BuildOld()
             offset = GetDataMemberOffset(dm, streamer);
             element->SetOffset(offset);
             element->Init(this);
+            // We have a loaded class, let's make sure that if we have a collection
+            // it is also loaded.
+            TString dmClassName = TClassEdit::ShortType(dm->GetTypeName(),TClassEdit::kDropStlDefault).c_str();
+            dmClassName = dmClassName.Strip(TString::kTrailing, '*');
+            if (dmClassName.Index("const ")==0) dmClassName.Remove(0,6);
+            TClass *elemDm = TClass::GetClass(dmClassName.Data());
+            if (elemDm && elemDm->GetCollectionProxy()
+                && !elemDm->IsLoaded() 
+                && elemDm->GetCollectionProxy()->GetCollectionType() != TClassEdit::kVector) {
+               Error("BuildOld","The class \"%s\" is compiled and for its data member \"%s\", we do not have a dictionary for the collection \"%s\", we will not be able to read or write this data member.",GetName(),dm->GetName(),elemDm->GetName());
+               offset = kMissing;
+               element->SetOffset(kMissing);
+               element->SetNewType(-1);
+            }
             element->SetStreamer(streamer);
             int narr = element->GetArrayLength();
             if (!narr) {
@@ -1771,10 +1817,23 @@ void TStreamerInfo::BuildOld()
       }
 
       if (offset != kMissing && fClass->GetDeclFileLine() < 0) {
-         // Note the initilization in this case are
+         // Note the initialization in this case are
          // delayed until __after__ the schema evolution
          // section, just in case the info has changed.
-         Int_t asize = element->GetSize();
+
+         Int_t asize;
+         if (element->GetType() == TStreamerInfo::kSTL &&
+             strcmp(element->GetName(),"This") == 0 &&
+             strcmp(element->GetTypeName(),GetName()) == 0 &&
+             !fClass->GetCollectionProxy()) {
+            // Humm .. we are missing the collection Proxy
+            // for a proxied (custom) collection ... avoid
+            // an infinite recursion and take a wild guess
+            asize = sizeof(std::vector<int>);
+         } else {
+            // Regular case
+            asize = element->GetSize();
+         }
          // align the non-basic data types (required on alpha and IRIX!!)
          if ((offset % sp) != 0) {
             offset = offset - (offset % sp) + sp;
@@ -1783,34 +1842,41 @@ void TStreamerInfo::BuildOld()
          offset += asize;
       }
 
-      if ( !wasCompiled && rules && rules->HasRuleWithSource( element->GetName(), kTRUE ) ) {
+      if (!wasCompiled && rules) {
+         if (rules->HasRuleWithSource( element->GetName(), kTRUE ) ) {
 
-         if (allocClass == 0) {
-            infoalloc  = (TStreamerInfo *)Clone(TString::Format("%s@@%d",GetName(),GetOnFileClassVersion()));
-            if (!infoalloc) {
-               Error("BuildOld","Unable to create the StreamerInfo for %s.",TString::Format("%s@@%d",GetName(),GetOnFileClassVersion()).Data());
-            } else {
-               infoalloc->BuildCheck();
-               infoalloc->BuildOld();
-               allocClass = infoalloc->GetClass();
+            if (allocClass == 0) {
+               infoalloc  = (TStreamerInfo *)Clone(TString::Format("%s@@%d",GetName(),GetOnFileClassVersion()));
+               if (!infoalloc) {
+                  Error("BuildOld","Unable to create the StreamerInfo for %s.",TString::Format("%s@@%d",GetName(),GetOnFileClassVersion()).Data());
+               } else {
+                  infoalloc->BuildCheck();
+                  infoalloc->BuildOld();
+                  allocClass = infoalloc->GetClass();
+               }
             }
-         }
 
-         // Now that we are caching the unconverted element, we do not assign it to the real type even if we could have!
-         if (element->GetNewType()>0 /* intentionally not including base class for now */
-             && !rules->HasRuleWithTarget( element->GetName(), kTRUE ) )
-         {
-            TStreamerElement *copy = (TStreamerElement*)element->Clone();
-            R__TObjArray_InsertBefore( fElements, copy, element );
-            next(); // move the cursor passed the insert object.
-            copy->SetBit(TStreamerElement::kRepeat);
-            element = copy;
+            // Now that we are caching the unconverted element, we do not assign it to the real type even if we could have!
+            if (element->GetNewType()>0 /* intentionally not including base class for now */
+                && !rules->HasRuleWithTarget( element->GetName(), kTRUE ) )
+               {
+                  TStreamerElement *copy = (TStreamerElement*)element->Clone();
+                  R__TObjArray_InsertBefore( fElements, copy, element );
+                  next(); // move the cursor passed the insert object.
+                  copy->SetBit(TStreamerElement::kRepeat);
+                  element = copy;
 
-            // Warning("BuildOld","%s::%s is not set from the version %d of %s (You must add a rule for it)\n",GetName(), element->GetName(), GetClassVersion(), GetName() );
+                  // Warning("BuildOld","%s::%s is not set from the version %d of %s (You must add a rule for it)\n",GetName(), element->GetName(), GetClassVersion(), GetName() );
+               }
+            element->SetBit(TStreamerElement::kCache);
+            element->SetNewType( element->GetType() );
+            element->SetOffset(infoalloc ? infoalloc->GetOffset(element->GetName()) : 0);
+         } else if (rules->HasRuleWithTarget( element->GetName(), kTRUE ) ) {
+            // The data member exist in the onfile StreamerInfo and there is a rule
+            // that has the same member 'only' has a target ... so this means we are
+            // asked to ignore the input data ...
+            element->SetOffset(kMissing);
          }
-         element->SetBit(TStreamerElement::kCache);
-         element->SetNewType( element->GetType() );
-         element->SetOffset(infoalloc ? infoalloc->GetOffset(element->GetName()) : 0);
       }
 
       if (element->GetNewType() == -2) {
@@ -3457,13 +3523,9 @@ void TStreamerInfo::InsertArtificialElements(const TObjArray *rules)
       if( rule->IsRenameRule() || rule->IsAliasRule() )
          continue;
       next.Reset();
-      Bool_t match = kFALSE;
       TStreamerElement *element;
       while ((element = (TStreamerElement*) next())) {
          if ( rule->HasTarget( element->GetName() ) ) {
-            // If the rule targets an existing member but it is also a source,
-            // we still need to insert the rule.
-            match = ! ((ROOT::TSchemaMatch*)rules)->HasRuleWithSource( element->GetName(), kTRUE );
 
             // Check whether this is an 'attribute' rule.
             if ( rule->GetAttributes()[0] != 0 ) {
@@ -3481,51 +3543,49 @@ void TStreamerInfo::InsertArtificialElements(const TObjArray *rules)
             break;
          }
       }
-      if (!match) {
-         TStreamerArtificial *newel;
-         if (rule->GetTarget()==0) {
-            TString newName;
-            newName.Form("%s_rule%d",fClass->GetName(),count);
-            newel = new TStreamerArtificial(newName,"",
-                                            fClass->GetDataMemberOffset(newName),
-                                            TStreamerInfo::kArtificial,
-                                            "void");
-            newel->SetReadFunc( rule->GetReadFunctionPointer() );
-            newel->SetReadRawFunc( rule->GetReadRawFunctionPointer() );
-            fElements->Add(newel);
-         } else {
-            TObjString * objstr = (TObjString*)(rule->GetTarget()->At(0));
-            if (objstr) {
-               TString newName = objstr->String();
-               if ( fClass->GetDataMember( newName ) ) {
-                  newel = new TStreamerArtificial(newName,"",
-                                                  fClass->GetDataMemberOffset(newName),
-                                                  TStreamerInfo::kArtificial,
-                                                  fClass->GetDataMember( newName )->GetTypeName());
-                  newel->SetReadFunc( rule->GetReadFunctionPointer() );
-                  newel->SetReadRawFunc( rule->GetReadRawFunctionPointer() );
-                  fElements->Add(newel);
-               } else {
-                  // This would be a completely new member (so it would need to be cached)
-                  // TOBEDONE
-               }
-               for(Int_t other = 1; other < rule->GetTarget()->GetEntries(); ++other) {
-                  objstr = (TObjString*)(rule->GetTarget()->At(other));
-                  if (objstr) {
-                     newName = objstr->String();
-                     if ( fClass->GetDataMember( newName ) ) {
-                        newel = new TStreamerArtificial(newName,"",
-                                                        fClass->GetDataMemberOffset(newName),
-                                                        TStreamerInfo::kArtificial,
-                                                        fClass->GetDataMember( newName )->GetTypeName());
-                        fElements->Add(newel);
-                     }
+      TStreamerArtificial *newel;
+      if (rule->GetTarget()==0) {
+         TString newName;
+         newName.Form("%s_rule%d",fClass->GetName(),count);
+         newel = new TStreamerArtificial(newName,"",
+                                         fClass->GetDataMemberOffset(newName),
+                                         TStreamerInfo::kArtificial,
+                                         "void");
+         newel->SetReadFunc( rule->GetReadFunctionPointer() );
+         newel->SetReadRawFunc( rule->GetReadRawFunctionPointer() );
+         fElements->Add(newel);
+      } else {
+         TObjString * objstr = (TObjString*)(rule->GetTarget()->At(0));
+         if (objstr) {
+            TString newName = objstr->String();
+            if ( fClass->GetDataMember( newName ) ) {
+               newel = new TStreamerArtificial(newName,"",
+                                               fClass->GetDataMemberOffset(newName),
+                                               TStreamerInfo::kArtificial,
+                                               fClass->GetDataMember( newName )->GetTypeName());
+               newel->SetReadFunc( rule->GetReadFunctionPointer() );
+               newel->SetReadRawFunc( rule->GetReadRawFunctionPointer() );
+               fElements->Add(newel);
+            } else {
+               // This would be a completely new member (so it would need to be cached)
+               // TOBEDONE
+            }
+            for(Int_t other = 1; other < rule->GetTarget()->GetEntries(); ++other) {
+               objstr = (TObjString*)(rule->GetTarget()->At(other));
+               if (objstr) {
+                  newName = objstr->String();
+                  if ( fClass->GetDataMember( newName ) ) {
+                     newel = new TStreamerArtificial(newName,"",
+                                                     fClass->GetDataMemberOffset(newName),
+                                                     TStreamerInfo::kArtificial,
+                                                     fClass->GetDataMember( newName )->GetTypeName());
+                     fElements->Add(newel);
                   }
                }
-            } // For each target of the rule
-         }
-      } // None of the target of the rule are on file.
-   }
+            }
+         } // For each target of the rule
+      }
+   } // None of the target of the rule are on file.
 }
 
 //______________________________________________________________________________
@@ -3682,9 +3742,20 @@ void* TStreamerInfo::New(void *obj)
          case kTObject:
          case kTString:
          case kTNamed:
-         case kSTL:
          {
             cle->New(eaddr);
+         }
+         break;
+
+         case kSTL:
+         {
+            if (strcmp(element->GetName(),"This")==0 &&
+                !cle->GetCollectionProxy()) {
+               // missing information, avoid infinite loop
+               // by doing nothing ....
+            } else {
+               cle->New(eaddr);
+            }
          }
          break;
 
@@ -3856,7 +3927,12 @@ void TStreamerInfo::DestructorImpl(void* obj, Bool_t dtorOnly)
          // A data member is destroyed, but not deleted.
          TVirtualCollectionProxy *pr = cle->GetCollectionProxy();
          if (!pr) {
-            cle->Destructor(eaddr, kTRUE);
+            if (strcmp(ele->GetName(),"This")==0) {
+               // missing information, avoid infinite loop
+               // by doing nothing ....
+            } else {
+               cle->Destructor(eaddr, kTRUE);
+            }
          } else {
             if (ele->TestBit(TStreamerElement::kDoNotDelete)) {
                TVirtualCollectionProxy::TPushPop env(cle->GetCollectionProxy(), eaddr); // used for both this 'clear' and the 'clear' inside destructor.

@@ -172,24 +172,37 @@ void TGeoXtru::SetSeg(Int_t iseg)
 
 //_____________________________________________________________________________
 TGeoXtru::TGeoXtru()
+         :TGeoBBox(),
+          fNvert(0),
+          fNz(0),
+          fZcurrent(0.),
+          fX(0),
+          fY(0),
+          fZ(0),
+          fScale(0),
+          fX0(0),
+          fY0(0),
+          fThreadData(0),
+          fThreadSize(0)
 {
 // dummy ctor
    SetShapeBit(TGeoShape::kGeoXtru);
-   fNvert = 0;
-   fNz = 0;
-   fZcurrent = 0.;
-   fX = 0;
-   fY = 0;
-   fZ = 0;
-   fScale = 0;
-   fX0 = 0;
-   fY0 = 0;
-   fThreadSize = 0;
 }   
 
 //_____________________________________________________________________________
 TGeoXtru::TGeoXtru(Int_t nz)
-         :TGeoBBox(0, 0, 0)
+         :TGeoBBox(0, 0, 0),
+          fNvert(0),
+          fNz(nz),
+          fZcurrent(0.),
+          fX(0),
+          fY(0),
+          fZ(new Double_t[nz]),
+          fScale(new Double_t[nz]),
+          fX0(new Double_t[nz]),
+          fY0(new Double_t[nz]),
+          fThreadData(0),
+          fThreadSize(0)         
 {
 // Default constructor
    SetShapeBit(TGeoShape::kGeoXtru);
@@ -198,21 +211,22 @@ TGeoXtru::TGeoXtru(Int_t nz)
       SetShapeBit(TGeoShape::kGeoBad);
       return;
    }
-   fNvert = 0;
-   fNz = nz;   
-   fZcurrent = 0.;
-   fX = 0;
-   fY = 0;
-   fZ = new Double_t[nz];
-   fScale = new Double_t[nz];
-   fX0 = new Double_t[nz];
-   fY0 = new Double_t[nz];
-   fThreadSize = 0;
 }
 
 //_____________________________________________________________________________
 TGeoXtru::TGeoXtru(Double_t *param)
-         :TGeoBBox(0, 0, 0)
+         :TGeoBBox(0, 0, 0),
+          fNvert(0),
+          fNz(0),
+          fZcurrent(0.),
+          fX(0),
+          fY(0),
+          fZ(0),
+          fScale(0),
+          fX0(0),
+          fY0(0),
+          fThreadData(0),
+          fThreadSize(0)         
 {
 // Default constructor in GEANT3 style
 // param[0] = nz  // number of z planes
@@ -227,31 +241,22 @@ TGeoXtru::TGeoXtru(Double_t *param)
 // param[4*(nz-1)+3] = yn
 // param[4*(nz-1)+4] = scalen
    SetShapeBit(TGeoShape::kGeoXtru);
-   fNvert = 0;
-   fNz = 0;
-   fZcurrent = 0.;
-   fX = 0;
-   fY = 0;
-   fZ = 0;
-   fScale = 0;
-   fX0 = 0;
-   fY0 = 0;
-   fThreadSize = 0;
    SetDimensions(param);
 }
 
 //_____________________________________________________________________________
 TGeoXtru::TGeoXtru(const TGeoXtru& xt) :
   TGeoBBox(xt),
-  fNvert(xt.fNvert),
-  fNz(xt.fNz),
-  fZcurrent(xt.fZcurrent),
-  fX(xt.fX),
-  fY(xt.fY),
-  fZ(xt.fZ),
-  fScale(xt.fScale),
-  fX0(xt.fX0),
-  fY0(xt.fY0),
+  fNvert(0),
+  fNz(0),
+  fZcurrent(0),
+  fX(0),
+  fY(0),
+  fZ(0),
+  fScale(0),
+  fX0(0),
+  fY0(0),
+  fThreadData(0),
   fThreadSize(0)
 { 
    //copy constructor
@@ -263,16 +268,16 @@ TGeoXtru& TGeoXtru::operator=(const TGeoXtru& xt)
    //assignment operator
    if(this!=&xt) {
       TGeoBBox::operator=(xt);
-      fNvert=xt.fNvert;
-      fNz=xt.fNz;
-      fZcurrent=xt.fZcurrent;
-      fX=xt.fX;
-      fY=xt.fY;
-      fZ=xt.fZ;
-      fScale=xt.fScale;
-      fX0=xt.fX0;
-      fY0=xt.fY0;
-      ClearThreadData();
+      fNvert=0;
+      fNz=0;
+      fZcurrent=0;
+      fX=0;
+      fY=0;
+      fZ=0;
+      fScale=0;
+      fX0=0;
+      fY0=0;
+      fThreadSize=0;
    } 
    return *this;
 }
@@ -345,7 +350,7 @@ void TGeoXtru::ComputeBBox()
 }   
 
 //_____________________________________________________________________________   
-void TGeoXtru::ComputeNormal(Double_t * /*point*/, Double_t *dir, Double_t *norm)
+void TGeoXtru::ComputeNormal(const Double_t * /*point*/, const Double_t *dir, Double_t *norm)
 {
 // Compute normal to closest surface from POINT. 
    ThreadData_t& td = GetThreadData();
@@ -366,7 +371,7 @@ void TGeoXtru::ComputeNormal(Double_t * /*point*/, Double_t *dir, Double_t *norm
 }
 
 //_____________________________________________________________________________
-Bool_t TGeoXtru::Contains(Double_t *point) const
+Bool_t TGeoXtru::Contains(const Double_t *point) const
 {
 // test if point is inside this shape
    ThreadData_t& td = GetThreadData();
@@ -402,8 +407,17 @@ Int_t TGeoXtru::DistancetoPrimitive(Int_t px, Int_t py)
    const Int_t numPoints = fNvert*fNz;
    return ShapeDistancetoPrimitive(numPoints, px, py);
 }
+
 //_____________________________________________________________________________
-Double_t TGeoXtru::DistToPlane(Double_t *point, Double_t *dir, Int_t iz, Int_t ivert, Double_t stepmax, Bool_t in) const
+void TGeoXtru::DrawPolygon(Option_t *option)
+{
+// Draw the section polygon.
+   ThreadData_t& td = GetThreadData();
+   if (td.fPoly) td.fPoly->Draw(option);
+}
+   
+//_____________________________________________________________________________
+Double_t TGeoXtru::DistToPlane(const Double_t *point, const Double_t *dir, Int_t iz, Int_t ivert, Double_t stepmax, Bool_t in) const
 {
 // Compute distance to a Xtru lateral surface.
    ThreadData_t& td = GetThreadData();
@@ -433,16 +447,17 @@ Double_t TGeoXtru::DistToPlane(Double_t *point, Double_t *dir, Int_t iz, Int_t i
       safe = (vert[0]-point[0])*norm[0]+
              (vert[1]-point[1])*norm[1]+
              (vert[2]-point[2])*norm[2];
-      if (safe<0) return TGeoShape::Big(); // direction outwards plane
+      if (safe<-1.E-8) return TGeoShape::Big(); // direction outwards plane
    } else {
       ndotd = -ndotd;
       if (ndotd<=0) return TGeoShape::Big(); 
       safe = (point[0]-vert[0])*norm[0]+
              (point[1]-vert[1])*norm[1]+
              (point[2]-vert[2])*norm[2];
-      if (safe<0) return TGeoShape::Big(); // direction outwards plane
+      if (safe<-1.E-8) return TGeoShape::Big(); // direction outwards plane
    }      
    snext = safe/ndotd;
+   if (snext<0) return 0.;
    if (snext>stepmax) return TGeoShape::Big();
    if (fZ[iz]<fZ[iz+1]) {
       znew = point[2] + snext*dir[2];
@@ -457,7 +472,7 @@ Double_t TGeoXtru::DistToPlane(Double_t *point, Double_t *dir, Int_t iz, Int_t i
 }
 
 //_____________________________________________________________________________
-Double_t TGeoXtru::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoXtru::DistFromInside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // compute distance from inside point to surface of the polycone
    // locate Z segment
@@ -569,7 +584,7 @@ Double_t TGeoXtru::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, Do
 }
 
 //_____________________________________________________________________________
-Double_t TGeoXtru::DistFromOutside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoXtru::DistFromOutside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // compute distance from outside point to surface of the tube
 //   Warning("DistFromOutside", "not implemented");
@@ -825,7 +840,7 @@ void TGeoXtru::GetPlaneVertices(Int_t iz, Int_t ivert, Double_t *vert) const
    }
 }
 //_____________________________________________________________________________
-Bool_t TGeoXtru::IsPointInsidePlane(Double_t *point, Double_t *vert, Double_t *norm) const
+Bool_t TGeoXtru::IsPointInsidePlane(const Double_t *point, Double_t *vert, Double_t *norm) const
 {
 // Check if the quadrilateral defined by VERT contains a coplanar POINT.
    Double_t v1[3], v2[3];
@@ -951,7 +966,7 @@ void TGeoXtru::SetSegsAndPols(TBuffer3D &buff) const
 }
 
 //_____________________________________________________________________________
-Double_t TGeoXtru::SafetyToSector(Double_t *point, Int_t iz, Double_t safmin, Bool_t in)
+Double_t TGeoXtru::SafetyToSector(const Double_t *point, Int_t iz, Double_t safmin, Bool_t in)
 {
 // Compute safety to sector iz, returning also the closest segment index.
    ThreadData_t& td = GetThreadData();
@@ -1004,7 +1019,7 @@ Double_t TGeoXtru::SafetyToSector(Double_t *point, Int_t iz, Double_t safmin, Bo
       saf1 = (point[0]-vert[0])*norm[0]+(point[1]-vert[1])*norm[1]+(point[2]-vert[2])*norm[2];
       if (in) saf1 = -saf1;
 //      printf("segment %d: (%f,%f)-(%f,%f) norm=(%f,%f,%f): saf1=%f\n", iseg, vert[0],vert[1],vert[3],vert[4],norm[0],norm[1],norm[2],saf1);
-      if (saf1<0) continue;
+      if (saf1<-1.E-8) continue;
       safe = TMath::Max(safz, saf1);
       safe = TMath::Abs(safe);
       if (safe>safmin) continue;
@@ -1016,7 +1031,7 @@ Double_t TGeoXtru::SafetyToSector(Double_t *point, Int_t iz, Double_t safmin, Bo
 }
 
 //_____________________________________________________________________________
-Double_t TGeoXtru::Safety(Double_t *point, Bool_t in) const
+Double_t TGeoXtru::Safety(const Double_t *point, Bool_t in) const
 {
 // computes the closest distance from given point to this shape, according
 // to option. The matching point on the shape is stored in spoint.
@@ -1062,28 +1077,28 @@ Double_t TGeoXtru::Safety(Double_t *point, Bool_t in) const
 }
 
 //_____________________________________________________________________________
-void TGeoXtru::SavePrimitive(ostream &out, Option_t * /*option*/ /*= ""*/)
+void TGeoXtru::SavePrimitive(std::ostream &out, Option_t * /*option*/ /*= ""*/)
 {
 // Save a primitive as a C++ statement(s) on output stream "out".
    if (TObject::TestBit(kGeoSavePrimitive)) return;   
-   out << "   // Shape: " << GetName() << " type: " << ClassName() << endl;
-   out << "   nz       = " << fNz << ";" << endl;
-   out << "   nvert    = " << fNvert << ";" << endl;
-   out << "   TGeoXtru *xtru = new TGeoXtru(nz);" << endl;
-   out << "   xtru->SetName(\"" << GetName() << "\");" << endl;
+   out << "   // Shape: " << GetName() << " type: " << ClassName() << std::endl;
+   out << "   nz       = " << fNz << ";" << std::endl;
+   out << "   nvert    = " << fNvert << ";" << std::endl;
+   out << "   TGeoXtru *xtru = new TGeoXtru(nz);" << std::endl;
+   out << "   xtru->SetName(\"" << GetName() << "\");" << std::endl;
    Int_t i;
    for (i=0; i<fNvert; i++) {
-      out << "   xvert[" << i << "] = " << fX[i] << ";   yvert[" << i << "] = " << fY[i] << ";" << endl;
+      out << "   xvert[" << i << "] = " << fX[i] << ";   yvert[" << i << "] = " << fY[i] << ";" << std::endl;
    }
-   out << "   xtru->DefinePolygon(nvert,xvert,yvert);" << endl;
+   out << "   xtru->DefinePolygon(nvert,xvert,yvert);" << std::endl;
    for (i=0; i<fNz; i++) {
-      out << "   zsect  = " << fZ[i] << ";" << endl; 
-      out << "   x0     = " << fX0[i] << ";" << endl; 
-      out << "   y0     = " << fY0[i] << ";" << endl; 
-      out << "   scale0 = " << fScale[i] << ";" << endl; 
-      out << "   xtru->DefineSection(" << i << ",zsect,x0,y0,scale0);" << endl;
+      out << "   zsect  = " << fZ[i] << ";" << std::endl; 
+      out << "   x0     = " << fX0[i] << ";" << std::endl; 
+      out << "   y0     = " << fY0[i] << ";" << std::endl; 
+      out << "   scale0 = " << fScale[i] << ";" << std::endl; 
+      out << "   xtru->DefineSection(" << i << ",zsect,x0,y0,scale0);" << std::endl;
    }
-   out << "   TGeoShape *" << GetPointerName() << " = xtru;" << endl;
+   out << "   TGeoShape *" << GetPointerName() << " = xtru;" << std::endl;
    TObject::SetBit(TGeoShape::kGeoSavePrimitive);
 }         
 
@@ -1270,4 +1285,45 @@ const TBuffer3D & TGeoXtru::GetBuffer3D(Int_t reqSections, Bool_t localFrame) co
    }
       
    return buffer;
+}
+
+//_____________________________________________________________________________
+void TGeoXtru::Contains_v(const Double_t *points, Bool_t *inside, Int_t vecsize) const
+{
+// Check the inside status for each of the points in the array.
+// Input: Array of point coordinates + vector size
+// Output: Array of Booleans for the inside of each point
+   for (Int_t i=0; i<vecsize; i++) inside[i] = Contains(&points[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoXtru::ComputeNormal_v(const Double_t *points, const Double_t *dirs, Double_t *norms, Int_t vecsize)
+{
+// Compute the normal for an array o points so that norm.dot.dir is positive
+// Input: Arrays of point coordinates and directions + vector size
+// Output: Array of normal directions
+   for (Int_t i=0; i<vecsize; i++) ComputeNormal(&points[3*i], &dirs[3*i], &norms[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoXtru::DistFromInside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromInside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoXtru::DistFromOutside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromOutside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoXtru::Safety_v(const Double_t *points, const Bool_t *inside, Double_t *safe, Int_t vecsize) const
+{
+// Compute safe distance from each of the points in the input array.
+// Input: Array of point coordinates, array of statuses for these points, size of the arrays
+// Output: Safety values
+   for (Int_t i=0; i<vecsize; i++) safe[i] = Safety(&points[3*i], inside[i]);
 }

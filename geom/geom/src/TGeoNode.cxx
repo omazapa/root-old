@@ -80,6 +80,7 @@
 #include "TGeoNode.h"
 #include "TMath.h"
 #include "TStopwatch.h"
+#include "TGeoExtension.h"
 
 // statics and globals
 
@@ -92,8 +93,10 @@ TGeoNode::TGeoNode()
    fVolume       = 0;
    fMother       = 0;
    fNumber       = 0;
-   fOverlaps     = 0;
    fNovlp        = 0;
+   fOverlaps     = 0;
+   fUserExtension = 0;
+   fFWExtension = 0;
 }
 
 //_____________________________________________________________________________
@@ -109,8 +112,10 @@ TGeoNode::TGeoNode(const TGeoVolume *vol)
    fVolume->SetAdded();
    fMother       = 0;
    fNumber       = 0;
-   fOverlaps     = 0;
    fNovlp        = 0;
+   fOverlaps     = 0;
+   fUserExtension = 0;
+   fFWExtension = 0;
 }
 
 //_____________________________________________________________________________
@@ -121,7 +126,9 @@ TGeoNode::TGeoNode(const TGeoNode& gn) :
   fMother(gn.fMother),
   fNumber(gn.fNumber),
   fNovlp(gn.fNovlp),
-  fOverlaps(gn.fOverlaps)
+  fOverlaps(gn.fOverlaps),
+  fUserExtension(gn.fUserExtension->Grab()),
+  fFWExtension(gn.fFWExtension->Grab())
 { 
    //copy constructor
 }
@@ -138,6 +145,8 @@ TGeoNode& TGeoNode::operator=(const TGeoNode& gn)
       fNumber=gn.fNumber;
       fNovlp=gn.fNovlp;
       fOverlaps=gn.fOverlaps;
+      fUserExtension=gn.fUserExtension->Grab();
+      fFWExtension=gn.fFWExtension->Grab();
    } 
    return *this;
 }
@@ -147,6 +156,8 @@ TGeoNode::~TGeoNode()
 {
 // Destructor
    if (fOverlaps) delete [] fOverlaps;
+   if (fUserExtension) {fUserExtension->Release(); fUserExtension=0;}
+   if (fFWExtension) {fFWExtension->Release(); fFWExtension=0;}
 }
 
 //_____________________________________________________________________________
@@ -398,7 +409,7 @@ Int_t TGeoNode::FindNode(const TGeoNode *node, Int_t level)
 }
 
 //_____________________________________________________________________________
-void TGeoNode::SaveAttributes(ostream &out)
+void TGeoNode::SaveAttributes(std::ostream &out)
 {
 // save attributes for this node
    if (IsVisStreamed()) return;
@@ -407,21 +418,21 @@ void TGeoNode::SaveAttributes(ostream &out)
    Bool_t voldef = kFALSE;
    if ((fVolume->IsVisTouched()) && (!fVolume->IsVisStreamed())) {
       fVolume->SetVisStreamed(kTRUE);
-      out << "   vol = gGeoManager->GetVolume("<<quote<<fVolume->GetName()<<quote<<");"<<endl;
+      out << "   vol = gGeoManager->GetVolume("<<quote<<fVolume->GetName()<<quote<<");"<<std::endl;
       voldef = kTRUE;
       if (!fVolume->IsVisDaughters())
-         out << "   vol->SetVisDaughters(kFALSE);"<<endl;
+         out << "   vol->SetVisDaughters(kFALSE);"<<std::endl;
       if (fVolume->IsVisible()) {
 /*
          if (fVolume->GetLineColor() != gStyle->GetLineColor())
-            out<<"   vol->SetLineColor("<<fVolume->GetLineColor()<<");"<<endl;
+            out<<"   vol->SetLineColor("<<fVolume->GetLineColor()<<");"<<std::endl;
          if (fVolume->GetLineStyle() != gStyle->GetLineStyle())
-            out<<"   vol->SetLineStyle("<<fVolume->GetLineStyle()<<");"<<endl;
+            out<<"   vol->SetLineStyle("<<fVolume->GetLineStyle()<<");"<<std::endl;
          if (fVolume->GetLineWidth() != gStyle->GetLineWidth())
-            out<<"   vol->SetLineWidth("<<fVolume->GetLineWidth()<<");"<<endl;
+            out<<"   vol->SetLineWidth("<<fVolume->GetLineWidth()<<");"<<std::endl;
 */
       } else {
-         out <<"   vol->SetVisibility(kFALSE);"<<endl;
+         out <<"   vol->SetVisibility(kFALSE);"<<std::endl;
       }
    }
    if (!IsVisDaughters()) return;
@@ -433,21 +444,70 @@ void TGeoNode::SaveAttributes(ostream &out)
       if (node->IsVisStreamed()) continue;
       if (node->IsVisTouched()) {
          if (!voldef)
-            out << "   vol = gGeoManager->GetVolume("<<quote<<fVolume->GetName()<<quote<<");"<<endl;
-         out<<"   node = vol->GetNode("<<i<<");"<<endl;
+            out << "   vol = gGeoManager->GetVolume("<<quote<<fVolume->GetName()<<quote<<");"<<std::endl;
+         out<<"   node = vol->GetNode("<<i<<");"<<std::endl;
          if (!node->IsVisDaughters()) {
-            out<<"   node->VisibleDaughters(kFALSE);"<<endl;
+            out<<"   node->VisibleDaughters(kFALSE);"<<std::endl;
             node->SetVisStreamed(kTRUE);
             continue;
          }
          if (!node->IsVisible()) 
-            out<<"   node->SetVisibility(kFALSE);"<<endl;
+            out<<"   node->SetVisibility(kFALSE);"<<std::endl;
       }         
       node->SaveAttributes(out);
       node->SetVisStreamed(kTRUE);
    }
 }
 
+//_____________________________________________________________________________
+void TGeoNode::SetUserExtension(TGeoExtension *ext)
+{
+// Connect user-defined extension to the node. The node "grabs" a copy, so
+// the original object can be released by the producer. Release the previously 
+// connected extension if any.
+//==========================================================================
+// NOTE: This interface is intended for user extensions and is guaranteed not
+// to be used by TGeo
+//==========================================================================
+   if (fUserExtension) fUserExtension->Release();
+   fUserExtension = 0;
+   if (ext) fUserExtension = ext->Grab();
+}   
+
+//_____________________________________________________________________________
+void TGeoNode::SetFWExtension(TGeoExtension *ext)
+{
+// Connect framework defined extension to the node. The node "grabs" a copy,
+// so the original object can be released by the producer. Release the previously 
+// connected extension if any.
+//==========================================================================
+// NOTE: This interface is intended for the use by TGeo and the users should
+//       NOT connect extensions using this method
+//==========================================================================
+   if (fFWExtension) fFWExtension->Release();
+   fFWExtension = 0;
+   if (ext) fFWExtension = ext->Grab();
+}   
+
+//_____________________________________________________________________________
+TGeoExtension *TGeoNode::GrabUserExtension() const
+{
+// Get a copy of the user extension pointer. The user must call Release() on
+// the copy pointer once this pointer is not needed anymore (equivalent to
+// delete() after calling new())
+   if (fUserExtension) return fUserExtension->Grab();
+   return 0;
+}   
+   
+//_____________________________________________________________________________
+TGeoExtension *TGeoNode::GrabFWExtension() const
+{
+// Get a copy of the framework extension pointer. The user must call Release() on
+// the copy pointer once this pointer is not needed anymore (equivalent to
+// delete() after calling new())
+   if (fFWExtension) return fFWExtension->Grab();
+   return 0;
+}   
 //_____________________________________________________________________________
 Bool_t TGeoNode::MayOverlap(Int_t iother) const 
 {
@@ -565,7 +625,7 @@ void TGeoNode::PrintOverlaps() const
 }
 
 //_____________________________________________________________________________
-Double_t TGeoNode::Safety(Double_t *point, Bool_t in) const
+Double_t TGeoNode::Safety(const Double_t *point, Bool_t in) const
 {
 // computes the closest distance from given point to this shape
 
@@ -705,6 +765,9 @@ TGeoNode *TGeoNodeMatrix::MakeCopyNode() const
    // copy VC
    if (IsVirtual()) node->SetVirtual();
    if (IsOverlapping()) node->SetOverlapping(); // <--- ADDED
+   // Copy extensions
+   node->SetUserExtension(fUserExtension);
+   node->SetFWExtension(fFWExtension);
    return node;
 }
 
@@ -793,6 +856,9 @@ TGeoNode *TGeoNodeOffset::MakeCopyNode() const
    if (IsVirtual()) node->SetVirtual();
    // set the finder
    node->SetFinder(GetFinder());
+   // set extensions
+   node->SetUserExtension(fUserExtension);
+   node->SetFWExtension(fFWExtension);
    return node;
 }
 

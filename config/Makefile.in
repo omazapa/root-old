@@ -108,6 +108,11 @@ PGSQLLIBDIR    := @pgsqllibdir@
 PGSQLCLILIB    := @pgsqllib@
 PGSQLINCDIR    := $(filter-out /usr/include, @pgsqlincdir@)
 
+BUILDSQLITE     := @buildsqlite@
+SQLITELIBDIR    := @sqlitelibdir@
+SQLITECLILIB    := @sqlitelib@
+SQLITEINCDIR    := $(filter-out /usr/include, @sqliteincdir@)
+
 BUILDSAPDB     := @buildsapdb@
 SAPDBLIBDIR    := @sapdblibdir@
 SAPDBCLILIB    := @sapdblib@
@@ -164,6 +169,7 @@ GFALLIBDIR     := @gfallibdir@
 GFALCLILIB     := @gfallib@
 GFALINCDIR     := $(filter-out /usr/include, @gfalincdir@)
 SRMIFCEINCDIR  := $(filter-out /usr/include, @srmifceincdir@)
+GLIB2INCDIR    := $(filter-out /usr/include, @glib2incdir@)
 
 BUILDGLITE     := @buildglite@
 GLITELIBDIR    := @glitelibdir@

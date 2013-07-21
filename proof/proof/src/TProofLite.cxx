@@ -279,6 +279,9 @@ Int_t TProofLite::Init(const char *, const char *conffile,
    fCurrentMonitor   = 0;
    fServSock         = 0;
 
+   fTerminatedSlaveInfos = new TList;
+   fTerminatedSlaveInfos->SetOwner(kTRUE);
+
    // Control how to start the workers; copy-on-write (fork) is *very*
    // experimental and available on Unix only.
    fForkStartup      = kFALSE;
@@ -341,7 +344,7 @@ Int_t TProofLite::Init(const char *, const char *conffile,
    fAllMonitor->DeActivateAll();
 
    // By default go into parallel mode
-   GoParallel(9999, kFALSE);
+   GoParallel(-1, kFALSE);
 
    // Send relevant initial state to slaves
    SendInitialState();
@@ -650,7 +653,7 @@ Int_t TProofLite::SetupWorkers(Int_t opt, TList *startedWorkers)
       // Update group view
       SendGroupView();
       // By default go into parallel mode
-      SetParallel(9999, 0);
+      SetParallel(-1, 0);
    }
    // Done
    return 0;

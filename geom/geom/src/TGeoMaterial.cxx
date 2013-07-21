@@ -22,6 +22,7 @@
 #include "TStyle.h"
 #include "TList.h"
 #include "TGeoManager.h"
+#include "TGeoExtension.h"
 #include "TGeoMaterial.h"
 
 // statics and globals
@@ -42,7 +43,9 @@ TGeoMaterial::TGeoMaterial()
               fState(kMatStateUndefined),
               fShader(NULL),
               fCerenkov(NULL),
-              fElement(NULL)
+              fElement(NULL),
+              fUserExtension(0),
+              fFWExtension(0)
 {
 // Default constructor
    SetUsed(kFALSE);
@@ -66,7 +69,9 @@ TGeoMaterial::TGeoMaterial(const char *name)
               fState(kMatStateUndefined),
               fShader(NULL),
               fCerenkov(NULL),
-              fElement(NULL)
+              fElement(NULL),
+              fUserExtension(0),
+              fFWExtension(0)
 {
 // constructor
    fName = fName.Strip();
@@ -97,7 +102,9 @@ TGeoMaterial::TGeoMaterial(const char *name, Double_t a, Double_t z,
               fState(kMatStateUndefined),
               fShader(NULL),
               fCerenkov(NULL),
-              fElement(NULL)
+              fElement(NULL),
+              fUserExtension(0),
+              fFWExtension(0)
 {
 // constructor
    fName = fName.Strip();
@@ -115,7 +122,7 @@ TGeoMaterial::TGeoMaterial(const char *name, Double_t a, Double_t z,
    }
    if (fZ - Int_t(fZ) > 1E-3)
       Warning("ctor", "Material %s defined with fractional Z=%f", GetName(), fZ);
-   GetElement()->SetUsed();
+   if (GetElement()) GetElement()->SetUsed();
    gGeoManager->AddMaterial(this);
 }
 
@@ -134,7 +141,9 @@ TGeoMaterial::TGeoMaterial(const char *name, Double_t a, Double_t z, Double_t rh
               fState(state),
               fShader(NULL),
               fCerenkov(NULL),
-              fElement(NULL)
+              fElement(NULL),
+              fUserExtension(0),
+              fFWExtension(0)
 {
 // Constructor with state, temperature and pressure.
    fName = fName.Strip();
@@ -146,7 +155,7 @@ TGeoMaterial::TGeoMaterial(const char *name, Double_t a, Double_t z, Double_t rh
    }
    if (fZ - Int_t(fZ) > 1E-3)
       Warning("ctor", "Material %s defined with fractional Z=%f", GetName(), fZ);
-   GetElement()->SetUsed();
+   if (GetElement()) GetElement()->SetUsed();
    gGeoManager->AddMaterial(this);
 }
 
@@ -164,7 +173,9 @@ TGeoMaterial::TGeoMaterial(const char *name, TGeoElement *elem, Double_t rho)
               fState(kMatStateUndefined),
               fShader(NULL),
               fCerenkov(NULL),
-              fElement(elem)
+              fElement(elem),
+              fUserExtension(0),
+              fFWExtension(0)
 {
 // constructor
    fName = fName.Strip();
@@ -181,7 +192,7 @@ TGeoMaterial::TGeoMaterial(const char *name, TGeoElement *elem, Double_t rho)
    }
    if (fZ - Int_t(fZ) > 1E-3)
       Warning("ctor", "Material %s defined with fractional Z=%f", GetName(), fZ);
-   GetElement()->SetUsed();
+   if (GetElement()) GetElement()->SetUsed();
    gGeoManager->AddMaterial(this);
 }
 
@@ -200,7 +211,10 @@ TGeoMaterial::TGeoMaterial(const TGeoMaterial& gm) :
               fState(gm.fState),
               fShader(gm.fShader),
               fCerenkov(gm.fCerenkov),
-              fElement(gm.fElement)
+              fElement(gm.fElement),
+              fUserExtension(gm.fUserExtension->Grab()),
+              fFWExtension(gm.fFWExtension->Grab())
+              
 { 
    //copy constructor
 }
@@ -224,6 +238,8 @@ TGeoMaterial& TGeoMaterial::operator=(const TGeoMaterial& gm)
       fShader=gm.fShader;
       fCerenkov=gm.fCerenkov;
       fElement=gm.fElement;
+      fUserExtension = gm.fUserExtension->Grab();
+      fFWExtension = gm.fFWExtension->Grab();
    } 
    return *this;
 }
@@ -232,8 +248,60 @@ TGeoMaterial& TGeoMaterial::operator=(const TGeoMaterial& gm)
 TGeoMaterial::~TGeoMaterial()
 {
 // Destructor
+   if (fUserExtension) {fUserExtension->Release(); fUserExtension=0;}
+   if (fFWExtension) {fFWExtension->Release(); fFWExtension=0;}
 }
 
+//_____________________________________________________________________________
+void TGeoMaterial::SetUserExtension(TGeoExtension *ext)
+{
+// Connect user-defined extension to the material. The material "grabs" a copy, so
+// the original object can be released by the producer. Release the previously 
+// connected extension if any.
+//==========================================================================
+// NOTE: This interface is intended for user extensions and is guaranteed not
+// to be used by TGeo
+//==========================================================================
+   if (fUserExtension) fUserExtension->Release();
+   fUserExtension = 0;
+   if (ext) fUserExtension = ext->Grab();
+}   
+
+//_____________________________________________________________________________
+void TGeoMaterial::SetFWExtension(TGeoExtension *ext)
+{
+// Connect framework defined extension to the material. The material "grabs" a copy,
+// so the original object can be released by the producer. Release the previously 
+// connected extension if any.
+//==========================================================================
+// NOTE: This interface is intended for the use by TGeo and the users should
+//       NOT connect extensions using this method
+//==========================================================================
+   if (fFWExtension) fFWExtension->Release();
+   fFWExtension = 0;
+   if (ext) fFWExtension = ext->Grab();
+}   
+
+//_____________________________________________________________________________
+TGeoExtension *TGeoMaterial::GrabUserExtension() const
+{
+// Get a copy of the user extension pointer. The user must call Release() on
+// the copy pointer once this pointer is not needed anymore (equivalent to
+// delete() after calling new())
+   if (fUserExtension) return fUserExtension->Grab();
+   return 0;
+}   
+   
+//_____________________________________________________________________________
+TGeoExtension *TGeoMaterial::GrabFWExtension() const
+{
+// Get a copy of the framework extension pointer. The user must call Release() on
+// the copy pointer once this pointer is not needed anymore (equivalent to
+// delete() after calling new())
+   if (fFWExtension) return fFWExtension->Grab();
+   return 0;
+}   
+   
 //_____________________________________________________________________________
 char *TGeoMaterial::GetPointerName() const
 {
@@ -276,6 +344,10 @@ void TGeoMaterial::SetRadLen(Double_t radlen, Double_t intlen)
       const Double_t lambda0 = 35.*g/(cm*cm);  // [g/cm^2]
       Double_t nilinv = 0.0;
       TGeoElement *elem = GetElement();
+      if (!elem) {
+         Fatal("SetRadLen", "Element not found for material %s", GetName());
+         return;
+      }   
       Double_t nbAtomsPerVolume = TMath::Na()*fDensity/elem->A();
       nilinv += nbAtomsPerVolume*TMath::Power(elem->Neff(), 0.6666667);
       nilinv *= amu/lambda0;
@@ -325,20 +397,20 @@ void TGeoMaterial::Print(const Option_t * /*option*/) const
 }
 
 //_____________________________________________________________________________
-void TGeoMaterial::SavePrimitive(ostream &out, Option_t * /*option*/ /*= ""*/)
+void TGeoMaterial::SavePrimitive(std::ostream &out, Option_t * /*option*/ /*= ""*/)
 {
 // Save a primitive as a C++ statement(s) on output stream "out".
    if (TestBit(TGeoMaterial::kMatSavePrimitive)) return;
    char *name = GetPointerName();
-   out << "// Material: " << GetName() << endl;
-   out << "   a       = " << fA << ";" << endl;
-   out << "   z       = " << fZ << ";" << endl;
-   out << "   density = " << fDensity << ";" << endl;
-   out << "   radl    = " << fRadLen << ";" << endl;
-   out << "   absl    = " << fIntLen << ";" << endl;
+   out << "// Material: " << GetName() << std::endl;
+   out << "   a       = " << fA << ";" << std::endl;
+   out << "   z       = " << fZ << ";" << std::endl;
+   out << "   density = " << fDensity << ";" << std::endl;
+   out << "   radl    = " << fRadLen << ";" << std::endl;
+   out << "   absl    = " << fIntLen << ";" << std::endl;
    
-   out << "   " << name << " = new TGeoMaterial(\"" << GetName() << "\", a,z,density,radl,absl);" << endl;
-   out << "   " << name << "->SetIndex(" << GetIndex() << ");" << endl;
+   out << "   " << name << " = new TGeoMaterial(\"" << GetName() << "\", a,z,density,radl,absl);" << std::endl;
+   out << "   " << name << "->SetIndex(" << GetIndex() << ");" << std::endl;
    SetBit(TGeoMaterial::kMatSavePrimitive);
 }
 
@@ -453,6 +525,10 @@ void TGeoMaterial::FillMaterialEvolution(TObjArray *population, Double_t precisi
    TIter next(table->GetElementsRN());
    while ((elemrn=(TGeoElementRN*)next())) elemrn->ResetRatio();
    elem = GetElement();
+   if (!elem) {
+      Fatal("FillMaterialEvolution", "Element not found for material %s", GetName());
+      return;
+   }   
    if (!elem->IsRadioNuclide()) {
       population->Add(elem);
       return;
@@ -835,21 +911,21 @@ void TGeoMixture::Print(const Option_t * /*option*/) const
 }
 
 //_____________________________________________________________________________
-void TGeoMixture::SavePrimitive(ostream &out, Option_t * /*option*/ /*= ""*/)
+void TGeoMixture::SavePrimitive(std::ostream &out, Option_t * /*option*/ /*= ""*/)
 {
 // Save a primitive as a C++ statement(s) on output stream "out".
    if (TestBit(TGeoMaterial::kMatSavePrimitive)) return;
    char *name = GetPointerName();
-   out << "// Mixture: " << GetName() << endl;
-   out << "   nel     = " << fNelements << ";" << endl;
-   out << "   density = " << fDensity << ";" << endl;
-   out << "   " << name << " = new TGeoMixture(\"" << GetName() << "\", nel,density);" << endl;
+   out << "// Mixture: " << GetName() << std::endl;
+   out << "   nel     = " << fNelements << ";" << std::endl;
+   out << "   density = " << fDensity << ";" << std::endl;
+   out << "   " << name << " = new TGeoMixture(\"" << GetName() << "\", nel,density);" << std::endl;
    for (Int_t i=0; i<fNelements; i++) {
       TGeoElement *el = GetElement(i);
-      out << "      a = " << fAmixture[i] << ";   z = "<< fZmixture[i] << ";   w = " << fWeights[i] << ";  // " << el->GetName() << endl;
-      out << "   " << name << "->DefineElement(" << i << ",a,z,w);" << endl;
+      out << "      a = " << fAmixture[i] << ";   z = "<< fZmixture[i] << ";   w = " << fWeights[i] << ";  // " << el->GetName() << std::endl;
+      out << "   " << name << "->DefineElement(" << i << ",a,z,w);" << std::endl;
    }         
-   out << "   " << name << "->SetIndex(" << GetIndex() << ");" << endl;
+   out << "   " << name << "->SetIndex(" << GetIndex() << ");" << std::endl;
    SetBit(TGeoMaterial::kMatSavePrimitive);
 }
 

@@ -132,7 +132,7 @@ void TGeoTrd2::ComputeBBox()
 }
 
 //_____________________________________________________________________________   
-void TGeoTrd2::ComputeNormal(Double_t *point, Double_t *dir, Double_t *norm)
+void TGeoTrd2::ComputeNormal(const Double_t *point, const Double_t *dir, Double_t *norm)
 {
 // Compute normal to closest surface from POINT. 
    Double_t safe, safemin;
@@ -182,7 +182,7 @@ void TGeoTrd2::ComputeNormal(Double_t *point, Double_t *dir, Double_t *norm)
 }
 
 //_____________________________________________________________________________
-Bool_t TGeoTrd2::Contains(Double_t *point) const
+Bool_t TGeoTrd2::Contains(const Double_t *point) const
 {
 // test if point is inside this shape
    // check Z range
@@ -197,7 +197,7 @@ Bool_t TGeoTrd2::Contains(Double_t *point) const
 }
 
 //_____________________________________________________________________________
-Double_t TGeoTrd2::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoTrd2::DistFromInside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // Compute distance from inside point to surface of the trd2
 // Boundary safe algorithm
@@ -259,7 +259,7 @@ Double_t TGeoTrd2::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, Do
 }
 
 //_____________________________________________________________________________
-Double_t TGeoTrd2::DistFromOutside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoTrd2::DistFromOutside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // Compute distance from outside point to surface of the trd2
 // Boundary safe algorithm
@@ -395,7 +395,7 @@ Double_t TGeoTrd2::GetAxisRange(Int_t iaxis, Double_t &xlo, Double_t &xhi) const
 }         
             
 //_____________________________________________________________________________
-void TGeoTrd2::GetVisibleCorner(Double_t *point, Double_t *vertex, Double_t *normals) const
+void TGeoTrd2::GetVisibleCorner(const Double_t *point, Double_t *vertex, Double_t *normals) const
 {
 // get the most visible corner from outside point and the normals
    Double_t fx = 0.5*(fDx1-fDx2)/fDz;
@@ -441,7 +441,7 @@ void TGeoTrd2::GetVisibleCorner(Double_t *point, Double_t *vertex, Double_t *nor
 }
 
 //_____________________________________________________________________________
-void TGeoTrd2::GetOppositeCorner(Double_t * /*point*/, Int_t inorm, Double_t *vertex, Double_t *normals) const
+void TGeoTrd2::GetOppositeCorner(const Double_t * /*point*/, Int_t inorm, Double_t *vertex, Double_t *normals) const
 {
 // get the opposite corner of the intersected face
    TGeoTrd2 *trd2 = (TGeoTrd2*)this;
@@ -617,7 +617,7 @@ void TGeoTrd2::InspectShape() const
 }
 
 //_____________________________________________________________________________
-Double_t TGeoTrd2::Safety(Double_t *point, Bool_t in) const
+Double_t TGeoTrd2::Safety(const Double_t *point, Bool_t in) const
 {
 // computes the closest distance from given point to this shape, according
 // to option. The matching point on the shape is stored in spoint.
@@ -645,17 +645,17 @@ Double_t TGeoTrd2::Safety(Double_t *point, Bool_t in) const
 }
 
 //_____________________________________________________________________________
-void TGeoTrd2::SavePrimitive(ostream &out, Option_t * /*option*/ /*= ""*/)
+void TGeoTrd2::SavePrimitive(std::ostream &out, Option_t * /*option*/ /*= ""*/)
 {
 // Save a primitive as a C++ statement(s) on output stream "out".
    if (TObject::TestBit(kGeoSavePrimitive)) return;
-   out << "   // Shape: " << GetName() << " type: " << ClassName() << endl;
-   out << "   dx1 = " << fDx1 << ";" << endl;
-   out << "   dx2 = " << fDx2 << ";" << endl;
-   out << "   dy1 = " << fDy1 << ";" << endl;
-   out << "   dy2 = " << fDy2 << ";" << endl;
-   out << "   dz  = " << fDZ  << ";" << endl;
-   out << "   TGeoShape *" << GetPointerName() << " = new TGeoTrd2(\"" << GetName() << "\", dx1,dx2,dy1,dy2,dz);" << endl;  
+   out << "   // Shape: " << GetName() << " type: " << ClassName() << std::endl;
+   out << "   dx1 = " << fDx1 << ";" << std::endl;
+   out << "   dx2 = " << fDx2 << ";" << std::endl;
+   out << "   dy1 = " << fDy1 << ";" << std::endl;
+   out << "   dy2 = " << fDy2 << ";" << std::endl;
+   out << "   dz  = " << fDZ  << ";" << std::endl;
+   out << "   TGeoShape *" << GetPointerName() << " = new TGeoTrd2(\"" << GetName() << "\", dx1,dx2,dy1,dy2,dz);" << std::endl;  
    TObject::SetBit(TGeoShape::kGeoSavePrimitive);
 } 
         
@@ -735,3 +735,43 @@ void TGeoTrd2::Sizeof3D() const
    TGeoBBox::Sizeof3D();
 }
 
+//_____________________________________________________________________________
+void TGeoTrd2::Contains_v(const Double_t *points, Bool_t *inside, Int_t vecsize) const
+{
+// Check the inside status for each of the points in the array.
+// Input: Array of point coordinates + vector size
+// Output: Array of Booleans for the inside of each point
+   for (Int_t i=0; i<vecsize; i++) inside[i] = Contains(&points[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoTrd2::ComputeNormal_v(const Double_t *points, const Double_t *dirs, Double_t *norms, Int_t vecsize)
+{
+// Compute the normal for an array o points so that norm.dot.dir is positive
+// Input: Arrays of point coordinates and directions + vector size
+// Output: Array of normal directions
+   for (Int_t i=0; i<vecsize; i++) ComputeNormal(&points[3*i], &dirs[3*i], &norms[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoTrd2::DistFromInside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromInside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoTrd2::DistFromOutside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromOutside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoTrd2::Safety_v(const Double_t *points, const Bool_t *inside, Double_t *safe, Int_t vecsize) const
+{
+// Compute safe distance from each of the points in the input array.
+// Input: Array of point coordinates, array of statuses for these points, size of the arrays
+// Output: Safety values
+   for (Int_t i=0; i<vecsize; i++) safe[i] = Safety(&points[3*i], inside[i]);
+}

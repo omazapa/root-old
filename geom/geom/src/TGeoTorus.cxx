@@ -146,7 +146,7 @@ void TGeoTorus::ComputeBBox()
 }
 
 //-----------------------------------------------------------------------------   
-void TGeoTorus::ComputeNormal(Double_t *point, Double_t *dir, Double_t *norm)
+void TGeoTorus::ComputeNormal(const Double_t *point, const Double_t *dir, Double_t *norm)
 {
 // Compute normal to closest surface from POINT. 
    Double_t phi = TMath::ATan2(point[1],point[0]);
@@ -188,7 +188,7 @@ void TGeoTorus::ComputeNormal(Double_t *point, Double_t *dir, Double_t *norm)
 }
 
 //_____________________________________________________________________________
-Bool_t TGeoTorus::Contains(Double_t *point) const
+Bool_t TGeoTorus::Contains(const Double_t *point) const
 {
 // Test if point is inside the torus.
    // check phi range
@@ -219,7 +219,7 @@ Int_t TGeoTorus::DistancetoPrimitive(Int_t px, Int_t py)
 }
 
 //_____________________________________________________________________________
-Double_t TGeoTorus::Daxis(Double_t *pt, Double_t *dir, Double_t t) const
+Double_t TGeoTorus::Daxis(const Double_t *pt, const Double_t *dir, Double_t t) const
 {
 // Computes distance to axis of the torus from point pt + t*dir;
    Double_t p[3];
@@ -229,7 +229,7 @@ Double_t TGeoTorus::Daxis(Double_t *pt, Double_t *dir, Double_t t) const
 }   
 
 //_____________________________________________________________________________
-Double_t TGeoTorus::DDaxis(Double_t *pt, Double_t *dir, Double_t t) const
+Double_t TGeoTorus::DDaxis(const Double_t *pt, const Double_t *dir, Double_t t) const
 {
 // Computes derivative w.r.t. t of the distance to axis of the torus from point pt + t*dir;
    Double_t p[3];
@@ -243,7 +243,7 @@ Double_t TGeoTorus::DDaxis(Double_t *pt, Double_t *dir, Double_t t) const
 }   
 
 //_____________________________________________________________________________
-Double_t TGeoTorus::DDDaxis(Double_t *pt, Double_t *dir, Double_t t) const
+Double_t TGeoTorus::DDDaxis(const Double_t *pt, const Double_t *dir, Double_t t) const
 {
 // Second derivative of distance to torus axis w.r.t t.
    Double_t p[3];
@@ -260,7 +260,7 @@ Double_t TGeoTorus::DDDaxis(Double_t *pt, Double_t *dir, Double_t t) const
 }
    
 //_____________________________________________________________________________
-Double_t TGeoTorus::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoTorus::DistFromInside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // Compute distance from inside point to surface of the torus.
    if (iact<3 && safe) {
@@ -298,7 +298,7 @@ Double_t TGeoTorus::DistFromInside(Double_t *point, Double_t *dir, Int_t iact, D
 }
 
 //_____________________________________________________________________________
-Double_t TGeoTorus::DistFromOutside(Double_t *point, Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
+Double_t TGeoTorus::DistFromOutside(const Double_t *point, const Double_t *dir, Int_t iact, Double_t step, Double_t *safe) const
 {
 // Compute distance from outside point to surface of the torus.
    if (iact<3 && safe) {
@@ -686,7 +686,7 @@ void TGeoTorus::SetSegsAndPols(TBuffer3D &buff) const
 }
 
 //_____________________________________________________________________________
-Double_t TGeoTorus::Safety(Double_t *point, Bool_t in) const
+Double_t TGeoTorus::Safety(const Double_t *point, Bool_t in) const
 {
 // computes the closest distance from given point to this shape, according
 // to option. The matching point on the shape is stored in spoint.
@@ -714,17 +714,17 @@ Double_t TGeoTorus::Safety(Double_t *point, Bool_t in) const
 }
 
 //_____________________________________________________________________________
-void TGeoTorus::SavePrimitive(ostream &out, Option_t * /*option*/ /*= ""*/)
+void TGeoTorus::SavePrimitive(std::ostream &out, Option_t * /*option*/ /*= ""*/)
 {
 // Save a primitive as a C++ statement(s) on output stream "out".
    if (TObject::TestBit(kGeoSavePrimitive)) return;  
-   out << "   // Shape: " << GetName() << " type: " << ClassName() << endl;
-   out << "   r    = " << fR << ";" << endl;
-   out << "   rmin = " << fRmin << ";" << endl;
-   out << "   rmax = " << fRmax << ";" << endl;
-   out << "   phi1 = " << fPhi1 << ";" << endl;
-   out << "   dphi = " << fDphi << ";" << endl;
-   out << "   TGeoShape *" << GetPointerName() << " = new TGeoTorus(\"" << GetName() << "\",r,rmin,rmax,phi1,dphi);" << endl;
+   out << "   // Shape: " << GetName() << " type: " << ClassName() << std::endl;
+   out << "   r    = " << fR << ";" << std::endl;
+   out << "   rmin = " << fRmin << ";" << std::endl;
+   out << "   rmax = " << fRmax << ";" << std::endl;
+   out << "   phi1 = " << fPhi1 << ";" << std::endl;
+   out << "   dphi = " << fDphi << ";" << std::endl;
+   out << "   TGeoShape *" << GetPointerName() << " = new TGeoTorus(\"" << GetName() << "\",r,rmin,rmax,phi1,dphi);" << std::endl;
    TObject::SetBit(TGeoShape::kGeoSavePrimitive);
 }
 
@@ -1032,7 +1032,7 @@ Int_t TGeoTorus::SolveQuartic(Double_t a, Double_t b, Double_t c, Double_t d, Do
 }
 
 //_____________________________________________________________________________
-Double_t TGeoTorus::ToBoundary(Double_t *pt, Double_t *dir, Double_t r, Bool_t in) const
+Double_t TGeoTorus::ToBoundary(const Double_t *pt, const Double_t *dir, Double_t r, Bool_t in) const
 {
 // Returns distance to the surface or the torus (fR,r) from a point, along
 // a direction. Point is close enough to the boundary so that the distance 
@@ -1186,3 +1186,43 @@ const TBuffer3D & TGeoTorus::GetBuffer3D(Int_t reqSections, Bool_t localFrame) c
    return buffer;
 }
 
+//_____________________________________________________________________________
+void TGeoTorus::Contains_v(const Double_t *points, Bool_t *inside, Int_t vecsize) const
+{
+// Check the inside status for each of the points in the array.
+// Input: Array of point coordinates + vector size
+// Output: Array of Booleans for the inside of each point
+   for (Int_t i=0; i<vecsize; i++) inside[i] = Contains(&points[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoTorus::ComputeNormal_v(const Double_t *points, const Double_t *dirs, Double_t *norms, Int_t vecsize)
+{
+// Compute the normal for an array o points so that norm.dot.dir is positive
+// Input: Arrays of point coordinates and directions + vector size
+// Output: Array of normal directions
+   for (Int_t i=0; i<vecsize; i++) ComputeNormal(&points[3*i], &dirs[3*i], &norms[3*i]);
+}
+
+//_____________________________________________________________________________
+void TGeoTorus::DistFromInside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromInside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoTorus::DistFromOutside_v(const Double_t *points, const Double_t *dirs, Double_t *dists, Int_t vecsize, Double_t* step) const
+{
+// Compute distance from array of input points having directions specisied by dirs. Store output in dists
+   for (Int_t i=0; i<vecsize; i++) dists[i] = DistFromOutside(&points[3*i], &dirs[3*i], 3, step[i]);
+}
+
+//_____________________________________________________________________________
+void TGeoTorus::Safety_v(const Double_t *points, const Bool_t *inside, Double_t *safe, Int_t vecsize) const
+{
+// Compute safe distance from each of the points in the input array.
+// Input: Array of point coordinates, array of statuses for these points, size of the arrays
+// Output: Safety values
+   for (Int_t i=0; i<vecsize; i++) safe[i] = Safety(&points[3*i], inside[i]);
+}

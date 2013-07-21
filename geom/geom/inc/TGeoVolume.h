@@ -49,6 +49,7 @@ class TGeoMatrix;
 class TGeoPatternFinder;
 class TGeoVoxelFinder;
 class TGeoManager;
+class TGeoExtension;
 
 ////////////////////////////////////////////////////////////////////////////
 //                                                                        //
@@ -75,6 +76,8 @@ protected :
    TString            fOption;         //! option - if any
    Int_t              fNumber;         //  volume serial number in the list of volumes
    Int_t              fNtotal;         // total number of physical nodes
+   TGeoExtension     *fUserExtension;  //! Transient user-defined extension to volumes
+   TGeoExtension     *fFWExtension;    //! Transient framework-defined extension to volumes
 
    TGeoVolume(const TGeoVolume&); 
    TGeoVolume& operator=(const TGeoVolume&);
@@ -116,7 +119,7 @@ public:
    void            CheckOverlaps(Double_t ovlp=0.1, Option_t *option="") const; // *MENU*
    void            CheckShape(Int_t testNo, Int_t nsamples=10000, Option_t *option=""); // *MENU*
    Int_t           CountNodes(Int_t nlevels=1000, Int_t option=0);
-   Bool_t          Contains(Double_t *point) const {return fShape->Contains(point);}
+   Bool_t          Contains(const Double_t *point) const {return fShape->Contains(point);}
    virtual Bool_t  IsAssembly() const;
    virtual Bool_t  IsFolder() const;
    Bool_t          IsRunTime() const {return fShape->IsRunTimeShape();}
@@ -136,6 +139,12 @@ public:
    void            PrintNodes() const;
    void            PrintVoxels() const; // *MENU*
    void            ReplayCreation(const TGeoVolume *other);
+   void            SetUserExtension(TGeoExtension *ext);
+   void            SetFWExtension(TGeoExtension *ext);
+   TGeoExtension  *GetUserExtension() const {return fUserExtension;}
+   TGeoExtension  *GetFWExtension() const   {return fFWExtension;}
+   TGeoExtension  *GrabUserExtension() const;
+   TGeoExtension  *GrabFWExtension() const;
    virtual void    ExecuteEvent(Int_t event, Int_t px, Int_t py);
 
    Bool_t          IsActive() const {return TGeoAtt::IsActive();}
@@ -199,7 +208,7 @@ public:
    void            RemoveNode(TGeoNode *node);
    TGeoNode       *ReplaceNode(TGeoNode *nodeorig, TGeoShape *newshape=0, TGeoMatrix *newpos=0, TGeoMedium *newmed=0);
    void            SaveAs(const char *filename,Option_t *option="") const; // *MENU*
-   virtual void    SavePrimitive(ostream &out, Option_t *option = "");
+   virtual void    SavePrimitive(std::ostream &out, Option_t *option = "");
    void            SelectVolume(Bool_t clear = kFALSE);
    void            SetActivity(Bool_t flag=kTRUE) {TGeoAtt::SetActivity(flag);}
    void            SetActiveDaughters(Bool_t flag=kTRUE) {TGeoAtt::SetActiveDaughters(flag);}
@@ -272,7 +281,7 @@ public:
    virtual void    AddNode(const TGeoVolume *vol, Int_t copy_no, TGeoMatrix *mat, Option_t *option="");       // most general case
    virtual void    AddNodeOverlap(const TGeoVolume *vol, Int_t copy_no, TGeoMatrix *mat, Option_t *option="");
    virtual TGeoVolume *Divide(const char *divname, Int_t iaxis, Int_t ndiv, Double_t start, Double_t step, Int_t numed=0, Option_t *option="");
-   TGeoShape      *GetLastShape() const {return GetVolume(fVolumes->GetEntriesFast()-1)->GetShape();}
+   TGeoShape      *GetLastShape() const;
    Int_t           GetNvolumes() const {return fVolumes->GetEntriesFast();}
    Int_t           GetAxis() const {return fNdiv;}
    Int_t           GetNdiv() const {return fNdiv;}
