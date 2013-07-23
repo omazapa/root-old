@@ -2156,11 +2156,13 @@ Int_t TProofServ::HandleSocketInput(TMessage *mess, Bool_t all)
                // Output to tempfile
                TString tmpfn = "echo-out-";
                FILE *tf = gSystem->TempFileName(tmpfn, fDataDir);
-               if (gSystem->RedirectOutput(tmpfn.Data()) == -1) {
+               if (!tf || (gSystem->RedirectOutput(tmpfn.Data()) == -1)) {
                   Error("HandleSocketInput", "Can't redirect output");
+                  if (tf) {
+                     fclose(tf);
+                     gSystem->Unlink(tmpfn);
+                  }
                   rc = -1;
-                  fclose(tf);
-                  gSystem->Unlink(tmpfn);
                   delete obj;
                   break;
                }
@@ -2170,8 +2172,8 @@ Int_t TProofServ::HandleSocketInput(TMessage *mess, Bool_t all)
                fclose(tf);
 
                // Read file back and send it via message
-               smsg.Append(Form("*** Echo response from %s:%s ***\n",
-                  gSystem->HostName(), GetOrdinal()));
+               smsg.Form("*** Echo response from %s:%s ***\n",
+                  gSystem->HostName(), GetOrdinal());
                TMacro *fr = new TMacro();
                fr->ReadFile(tmpfn);
                TIter nextLine(fr->GetListOfLines());
@@ -3292,11 +3294,13 @@ Int_t TProofServ::SetupCommon()
       // Dataset manager for staging requests
       TString dsReqCfg = gEnv->GetValue("Proof.DataSetStagingRequests", "");
       if (!dsReqCfg.IsNull()) {
-         TPMERegexp reReqDir("(^| )dir:([^ ]+)( |$)");
+         TPMERegexp reReqDir("(^| )(dir:)?([^ ]+)( |$)");
 
-         if (reReqDir.Match(dsReqCfg) == 4) {
+         if (reReqDir.Match(dsReqCfg) == 5) {
+            TString dsDirFmt;
+            dsDirFmt.Form("dir:%s perms:open", reReqDir[3].Data());
             fDataSetStgRepo = new TDataSetManagerFile("_stage_", "_stage_",
-              Form("dir:%s perms:open", reReqDir[2].Data()));
+               dsDirFmt);
             if (fDataSetStgRepo &&
                fDataSetStgRepo->TestBit(TObject::kInvalidObject)) {
                Warning("SetupCommon",
@@ -3305,7 +3309,7 @@ Int_t TProofServ::SetupCommon()
             }
          } else {
             Warning("SetupCommon",
-              "specify, with dir:<path>, a valid path for staging requests");
+              "specify, with [dir:]<path>, a valid path for staging requests");
          }
       } else if (gProofDebugLevel > 0) {
          Warning("SetupCommon", "no repository for staging requests available");
@@ -6849,23 +6853,19 @@ Int_t TProofServ::HandleDataSets(TMessage *mess, TString *slb)
 
       case TProof::kStagingStatus:
          {
-            (*mess) >> uri;  // TString
-
             if (!fDataSetStgRepo) {
                Error("HandleDataSets",
                   "no dataset staging request repository available");
                return -1;
             }
 
-            // TODO what is slb?
-            //if (slb) slb->Form("%d %s %s", type, uri.Data(), opt.Data());
+            (*mess) >> uri;  // TString
 
             // Transform URI in a valid dataset name
-            TString validUri = uri;
-            while (reInvalid.Substitute(validUri, "_")) {}
+            while (reInvalid.Substitute(uri, "_")) {}
 
             // Get the list
-            TFileCollection *fc = fDataSetStgRepo->GetDataSet(validUri.Data());
+            TFileCollection *fc = fDataSetStgRepo->GetDataSet(uri.Data());
             if (fc) {
                fSocket->SendObject(fc, kMESS_OK);
                delete fc;
@@ -6874,9 +6874,29 @@ Int_t TProofServ::HandleDataSets(TMessage *mess, TString *slb)
             else {
                // No such dataset: not an error, but don't send message
                Info("HandleDataSets", "no pending staging request for %s",
-                  validUri.Data());
+                  uri.Data());
                return 0;
             }
+         }
+         break;
+
+      case TProof::kCancelStaging:
+         {
+            if (!fDataSetStgRepo) {
+               Error("HandleDataSets",
+                  "no dataset staging request repository available");
+               return -1;
+            }
+
+            (*mess) >> uri;
+
+            // Transform URI in a valid dataset name
+            while (reInvalid.Substitute(uri, "_")) {}
+
+            if (!fDataSetStgRepo->RemoveDataSet(uri.Data()))
+               return -1;  // failure
+
+            return 0;  // success
          }
          break;
 

@@ -121,9 +121,10 @@ TGridResult *TAliEnFind::GetGridResult(Bool_t forceNewQuery)
       TPMERegexp *reArchSubst = NULL;
       TString substWith;
       if (fArchSubst) {
-         TString temp = Form("/%s$", fFileName.Data());
+         TString temp;
+         temp.Form("/%s$", fFileName.Data());
          reArchSubst = new TPMERegexp(temp.Data());
-         substWith = Form("/root_archive.zip#%s", fFileName.Data());
+         substWith.Form("/root_archive.zip#%s", fFileName.Data());
       }
 
       TIter it(fGridResult);
@@ -312,8 +313,9 @@ void TDataSetManagerAliEn::Init(TString cacheDir, TString urlTpl,
   fUrlTpl = urlTpl;
   fUrlTpl.ReplaceAll("<path>", "$1");
 
-  fCache = new TDataSetManagerFile("_cache_", "_cache_",
-    Form("dir:%s perms:open", cacheDir.Data()));
+  TString dsDirFmt;
+  dsDirFmt.Form("dir:%s perms:open", cacheDir.Data());
+  fCache = new TDataSetManagerFile("_cache_", "_cache_", dsDirFmt);
 
   if (fCache->TestBit(TObject::kInvalidObject)) {
     Error("Init", "Cannot initialize cache on directory %s", cacheDir.Data());
@@ -379,7 +381,7 @@ TDataSetManagerAliEn::~TDataSetManagerAliEn()
 
 //______________________________________________________________________________
 TList *TDataSetManagerAliEn::GetFindCommandsFromUri(TString &uri,
-  EDataMode &dataMode)
+  EDataMode &dataMode, Bool_t &forceUpdate)
 {
   // Parse kind
   TPMERegexp reKind("^(Data;|Sim;|Find;)");
@@ -470,15 +472,15 @@ TList *TDataSetManagerAliEn::GetFindCommandsFromUri(TString &uri,
           }
         }
 
-        basePath = Form("/alice/sim/%s", lhcPeriod.Data());  // no year
+        basePath.Form("/alice/sim/%s", lhcPeriod.Data());  // no year
         if (!gGrid->Cd(basePath.Data())) {
-          basePath = Form("/alice/sim/%d/%s", year, lhcPeriod.Data());
+          basePath.Form("/alice/sim/%d/%s", year, lhcPeriod.Data());
         }
         temp.Form("/%06d", runList->at(i));
         basePath.Append(temp);
 
         if (!esd) {
-          temp = Form("/AOD%03d", aodNum);
+          temp.Form("/AOD%03d", aodNum);
           basePath.Append(temp);
         }
       }
@@ -492,13 +494,13 @@ TList *TDataSetManagerAliEn::GetFindCommandsFromUri(TString &uri,
         if ((pass[0] >= '0') && (pass[0] <= '9')) pass.Prepend("pass");
 
         // Data
-        basePath = Form("/alice/data/%d/%s/%09d/ESDs/%s", year,
+        basePath.Form("/alice/data/%d/%s/%09d/ESDs/%s", year,
           lhcPeriod.Data(), runList->at(i), pass.Data());
         if (esd) {
           basePath.Append("/*.*");
         }
         else {
-          temp = Form("/AOD%03d", aodNum);
+          temp.Form("/AOD%03d", aodNum);
           basePath.Append(temp);
         }
       }
@@ -524,7 +526,11 @@ TList *TDataSetManagerAliEn::GetFindCommandsFromUri(TString &uri,
 
   }
 
-  // If no valid data found, then findCommands is NULL
+  // Force update or use cache (when possible)
+  TPMERegexp reForceUpdate("(^|;)ForceUpdate(;|$)");
+  forceUpdate = (reForceUpdate.Match(uri) == 3);
+
+  // If no valid data was found, then findCommands is NULL
   return findCommands;
 }
 
@@ -712,9 +718,10 @@ TFileCollection *TDataSetManagerAliEn::GetDataSet(const char *uri, const char *)
 {
   TFileCollection *fc = NULL;  // global collection
 
-  EDataMode dataMode;
   TString sUri(uri);
-  TList *findCmds = GetFindCommandsFromUri(sUri, dataMode);
+  EDataMode dataMode;
+  Bool_t forceUpdate;
+  TList *findCmds = GetFindCommandsFromUri(sUri, dataMode, forceUpdate);
   if (!findCmds) return NULL;
 
   fc = new TFileCollection();  // this fc will contain all data
@@ -736,9 +743,13 @@ TFileCollection *TDataSetManagerAliEn::GetDataSet(const char *uri, const char *)
     Long_t now = gSystem->Now();
     now = now/1000 + 788914800;  // magic is secs between Jan 1st 1970 and 1995
 
-    if ((mtime > 0) && (now-mtime > fCacheExpire_s)) {
+    if (forceUpdate) {
       if (gDebug >= 1)
-        Info("GetDataSet", "Dataset cache expired");
+        Info("GetDataSet", "Ignoring cached query result: forcing update");
+    }
+    else if ((mtime > 0) && (now-mtime > fCacheExpire_s)) {
+      if (gDebug >= 1)
+        Info("GetDataSet", "Dataset cache has expired");
     }
     else {
       if (gDebug >= 1)
