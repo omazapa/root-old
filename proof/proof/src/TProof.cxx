@@ -968,7 +968,7 @@ Int_t TProof::Init(const char *, const char *conffile,
    fAllMonitor->DeActivateAll();
 
    // By default go into parallel mode
-   Int_t nwrk = -1;
+   Int_t nwrk = GetRemoteProtocol() > 35 ? -1 : 9999;
    TNamed *n = 0;
    if (TProof::GetEnvVars() &&
       (n = (TNamed *) TProof::GetEnvVars()->FindObject("PROOF_NWORKERS"))) {
@@ -1343,7 +1343,7 @@ Int_t TProof::AddWorkers(TList *workerList)
    // use fEnabledPackages, fLoadedMacros,
    // gSystem->GetDynamicPath() and gSystem->GetIncludePath()
    // no need to load packages that are only loaded and not enabled (dyn mode)
-   Int_t nwrk = -1;
+   Int_t nwrk = GetRemoteProtocol() > 35 ? -1 : 9999;
    TNamed *n = 0;
    if (TProof::GetEnvVars() &&
       (n = (TNamed *) TProof::GetEnvVars()->FindObject("PROOF_NWORKERS"))) {
@@ -6599,6 +6599,33 @@ Int_t TProof::SendFile(const char *file, Int_t opt, const char *rfile, TSlave *w
 }
 
 //______________________________________________________________________________
+Int_t TProof::Echo(const TObject *obj)
+{
+   // Sends an object to master and workers and expect them to send back a
+   // message with the output of its TObject::Print(). Returns -1 on error, the
+   // number of workers that received the objects on success.
+
+   if (!IsValid() || !obj) return -1;
+   TMessage mess(kPROOF_ECHO);
+   mess.WriteObject(obj);
+   return Broadcast(mess);
+}
+
+//______________________________________________________________________________
+Int_t TProof::Echo(const char *str)
+{
+   // Sends a string to master and workers and expect them to echo it back to
+   // the client via a message. It is a special case of the generic Echo()
+   // that works with TObjects. Returns -1 on error, the number of workers that
+   // received the message on success.
+
+   TObjString *os = new TObjString(str);
+   Int_t rv = Echo(os);
+   delete os;
+   return rv;
+}
+
+//______________________________________________________________________________
 Int_t TProof::SendObject(const TObject *obj, ESlaves list)
 {
    // Send object to master or slave servers. Returns number of slaves object
@@ -10996,6 +11023,32 @@ Bool_t TProof::RequestStagingDataSet(const char *dataset)
    Collect();
    if (fStatus != 0) {
       Error("RequestStagingDataSet", "staging request was unsuccessful");
+      return kFALSE;
+   }
+
+   return kTRUE;
+}
+
+//______________________________________________________________________________
+Bool_t TProof::CancelStagingDataSet(const char *dataset)
+{
+   // Cancels a dataset staging request. Returns kTRUE on success, kFALSE on
+   // failure. Dataset not found equals to a failure.
+
+   if (fProtocol < 36) {
+      Error("CancelStagingDataSet",
+         "functionality not supported by the server");
+      return kFALSE;
+   }
+
+   TMessage mess(kPROOF_DATASETS);
+   mess << Int_t(kCancelStaging);
+   mess << TString(dataset);
+   Broadcast(mess);
+
+   Collect();
+   if (fStatus != 0) {
+      Error("CancelStagingDataSet", "cancel staging request was unsuccessful");
       return kFALSE;
    }
 

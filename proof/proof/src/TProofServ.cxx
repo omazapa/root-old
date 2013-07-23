@@ -833,7 +833,7 @@ Int_t TProofServ::CreateServer()
 
    if (!fLogFile) {
       RedirectOutput();
-      // If for some reason we failed setting a redirection fole for the logs
+      // If for some reason we failed setting a redirection file for the logs
       // we cannot continue
       if (!fLogFile || (fLogFileDes = fileno(fLogFile)) < 0) {
          LogToMaster();
@@ -1476,7 +1476,7 @@ Int_t TProofServ::HandleSocketInput(TMessage *mess, Bool_t all)
 {
    // Process input coming from the client or from the master server.
    // If 'all' is kFALSE, process only those messages that can be handled
-   // during qurey processing.
+   // during query processing.
    // Returns -1 if the message could not be processed, <-1 if something went
    // wrong. Returns 1 if the action may have changed the parallel state.
    // Returns 2 if the message has to be enqueued.
@@ -2122,6 +2122,75 @@ Int_t TProofServ::HandleSocketInput(TMessage *mess, Bool_t all)
                SendAsynMessage("Processing request to go asynchronous:"
                                " idle or undefined player - ignoring");
             }
+         }
+         break;
+
+      case kPROOF_ECHO:
+         {  // Echo request: an object has been sent along. If the object is a
+            // string, it is simply echoed back to the client from the master
+            // and each worker. Elsewhere, the output of TObject::Print() is
+            // sent. Received object is disposed after usage.
+
+            TObject *obj = mess->ReadObject(0x0);  // class type ignored
+
+            if (IsMaster()) {
+               // We are on master
+               // dbTODO: forward on dynamic startup when wrks are up
+               if (IsParallel() && fProof && !fProof->UseDynamicStartup()) {
+                  fProof->Echo(obj);  // forward to lower layer
+               }
+            }
+
+            TMessage rmsg(kPROOF_MESSAGE);
+            TString smsg;
+
+            if (obj->InheritsFrom(TObjString::Class())) {
+               // It's a string: echo it
+               smsg.Form("Echo response from %s:%s: %s",
+                  gSystem->HostName(), GetOrdinal(),
+                  ((TObjString *)obj)->String().Data());
+            }
+            else {
+               // Not a string: collect Print() output and send it
+
+               // Output to tempfile
+               TString tmpfn = "echo-out-";
+               FILE *tf = gSystem->TempFileName(tmpfn, fDataDir);
+               if (!tf || (gSystem->RedirectOutput(tmpfn.Data()) == -1)) {
+                  Error("HandleSocketInput", "Can't redirect output");
+                  if (tf) {
+                     fclose(tf);
+                     gSystem->Unlink(tmpfn);
+                  }
+                  rc = -1;
+                  delete obj;
+                  break;
+               }
+               //cout << obj->ClassName() << endl;
+               obj->Print();
+               gSystem->RedirectOutput(0x0);  // restore
+               fclose(tf);
+
+               // Read file back and send it via message
+               smsg.Form("*** Echo response from %s:%s ***\n",
+                  gSystem->HostName(), GetOrdinal());
+               TMacro *fr = new TMacro();
+               fr->ReadFile(tmpfn);
+               TIter nextLine(fr->GetListOfLines());
+               TObjString *line;
+               while (( line = (TObjString *)nextLine() )) {
+                  smsg.Append( line->String() );
+               }
+
+               // Close the reader (TMacro) and remove file
+               delete fr;
+               gSystem->Unlink(tmpfn);
+            }
+
+            // Send message and dispose object
+            rmsg << smsg;
+            GetSocket()->Send(rmsg);
+            delete obj;
          }
          break;
 
@@ -3225,11 +3294,13 @@ Int_t TProofServ::SetupCommon()
       // Dataset manager for staging requests
       TString dsReqCfg = gEnv->GetValue("Proof.DataSetStagingRequests", "");
       if (!dsReqCfg.IsNull()) {
-         TPMERegexp reReqDir("(^| )dir:([^ ]+)( |$)");
+         TPMERegexp reReqDir("(^| )(dir:)?([^ ]+)( |$)");
 
-         if (reReqDir.Match(dsReqCfg) == 4) {
+         if (reReqDir.Match(dsReqCfg) == 5) {
+            TString dsDirFmt;
+            dsDirFmt.Form("dir:%s perms:open", reReqDir[3].Data());
             fDataSetStgRepo = new TDataSetManagerFile("_stage_", "_stage_",
-              Form("dir:%s perms:open", reReqDir[2].Data()));
+               dsDirFmt);
             if (fDataSetStgRepo &&
                fDataSetStgRepo->TestBit(TObject::kInvalidObject)) {
                Warning("SetupCommon",
@@ -3238,7 +3309,7 @@ Int_t TProofServ::SetupCommon()
             }
          } else {
             Warning("SetupCommon",
-              "specify, with dir:<path>, a valid path for staging requests");
+              "specify, with [dir:]<path>, a valid path for staging requests");
          }
       } else if (gProofDebugLevel > 0) {
          Warning("SetupCommon", "no repository for staging requests available");
@@ -6782,23 +6853,19 @@ Int_t TProofServ::HandleDataSets(TMessage *mess, TString *slb)
 
       case TProof::kStagingStatus:
          {
-            (*mess) >> uri;  // TString
-
             if (!fDataSetStgRepo) {
                Error("HandleDataSets",
                   "no dataset staging request repository available");
                return -1;
             }
 
-            // TODO what is slb?
-            //if (slb) slb->Form("%d %s %s", type, uri.Data(), opt.Data());
+            (*mess) >> uri;  // TString
 
             // Transform URI in a valid dataset name
-            TString validUri = uri;
-            while (reInvalid.Substitute(validUri, "_")) {}
+            while (reInvalid.Substitute(uri, "_")) {}
 
             // Get the list
-            TFileCollection *fc = fDataSetStgRepo->GetDataSet(validUri.Data());
+            TFileCollection *fc = fDataSetStgRepo->GetDataSet(uri.Data());
             if (fc) {
                fSocket->SendObject(fc, kMESS_OK);
                delete fc;
@@ -6807,9 +6874,29 @@ Int_t TProofServ::HandleDataSets(TMessage *mess, TString *slb)
             else {
                // No such dataset: not an error, but don't send message
                Info("HandleDataSets", "no pending staging request for %s",
-                  validUri.Data());
+                  uri.Data());
                return 0;
             }
+         }
+         break;
+
+      case TProof::kCancelStaging:
+         {
+            if (!fDataSetStgRepo) {
+               Error("HandleDataSets",
+                  "no dataset staging request repository available");
+               return -1;
+            }
+
+            (*mess) >> uri;
+
+            // Transform URI in a valid dataset name
+            while (reInvalid.Substitute(uri, "_")) {}
+
+            if (!fDataSetStgRepo->RemoveDataSet(uri.Data()))
+               return -1;  // failure
+
+            return 0;  // success
          }
          break;
 
