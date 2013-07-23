@@ -27,7 +27,7 @@ void Datatype()
       cout<<"PASSED"<<endl;
     }
     
-  }else
+  }else if(world.Get_rank() == 1)
   {
     Position r_point;
     world.Recv(&r_point,1,Posdt,0, 0);  
@@ -41,5 +41,4 @@ void Datatype()
     r_point.z = 6;    
     world.Send(&r_point,1,Posdt,0, 1);
   }
-   env.Finalize();
 }

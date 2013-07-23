@@ -39,5 +39,8 @@ void AllGatherObject()
    if(str==str_require)
    {
    cout<<"PASSED"<<endl;  
+   }else
+   {
+   cout<<"FAILED"<<endl;
    }
 }

@@ -174,7 +174,7 @@ void SendRecvObject()
       cout<<t_str.Data()<<endl;
 
       world.RecvObject(tl_str,0, 0);
-     cout<<tl_str.Data()<<endl;
+      cout<<tl_str.Data()<<endl;
 
       world.RecvObject(c_arr,0, 0);
 
@@ -184,5 +184,4 @@ void SendRecvObject()
 
       world.RecvObject(i_arr,0, 0);
    }
-//    env.Finalize();
 }

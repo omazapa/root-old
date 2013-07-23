@@ -54,10 +54,14 @@ void SendRecvObjectExtreme()
        * Matrix *
        **********/
       TMatrixD d_mat;
-
+      TMatrixD d_matrequired(9000000,2);
+      d_matrequired[0][0] = 0.1;
+      d_matrequired[0][1] = 0.2;
+      d_matrequired[1][0] = 0.3;
+      d_matrequired[1][1] = 0.4;
 
       world.RecvObject(d_mat,0, 0);
-      d_mat.Print();
+     if(d_mat==d_matrequired) cout<<"PASSED"<<endl;
+
    }
-//    env.Finalize();
 }

@@ -441,7 +441,6 @@ namespace ROOT {
 #endif
          const Int_t size = smsg->BufferSize();
          const Char_t *buffer = smsg->Buffer();
-         std::cout << "Size = " << size << std::endl;
          Send(&size, 1, INT, dest, tag);
          Send(buffer, size, CHAR, dest, tag);
          delete smsg;
@@ -452,7 +451,6 @@ namespace ROOT {
       {
          Int_t size;
          Recv(&size, 1, INT, source, tag);
-         std::cout << "Size = " << size << std::endl;
          Char_t *buffer = new Char_t[size];
          Recv(buffer, size, CHAR, source, tag);
          TMpiMessage * rmsg = new TMpiMessage();
