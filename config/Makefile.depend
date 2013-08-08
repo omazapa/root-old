@@ -538,7 +538,7 @@ MEMSTATLIBEXTRA         = -Llib -lTree -lGpad -lGraf -lHist -lRIO
 MEMSTATGUILIBEXTRA      = -Llib -lMemStat -lTree -lGui
 RECLIBEXTRA             = -Llib -lGui -lRIO -lTree -lThread
 FITSIOLIBEXTRA          = -Llib -lHist -lGpad -lGraf -lMatrix
-RLIBEXTRA               = -Llib -lCore -lCint -lMatrix
+RLIBEXTRA               = -Llib -lCore -lCint -lMatrix -lreadline
 
 endif
 

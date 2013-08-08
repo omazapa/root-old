@@ -53,13 +53,14 @@ namespace ROOT {
 //______________________________________________________________________________
    template<class Type> Type ROOT::R::TRObjectProxy::ToScalar()
    {
-      //Return R's scalars like  Integers and Doubles to Int_t and Doublet_t
+      //Return R's scalars like  integers and doubles to Int_t and Doublet_t.
       return ::Rcpp::as<Type>(x);
    }
 
 //______________________________________________________________________________
    template<class Type> TVectorT<Type> ROOT::R::TRObjectProxy::ToVector()
    {
+      //Return R's vector like TVectorT template with indicate type.
       std::vector<Type> vec =::Rcpp::as<std::vector<Type> >(x);
       return TVectorT<Type>(vec.size(), vec.data());
    }
@@ -74,6 +75,7 @@ namespace ROOT {
 //______________________________________________________________________________
    template<class Type> TMatrixT<Type>   ROOT::R::TRObjectProxy::ToMatrix()
    {
+      //Return R's matrix like TMatrixT template with indicate type.
       Rcpp::NumericMatrix mat =::Rcpp::as<Rcpp::NumericMatrix>(x);
       return TMatrixT<Type>(mat.nrow(), mat.ncol(), mat.begin(), "F");
    }

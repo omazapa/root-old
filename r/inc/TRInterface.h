@@ -79,16 +79,17 @@ namespace ROOT {
             TRInterface *fInterface;
             TString fName;
          };
-         TRInterface(const int argc = 0, const char *const argv[] = NULL, const bool loadRcpp = true, const bool verbose = false, const bool interactive = false);
+         TRInterface(const int argc = 0, const char *argv[] = NULL, const bool loadRcpp = true, const bool verbose = false, const bool interactive = true);
          ~TRInterface() {}
 
          void SetVerbose(Bool_t status);
          Int_t ParseEval(const TString &code, TRObjectProxy  &ans); // parse line, return in ans; error code rc
          //throws on error if exception is kTRUE
-         void  Parse(const TString &code, Bool_t exception = kTRUE);
+         void  Parse(const TString &code, Bool_t exception = kFALSE);
 
-         TRObjectProxy ParseEval(const TString &code, Bool_t exception = kTRUE);
+         TRObjectProxy ParseEval(const TString &code, Bool_t exception = kFALSE);
 
+         //______________________________________________________________________________
          template<typename T >void Assign(const T &var, const TString & name) {
             // This method lets you pass variables from ROOT to R.
             // The template T should be a supported ROOT datatype and
@@ -98,6 +99,8 @@ namespace ROOT {
          void Assign(const TRFunction &fun, const TString & name);
 
          void Xwin(TString opt = "");
+
+         void Interactive();
 
          R_FUNCTION(plot)
          R_FUNCTION(points)

@@ -10,9 +10,15 @@
 * For the list of contributors see $ROOTSYS/README/CREDITS.              *
 *************************************************************************/
 #include<TRInterface.h>
+#include<Rembedded.h>
+#include<Rinterface.h>
+#include<Rinternals.h>
 #include<vector>
-ROOT::R::TRInterface *gR = new ROOT::R::TRInterface();
 
+const char *argvs[] = {"rootr", "--gui=none", "--no-save", "--silent"};
+ROOT::R::TRInterface *gR = new ROOT::R::TRInterface(5, argvs, true, false, true);
+#include <readline/readline.h>
+#include <readline/history.h>
 //______________________________________________________________________________
 /* Begin_Html
 <center><h2>TRInterface class</h2></center>
@@ -24,28 +30,29 @@ and to use the power of ROOT and R at the same time.<br>
 It also lets you pass scalars, vectors and matrices from ROOT to R<br>
 and from R to ROOT using TRObjectProxy.<br>
 <br>
-To plot in R environment you should first call the method x11() to initiliaze the window's system<br>
+To plot in R environment you should first call the method Xwin() to initiliaze the window's system<br>
 before calling the class' plotting methods.<br>
 <br>
 <i style="color:red;">NOTE</i> In the same way that TROOT class have an unique global object gROOT,<br>
-TRInterface has gR. Not more objects of TRInterface class can be instantiated.<br>
+TRInterface has gR. Not more objects of TRInterface class can be instantiated, but you can create objects using the methods
+TRInterface& Instance() and TRInterface* InstancePtr() to create your objects or just to use directly gR object.<br>
 <br>
 </p>
-The picture below gives an example:
+Show an example below:
 End_Html
 Begin_Macro(source)
 {
 
 //Create an exponential fit
-//The idea is to create a set of numbers x,y with noise from ROOT
-//Pass them to R and fit the data to x^3,
+//The idea is to create a set of numbers x,y with noise from ROOT,
+//pass then to R and fit the data to x^3,
 //get the fitted coefficient(power) and plot the points with noise,
-//the known function and the fitted function
+//the known function and the fitted function.
 //Author:: Omar Zapata
    TCanvas *c1 = new TCanvas("c1","Curve Fit",700,500);
    c1->SetGrid();
 
-   // draw a frame to define the range
+   // draw a frame for multiples graphs
    TMultiGraph *mg = new TMultiGraph();
 
    // create the first graph (points with gaussian noise)
@@ -115,13 +122,106 @@ End_Macro */
 using namespace ROOT::R;
 ClassImp(TRInterface)
 
+//Variables for READLINE
+static SEXP
+RComp_assignBufferSym,
+RComp_assignStartSym,
+RComp_assignEndSym,
+RComp_assignTokenSym,
+RComp_completeTokenSym,
+RComp_getFileCompSym,
+RComp_retrieveCompsSym;
+SEXP rcompgen_rho;
+
 //______________________________________________________________________________
-TRInterface::TRInterface(const int argc, const char *const argv[], const bool loadRcpp, const bool verbose, const bool interactive)
+char *R_completion_generator(const char *text, int state)
+{
+   static int list_index, ncomp;
+   static char **compstrings;
+
+   /* If this is a new word to complete, initialize now.  This
+      involves saving 'text' to somewhere R can get at it, calling
+      completeToken(), and retrieving the completions. */
+
+   if (!state) {
+      int i;
+      SEXP completions,
+           assignCall = PROTECT(Rf_lang2(RComp_assignTokenSym, Rf_mkString(text))),
+           completionCall = PROTECT(Rf_lang1(RComp_completeTokenSym)),
+           retrieveCall = PROTECT(Rf_lang1(RComp_retrieveCompsSym));
+      const void *vmax = vmaxget();
+
+      Rf_eval(assignCall, rcompgen_rho);
+      Rf_eval(completionCall, rcompgen_rho);
+      PROTECT(completions = Rf_eval(retrieveCall, rcompgen_rho));
+      list_index = 0;
+      ncomp = Rf_length(completions);
+      if (ncomp > 0) {
+         compstrings = (char **) malloc(ncomp * sizeof(char*));
+         if (!compstrings)  return (char *)NULL;
+         for (i = 0; i < ncomp; i++)
+            compstrings[i] = strdup(Rf_translateChar(STRING_ELT(completions, i)));
+      }
+      UNPROTECT(4);
+      vmaxset(vmax);
+   }
+
+   if (list_index < ncomp)
+      return compstrings[list_index++];
+   else {
+      /* nothing matched or remaining, so return NULL. */
+      if (ncomp > 0) free(compstrings);
+   }
+   return (char *)NULL;
+}
+
+//______________________________________________________________________________
+char ** R_custom_completion(const char *text, int start, int end)
+{
+   char **matches = (char **)NULL;
+   SEXP infile,
+        linebufferCall = PROTECT(Rf_lang2(RComp_assignBufferSym,
+                                          Rf_mkString(rl_line_buffer))),
+                         startCall = PROTECT(Rf_lang2(RComp_assignStartSym, Rf_ScalarInteger(start))),
+                         endCall = PROTECT(Rf_lang2(RComp_assignEndSym, Rf_ScalarInteger(end)));
+   SEXP filecompCall;
+
+   /* Don't want spaces appended at the end.  Need to do this
+      everytime, as readline>=6 resets it to ' ' */
+   rl_completion_append_character = '\0';
+
+   Rf_eval(linebufferCall, rcompgen_rho);
+   Rf_eval(startCall, rcompgen_rho);
+   Rf_eval(endCall, rcompgen_rho);
+   UNPROTECT(3);
+   matches = rl_completion_matches(text, R_completion_generator);
+   filecompCall = PROTECT(Rf_lang1(RComp_getFileCompSym));
+   infile = PROTECT(Rf_eval(filecompCall, rcompgen_rho));
+   if (!Rf_asLogical(infile)) rl_attempted_completion_over = 1;
+   UNPROTECT(2);
+   return matches;
+}
+
+//______________________________________________________________________________
+TRInterface::TRInterface(const int argc, const char *argv[], const bool loadRcpp, const bool verbose, const bool interactive)
 {
 // The command line arguments are by deafult argc=0 and argv=NULL,
 // The verbose mode are by default disabled but you can enable it to show procedures information in stdout/stderr
    if (RInside::instancePtr()) throw std::runtime_error("Can only have one TRInterface instance");
    fR = new RInside(argc, argv, loadRcpp, verbose, interactive);
+
+   //installing the readline callbacks for completion in the
+   //method Interactive
+   rcompgen_rho = R_FindNamespace(Rf_mkString("utils"));
+   RComp_assignBufferSym  = Rf_install(".assignLinebuffer");
+   RComp_assignStartSym   = Rf_install(".assignStart");
+   RComp_assignEndSym     = Rf_install(".assignEnd");
+   RComp_assignTokenSym   = Rf_install(".assignToken");
+   RComp_completeTokenSym = Rf_install(".completeToken");
+   RComp_getFileCompSym   = Rf_install(".getFileComp");
+   RComp_retrieveCompsSym = Rf_install(".retrieveCompletions");
+   rl_attempted_completion_function = R_custom_completion;
+
 }
 
 
@@ -140,9 +240,9 @@ Int_t  TRInterface::ParseEval(const TString &code, TRObjectProxy  &ans)
 //______________________________________________________________________________
 void TRInterface::Parse(const TString &code, Bool_t exception)
 {
-// Parse R code. The argument exception is by defualt true, and
-// if the code has some error it launches an exception.
-//if exception if false, the code prints an error and continues executing.
+// Parse R code. The argument exception is by defualt false, and
+// if the code has some error prints an error and continues executing.
+// if exception if true, the code it launches an exception and stop the execution.
    if (exception) fR->parseEvalQ((std::string)code);
    else fR->parseEvalQNT(code.Data());
 }
@@ -150,9 +250,9 @@ void TRInterface::Parse(const TString &code, Bool_t exception)
 //______________________________________________________________________________
 TRObjectProxy TRInterface::ParseEval(const TString &code, Bool_t exception)
 {
-// Parse R code. The argument exception is by defualt true, and
-// if the code has some error launches an exception.
-//if exception if false, the code prints an error and continues executing.
+// Parse R code. The argument exception is by defualt false, and
+// if the code has some error prints an error and continues executing.
+//if exception if true, the code launches an exception and stop the execution.
 //The RObject result of execution is returned in TRObjectProxy
    if (exception) return TRObjectProxy((SEXP)fR->parseEval(code.Data()));
    else return TRObjectProxy((SEXP)fR->parseEvalNT(code.Data()));
@@ -190,7 +290,6 @@ void TRInterface::Xwin(TString opt)
 #else
       Parse(TString("x11(" + opt + ")").Data());
 #endif
-
    }
 }
 
@@ -200,3 +299,22 @@ void TRInterface::Assign(const TRFunction &obj, const TString & name)
    //This method let you to pass c++ functions to R environment.
    fR->assign(*obj.f, name.Data());
 }
+
+//______________________________________________________________________________
+void TRInterface::Interactive()
+{
+   //this method launch a R command line to run directly R code that you can
+   //pass to ROOT calling the apropiate method.
+
+   while (kTRUE) {
+      char * line = readline("[r]:");
+      if (!line) continue;
+      if (*line) add_history(line);
+      if (std::string(line) == ".q") break;
+      Parse(line, false);
+      free(line);
+   }
+}
+
+
+

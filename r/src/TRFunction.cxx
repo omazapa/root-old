@@ -15,7 +15,7 @@
 <center><h2>TRFunction class</h2></center>
 
 <p>
-The TRFunction's class lets you to pass ROOT functions to R enviroment<br>
+The TRFunction's class lets you to pass ROOT functions to R environment<br>
 </p>
 <p>
 The next example was based  in <br>
@@ -61,7 +61,7 @@ End_Html
 #include<TRInterface.h>
 
 ///in the next function the pointer *double should be change by TVectorD, because the pointer has no
-///sense into R enviroment.
+///sense into R environment.
 Double_t RosenBrock(const TVectorD xx )
 {
   const Double_t x = xx[0];
@@ -92,10 +92,10 @@ void Minimization()
 #endif
  ROOT::R::TRInterface r=gR->Instance();
 
- //passsing RosenBrock funtion to R
+ //passing RosenBrock function to R
  r["RosenBrock"]=ROOT::R::TRFunction(RosenBrock);
 
- //passsing RosenBrockGrad funtion to R
+ //passing RosenBrockGrad function to R
  r["RosenBrockGrad"]=ROOT::R::TRFunction(RosenBrockGrad);
 
  //the option "method" could be "Nelder-Mead", "BFGS", "CG", "L-BFGS-B", "SANN","Brent"
@@ -117,7 +117,7 @@ void Minimization()
  //using the gradient
  r.Parse("optimHess(result$par, RosenBrock, RosenBrockGrad)");
  r.Parse("hresult <- optim(c(-1.2,1), RosenBrock, NULL, method = 'BFGS', hessian = TRUE)");
- //getting the min calculated with the gradient
+ //getting the minimum calculated with the gradient
  TVectorD  hmin=r.ParseEval("hresult$par").ToVector<Double_t>();
 
  //printing results
