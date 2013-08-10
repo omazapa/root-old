@@ -15,8 +15,8 @@
 #include<Rinternals.h>
 #include<vector>
 
-const char *argvs[] = {"rootr", "--gui=none", "--no-save", "--silent"};
-ROOT::R::TRInterface *gR = new ROOT::R::TRInterface(5, argvs, true, false, true);
+const char *argvs[] = {"rootr","--no-save", "--silent"};
+ROOT::R::TRInterface *gR = new ROOT::R::TRInterface(3, argvs, true, false, true);
 #include <readline/readline.h>
 #include <readline/history.h>
 //______________________________________________________________________________
