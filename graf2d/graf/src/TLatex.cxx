@@ -19,7 +19,6 @@
 #include "TVirtualPS.h"
 
 const Double_t kPI = TMath::Pi();
-const Int_t kLatex = BIT(10);
 
 ClassImp(TLatex)
 
@@ -1879,11 +1878,28 @@ void TLatex::PaintLatex(Double_t x, Double_t y, Double_t angle, Double_t size, c
 
    TAttText::Modify();  // Change text attributes only if necessary.
 
+   TVirtualPS *saveps = gVirtualPS;
+               
+   if (gVirtualPS) {
+      if (gVirtualPS->InheritsFrom("TTeXDump")) {
+         gVirtualPS->SetTextAngle(angle);
+         TString t(text1);
+         if (t.Index("#")>=0 || t.Index("^")>=0 || t.Index("\\")>=0) {
+            t.ReplaceAll("#","\\");
+            t.Prepend("$");
+            t.Append("$");
+         }
+         gVirtualPS->Text(x,y,t.Data());
+         gVirtualPS = 0;
+      }
+   }
+   
    // Do not use Latex if font is low precision.
    if (fTextFont%10 < 2) {
       if (gVirtualX) gVirtualX->SetTextAngle(angle);
       if (gVirtualPS) gVirtualPS->SetTextAngle(angle);
       gPad->PaintText(x,y,text1);
+      if (saveps) gVirtualPS = saveps;
       return;
    }
 
@@ -1892,6 +1908,7 @@ void TLatex::PaintLatex(Double_t x, Double_t y, Double_t angle, Double_t size, c
       TMathText tm;
       tm.SetTextAlign(GetTextAlign());
       tm.PaintMathText(x, y, angle, size, text1);
+      if (saveps) gVirtualPS = saveps;
       return;
    }
 
@@ -1911,12 +1928,12 @@ void TLatex::PaintLatex(Double_t x, Double_t y, Double_t angle, Double_t size, c
          size = size/h;
       SetTextFont(10*(saveFont/10) + 2);
    }
-   if (gVirtualPS) gVirtualPS->SetBit(kLatex);
 
    fError = 0 ;
    if (CheckLatexSyntax(newText)) {
       std::cout<<"\n*ERROR<TLatex>: "<<fError<<std::endl;
       std::cout<<"==> "<<text1<<std::endl;
+      if (saveps) gVirtualPS = saveps;
       return ;
    }
    fError = 0 ;
@@ -1973,8 +1990,7 @@ void TLatex::PaintLatex(Double_t x, Double_t y, Double_t angle, Double_t size, c
    SetLineWidth(lineW);
    SetLineColor(lineC);
    delete[] fTabSize;
-
-   if (gVirtualPS) gVirtualPS->ResetBit(kLatex);
+   if (saveps) gVirtualPS = saveps;
 }
 
 

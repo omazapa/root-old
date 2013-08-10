@@ -218,8 +218,14 @@ void TStreamerInfo::Build()
    fIsBuilt = kTRUE;
 
    if (fClass->GetCollectionProxy()) {
-      //FIXME: What about arrays of STL containers?
-      TStreamerElement* element = new TStreamerSTL("This", "Used to call the proper TStreamerInfo case", 0, fClass->GetName(), fClass->GetName(), 0);
+      TVirtualCollectionProxy *proxy = fClass->GetCollectionProxy();
+      TString title;
+      if (proxy->GetValueClass()) {
+         title.Form("<%s%s> Used to call the proper TStreamerInfo case",proxy->GetValueClass()->GetName(),proxy->HasPointers() ? "*" : "");
+      } else {
+         title .Form("<%s%s> Used to call the proper TStreamerInfo case",TDataType::GetTypeName(proxy->GetType()),proxy->HasPointers() ? "*" : "");
+      }
+      TStreamerElement* element = new TStreamerSTL("This", title.Data(), 0, fClass->GetName(), *proxy, 0);
       fElements->Add(element);
       Compile();
       return;
@@ -256,7 +262,9 @@ void TStreamerInfo::Build()
       if (!strcmp(bname, "string")) {
          element = new TStreamerSTLstring(bname, btitle, offset, bname, kFALSE);
       } else if (base->IsSTLContainer()) {
-         element = new TStreamerSTL(bname, btitle, offset, bname, 0, kFALSE);
+         TVirtualCollectionProxy *proxy = base->GetClassPointer()->GetCollectionProxy();
+         if (proxy) element = new TStreamerSTL(bname, btitle, offset, bname, *proxy, kFALSE);
+         else       element = new TStreamerSTL(bname, btitle, offset, bname, 0, kFALSE);
          if (fClass->IsLoaded() && ((TStreamerSTL*)element)->GetSTLtype() != TClassEdit::kVector) {
             if (!element->GetClassPointer()->IsLoaded()) {
                Error("Build","The class \"%s\" is compiled and its base class \"%s\" is a collection and we do not have a dictionary for it, we will not be able to read or write this base class.",GetName(),bname);
@@ -389,7 +397,9 @@ void TStreamerInfo::Build()
          if (!strcmp(dmType, "string") || !strcmp(dmType, full_string_name)) {
             element = new TStreamerSTLstring(dmName, dmTitle, offset, dmFull, dmIsPtr);
          } else if (dm->IsSTLContainer()) {
-            element = new TStreamerSTL(dmName, dmTitle, offset, dmFull, dm->GetTrueTypeName(), dmIsPtr);
+            TVirtualCollectionProxy *proxy = TClass::GetClass(dm->GetTypeName() /* the underlying type */)->GetCollectionProxy();
+            if (proxy) element = new TStreamerSTL(dmName, dmTitle, offset, dmFull, *proxy, dmIsPtr);
+            else element = new TStreamerSTL(dmName, dmTitle, offset, dmFull, dm->GetTrueTypeName(), dmIsPtr);
             if (fClass->IsLoaded() && ((TStreamerSTL*)element)->GetSTLtype() != TClassEdit::kVector) {
                if (!element->GetClassPointer()->IsLoaded()) {
                   Error("Build","The class \"%s\" is compiled and for its the data member \"%s\", we do not have a dictionary for the collection \"%s\", we will not be able to read or write this data member.",GetName(),dmName,element->GetClassPointer()->GetName());
@@ -544,7 +554,45 @@ void TStreamerInfo::BuildCheck()
       fClass = new TClass(GetName(), fClassVersion, 0, 0, -1, -1);
       fClass->SetBit(TClass::kIsEmulation);
       array = fClass->GetStreamerInfos();
-   } else {
+     
+      // Case of a custom collection (the user provided a CollectionProxy
+      // for a class that is not an STL collection).
+      if (GetElements()->GetEntries() == 1) {
+         TObject *element = GetElements()->UncheckedAt(0);
+         Bool_t isstl = element && strcmp("This",element->GetName())==0;
+         if (isstl) {
+            if (element->GetTitle()[0] == '<') {
+               // We know the content.
+               TString content = element->GetTitle();
+               Int_t level = 1;
+               for(Int_t c = 1; c < content.Length(); ++c) {
+                  if (content[c] == '<') ++level;
+                  else if (content[c] == '>') --level;
+                  if (level == 0) {
+                     content.Remove(c+1);
+                     break;
+                  }
+               }
+               content.Prepend("vector");
+               TClass *clequiv = TClass::GetClass(content);
+               TVirtualCollectionProxy *proxy = clequiv->GetCollectionProxy();
+               if (gDebug > 1)
+                  Info("BuildCheck",
+                       "Update the collection proxy of the class \"%s\" \n"
+                       "\tto be similar to \"%s\".",
+                    GetName(),content.Data());
+               fClass->CopyCollectionProxy( *proxy );
+            } else {
+               Warning("BuildCheck", "\n\
+   The class %s had a collection proxy when written but it is not an STL\n \
+   collection and we did not record the type of the content of the collection.\n \
+   We will claim the content is a bool (i.e. no data will be read).",
+                       GetName());
+            }
+         }
+      }
+
+  } else {
       if (TClassEdit::IsSTLCont(fClass->GetName())) {
          SetBit(kCanDelete);
          return;
@@ -559,6 +607,45 @@ void TStreamerInfo::BuildCheck()
          // For consistency, let's print it now!
 
          ::Warning("TClass::TClass", "no dictionary for class %s is available", GetName());
+      }
+
+      // Case of a custom collection (the user provided a CollectionProxy
+      // for a class that is not an STL collection).
+      if (GetElements()->GetEntries() == 1) {
+         TObject *element = GetElements()->UncheckedAt(0);
+         Bool_t isstl = element && strcmp("This",element->GetName())==0;
+         if (isstl && !fClass->GetCollectionProxy()) {
+            if (element->GetTitle()[0] == '<') {
+               // We know the content.
+               TString content = element->GetTitle();
+               Int_t level = 1;
+               for(Int_t c = 1; c < content.Length(); ++c) {
+                  if (content[c] == '<') ++level;
+                  else if (content[c] == '>') --level;
+                  if (level == 0) {
+                     content.Remove(c+1);
+                     break;
+                  }
+               }
+               content.Prepend("vector");
+               TClass *clequiv = TClass::GetClass(content);
+               TVirtualCollectionProxy *proxy = clequiv->GetCollectionProxy();
+               if (gDebug > 1)
+                  Info("BuildCheck",
+                       "Update the collection proxy of the class \"%s\" \n"
+                       "\tto be similar to \"%s\".",
+                    GetName(),content.Data());
+               fClass->CopyCollectionProxy( *proxy );
+            } else {
+               Warning("BuildCheck", "\n\
+   The class %s had a collection proxy when written but it is not an STL\n \
+   collection and we did not record the type of the content of the collection.\n \
+   We will claim the content is a bool (i.e. no data will be read).",
+                       GetName());
+            }
+            SetBit(kCanDelete);
+            return;         
+         }
       }
 
       // If the user has not specified a class version (this _used to_
@@ -1875,6 +1962,23 @@ void TStreamerInfo::BuildOld()
             // The data member exist in the onfile StreamerInfo and there is a rule
             // that has the same member 'only' has a target ... so this means we are
             // asked to ignore the input data ...
+            if (element->GetType() == kCounter) {
+               // If the element is a counter, we will need its value to read
+               // other data member, so let's do so (by not disabling it) even
+               // if the value will be over-written by a rule.
+            } else {
+               element->SetOffset(kMissing);
+            }
+         }
+      } else if (rules && rules->HasRuleWithTarget( element->GetName(), kTRUE ) ) {
+         // The data member exist in the onfile StreamerInfo and there is a rule
+         // that has the same member 'only' has a target ... so this means we are
+         // asked to ignore the input data ...
+         if (element->GetType() == kCounter) {
+            // If the element is a counter, we will need its value to read
+            // other data member, so let's do so (by not disabling it) even
+            // if the value will be over-written by a rule.
+         } else {
             element->SetOffset(kMissing);
          }
       }

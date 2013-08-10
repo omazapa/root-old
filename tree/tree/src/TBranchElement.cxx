@@ -2095,7 +2095,39 @@ TVirtualCollectionProxy* TBranchElement::GetCollectionProxy()
          className = se->GetTypeName();
       }
       TClass* cl = TClass::GetClass(className);
+      if (!cl) {
+         // The TClass was not created but we do know (since it
+         // is used as a collection) that it 'className' was a
+         // class, so let's create it by hand!.
+
+         if (fID < 0) {
+            cl = new TClass(fBranchClass.GetClassName(), fClassVersion, 0, 0, -1, -1);
+            cl->SetBit(TClass::kIsEmulation);
+            className = cl->GetName();
+         } else {
+            cl = new TClass(className, fClassVersion, 0, 0, -1, -1);
+            cl->SetBit(TClass::kIsEmulation);
+         }
+      }
       TVirtualCollectionProxy* proxy = cl->GetCollectionProxy();
+      if (!proxy) {
+         // humm, we must have an older file with a custom collection
+         // let's try to work-around it.
+         TString equiv;
+         equiv.Form("vector<%s>",fClonesName.Data());
+         TClass *clequiv = TClass::GetClass(equiv);
+         proxy = clequiv->GetCollectionProxy();
+         if (!proxy) { 
+            Fatal("GetCollectionProxy",
+                  "Can not create a Collection Proxy of any kind for the class \"%s\" needed by the branch \"%s\" of the TTree \"%s\"!",
+                  className, GetName(), GetTree()->GetName());
+         }
+         if (gDebug > 0) Info("GetCollectionProxy",
+                              "Fixing the collection proxy of the class \"%s\" \n"
+                              "\tneeded by the branch \"%s\" of the TTree \"%s\" to be similar to \"%s\".",
+                              className, GetName(), GetTree()->GetName(),equiv.Data());
+         cl->CopyCollectionProxy( *proxy );
+      }
       fCollProxy = proxy->Generate();
       fSTLtype = className ? TClassEdit::IsSTLCont(className) : 0;
       if (fSTLtype < 0) {
@@ -4897,7 +4929,7 @@ void TBranchElement::SetReadActionSequence()
             } else {
                original = GetCollectionProxy()->GetReadMemberWiseActions(fClassVersion);
             }
-         } else {
+         } else if (GetCollectionProxy()) {
             // Base class and embedded objects.
 
             transient = TStreamerInfoActions::TActionSequence::CreateReadMemberWiseActions(info,*GetCollectionProxy());
@@ -4984,7 +5016,7 @@ void TBranchElement::SetFillActionSequence()
             //} else {
             original = GetCollectionProxy()->GetWriteMemberWiseActions();
             //}
-         } else {
+         } else if (GetCollectionProxy()) {
             // Base class and embedded objects.
 
             transient = TStreamerInfoActions::TActionSequence::CreateWriteMemberWiseActions(info,*GetCollectionProxy());
