@@ -38,7 +38,7 @@
    gr2->SetMarkerSize(1);
    mg->Add(gr2);
    //passing to R x and y values to fit
-   ROOT::R::TRInterface r=gR->Instance();
+   ROOT::R::TRInterface &r=gR->Instance();
    r["x"]=TVectorD(n, x1);
    r["y"]=TVectorD(n, y1);
    //creating a R data frame

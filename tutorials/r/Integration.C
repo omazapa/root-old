@@ -33,7 +33,7 @@ void Integration()
   return;
   #endif
 
-  ROOT::R::TRInterface r=gR->Instance();
+  ROOT::R::TRInterface &r=gR->Instance();
   
   r["BreitWigner"]=ROOT::R::TRFunction(BreitWignerVectorized);
   

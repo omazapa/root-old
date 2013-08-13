@@ -21,7 +21,7 @@ void CurveFitting()
       x[i] = rg.Uniform(0, 1);
       y[i] = TMath::Power(x[i], 3) + rg.Gaus() * 0.06;
    }
-   ROOT::R::TRInterface r=gR->Instance();
+   ROOT::R::TRInterface &r=gR->Instance();
    r["x"]=x;
    r["y"]=y;
 
@@ -40,7 +40,6 @@ void CurveFitting()
    ///////////////////////////////
    //Task 3 Display the Solution//
    ///////////////////////////////
-
    r.Parse("summary(m)$coefficients");
 
    ///////////////////////////////////////////////////////

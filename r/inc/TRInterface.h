@@ -99,7 +99,7 @@ namespace ROOT {
          void Assign(const TRFunction &fun, const TString & name);
 
          void Xwin(TString opt = "");
-	 
+  
          void Install(TString pkg,TString options="contriburl='http://cran.stat.ucla.edu/src/contrib'");
          void Remove(TString pkg);
          

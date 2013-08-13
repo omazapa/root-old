@@ -309,12 +309,12 @@ void TRInterface::Interactive()
 }
 
 //______________________________________________________________________________
-void TRInterface::Install(TString pkg,TString contriburl)
+void TRInterface::Install(TString pkg,TString options)
 {
   //utility function to install R's packages with default options.
   pkg.Prepend("install.packages('");
-  if(!contriburl.IsNull()&&!contriburl.IsWhitespace())pkg.Append("',contriburl='"+contriburl);
-  pkg.Append("')");
+  if(!options.IsNull()&&!options.IsWhitespace())pkg.Append("',"+options);
+  pkg.Append(")");
   Parse(pkg);
 }
 
@@ -325,5 +325,3 @@ void TRInterface::Remove(TString pkg)
   pkg.Prepend("revome.packages('").Append("')");
   Parse(pkg);
 }
-
-

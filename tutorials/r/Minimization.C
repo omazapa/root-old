@@ -35,7 +35,7 @@ void Minimization()
   cout << "\t .x Minimization.C+" << endl; 
   return;
 #endif
- ROOT::R::TRInterface r=gR->Instance();
+ ROOT::R::TRInterface &r=gR->Instance();
  
  //passsing RosenBrock funtion to R
  r["RosenBrock"]=ROOT::R::TRFunction(RosenBrock);
