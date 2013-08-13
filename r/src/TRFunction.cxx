@@ -133,8 +133,15 @@ void Minimization()
 using namespace ROOT::R;
 ClassImp(TRFunction)
 
+
+//______________________________________________________________________________
+TRFunction::TRFunction(): TObject() {
+            f = NULL;
+}
+
 //______________________________________________________________________________
 TRFunction::TRFunction(const TRFunction &fun): TObject(fun)
 {
    f = fun.f;
 }
+

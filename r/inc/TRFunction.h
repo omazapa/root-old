@@ -37,9 +37,7 @@ namespace ROOT {
       protected:
          Rcpp::InternalFunction *f;
       public:
-         TRFunction(): TObject() {
-            f = NULL;
-         }
+         TRFunction();
 
          TRFunction(const TRFunction &fun);
 #if !defined(__CINT__)

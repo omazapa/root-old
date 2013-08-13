@@ -133,15 +133,15 @@ RComp_getFileCompSym,
 RComp_retrieveCompsSym;
 SEXP rcompgen_rho;
 
-//______________________________________________________________________________
 char *R_completion_generator(const char *text, int state)
 {
+   // If this is a new word to complete, initialize now.  This
+   //   involves saving 'text' to somewhere R can get at it, calling
+   //   completeToken(), and retrieving the completions. 
+   //NOTE: Code based R code and ajusted to Rcpp
    static int list_index, ncomp;
    static char **compstrings;
 
-   /* If this is a new word to complete, initialize now.  This
-      involves saving 'text' to somewhere R can get at it, calling
-      completeToken(), and retrieving the completions. */
 
    if (!state) {
       int i;
@@ -175,9 +175,9 @@ char *R_completion_generator(const char *text, int state)
    return (char *)NULL;
 }
 
-//______________________________________________________________________________
 char ** R_custom_completion(const char *text, int start, int end)
 {
+   //NOTE: Code based R code and ajusted to Rcpp
    char **matches = (char **)NULL;
    SEXP infile,
         linebufferCall = PROTECT(Rf_lang2(RComp_assignBufferSym,
@@ -186,8 +186,8 @@ char ** R_custom_completion(const char *text, int start, int end)
                          endCall = PROTECT(Rf_lang2(RComp_assignEndSym, Rf_ScalarInteger(end)));
    SEXP filecompCall;
 
-   /* Don't want spaces appended at the end.  Need to do this
-      everytime, as readline>=6 resets it to ' ' */
+   // Don't want spaces appended at the end.  Need to do this
+   // everytime, as readline>=6 resets it to ' '
    rl_completion_append_character = '\0';
 
    Rf_eval(linebufferCall, rcompgen_rho);
@@ -278,19 +278,11 @@ void TRInterface::Xwin(TString opt)
    //Initiliaze the window's system to do plots.
    //every platform has it owns system.
    //see R manual for x11(unix based systems),windows(MS windows)
-   if (opt.IsNull()) {
-#if defined(R__WIN32)
-      Parse("windows()");
-#else
-      Parse("x11()");
-#endif
-   } else {
 #if defined(R__WIN32)
       Parse(TString("windows(" + opt + ")").Data());
 #else
       Parse(TString("x11(" + opt + ")").Data());
 #endif
-   }
 }
 
 //______________________________________________________________________________
@@ -316,5 +308,22 @@ void TRInterface::Interactive()
    }
 }
 
+//______________________________________________________________________________
+void TRInterface::Install(TString pkg,TString contriburl)
+{
+  //utility function to install R's packages with default options.
+  pkg.Prepend("install.packages('");
+  if(!contriburl.IsNull()&&!contriburl.IsWhitespace())pkg.Append("',contriburl='"+contriburl);
+  pkg.Append("')");
+  Parse(pkg);
+}
+
+//______________________________________________________________________________
+void TRInterface::Remove(TString pkg)
+{
+  //utility function to remove R's packages with default options.
+  pkg.Prepend("revome.packages('").Append("')");
+  Parse(pkg);
+}
 
 
