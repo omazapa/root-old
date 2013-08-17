@@ -56,6 +56,7 @@ LaTeX document (<tt>simple.tex</tt>) in the following way:
 \documentclass{article}
 \usepackage{tikz}
 \usetikzlibrary{patterns}
+\usetikzlibrary{plotmarks}
 \title{A simple LaTeX example}
 \date{July 2013}
 \begin{document}
@@ -66,10 +67,11 @@ The following image as been generated using the TTeXDump class:
 \end{document}
 </pre>
 
-Note the two directive needed at the top of the LaTeX file:
+Note the three directives needed at the top of the LaTeX file:
 <pre>
 \usepackage{tikz}
 \usetikzlibrary{patterns}
+\usetikzlibrary{plotmarks}
 </pre>
 
 Then including the picture in the document is done with the
@@ -243,7 +245,7 @@ void TTeXDump::DrawBox(Double_t x1, Double_t y1, Double_t x2, Double_t y2)
    if (fillis==1) {
       SetColor(fFillColor);
       PrintStr("@");
-      PrintStr("\\draw [fill=c] (");
+      PrintStr("\\draw [color=c, fill=c] (");
       WriteReal(x1c, kFALSE);
       PrintFast(1,",");
       WriteReal(y1c, kFALSE);
@@ -390,7 +392,7 @@ void TTeXDump::DrawPolyMarker(Int_t n, Double_t *xw, Double_t *yw)
    }
 
    PrintStr("}{\\draw[mark options={color=c,fill=c},mark size=");
-   PrintStr(Form("%fpt,mark=",8.));
+   PrintStr(Form("%fpt,mark=",8./3.33*fMarkerSize));
    switch (fMarkerStyle) {
    case 1 :
       PrintStr("*");
