@@ -10,15 +10,14 @@
 * For the list of contributors see $ROOTSYS/README/CREDITS.              *
 *************************************************************************/
 #include<TRInterface.h>
-#include<Rembedded.h>
-#include<Rinterface.h>
-#include<Rinternals.h>
+// #include<Rembedded.h>
+// #include<Rinterface.h>
+// #include<Rinternals.h>
+#include"TRCompletion.h"
 #include<vector>
 
-const char *argvs[] = {"rootr","--no-save", "--silent"};
+const char *argvs[] = {"rootr", "--no-save", "--silent"};
 ROOT::R::TRInterface *gR = new ROOT::R::TRInterface(3, argvs, true, false, true);
-#include <readline/readline.h>
-#include <readline/history.h>
 //______________________________________________________________________________
 /* Begin_Html
 <center><h2>TRInterface class</h2></center>
@@ -122,85 +121,7 @@ End_Macro */
 using namespace ROOT::R;
 ClassImp(TRInterface)
 
-//Variables for READLINE
-static SEXP
-RComp_assignBufferSym,
-RComp_assignStartSym,
-RComp_assignEndSym,
-RComp_assignTokenSym,
-RComp_completeTokenSym,
-RComp_getFileCompSym,
-RComp_retrieveCompsSym;
-SEXP rcompgen_rho;
-
-char *R_completion_generator(const char *text, int state)
-{
-   // If this is a new word to complete, initialize now.  This
-   //   involves saving 'text' to somewhere R can get at it, calling
-   //   completeToken(), and retrieving the completions. 
-   //NOTE: Code based R code and ajusted to Rcpp
-   static int list_index, ncomp;
-   static char **compstrings;
-
-
-   if (!state) {
-      int i;
-      SEXP completions,
-           assignCall = PROTECT(Rf_lang2(RComp_assignTokenSym, Rf_mkString(text))),
-           completionCall = PROTECT(Rf_lang1(RComp_completeTokenSym)),
-           retrieveCall = PROTECT(Rf_lang1(RComp_retrieveCompsSym));
-      const void *vmax = vmaxget();
-
-      Rf_eval(assignCall, rcompgen_rho);
-      Rf_eval(completionCall, rcompgen_rho);
-      PROTECT(completions = Rf_eval(retrieveCall, rcompgen_rho));
-      list_index = 0;
-      ncomp = Rf_length(completions);
-      if (ncomp > 0) {
-         compstrings = (char **) malloc(ncomp * sizeof(char*));
-         if (!compstrings)  return (char *)NULL;
-         for (i = 0; i < ncomp; i++)
-            compstrings[i] = strdup(Rf_translateChar(STRING_ELT(completions, i)));
-      }
-      UNPROTECT(4);
-      vmaxset(vmax);
-   }
-
-   if (list_index < ncomp)
-      return compstrings[list_index++];
-   else {
-      /* nothing matched or remaining, so return NULL. */
-      if (ncomp > 0) free(compstrings);
-   }
-   return (char *)NULL;
-}
-
-char ** R_custom_completion(const char *text, int start, int end)
-{
-   //NOTE: Code based R code and ajusted to Rcpp
-   char **matches = (char **)NULL;
-   SEXP infile,
-        linebufferCall = PROTECT(Rf_lang2(RComp_assignBufferSym,
-                                          Rf_mkString(rl_line_buffer))),
-                         startCall = PROTECT(Rf_lang2(RComp_assignStartSym, Rf_ScalarInteger(start))),
-                         endCall = PROTECT(Rf_lang2(RComp_assignEndSym, Rf_ScalarInteger(end)));
-   SEXP filecompCall;
-
-   // Don't want spaces appended at the end.  Need to do this
-   // everytime, as readline>=6 resets it to ' '
-   rl_completion_append_character = '\0';
-
-   Rf_eval(linebufferCall, rcompgen_rho);
-   Rf_eval(startCall, rcompgen_rho);
-   Rf_eval(endCall, rcompgen_rho);
-   UNPROTECT(3);
-   matches = rl_completion_matches(text, R_completion_generator);
-   filecompCall = PROTECT(Rf_lang1(RComp_getFileCompSym));
-   infile = PROTECT(Rf_eval(filecompCall, rcompgen_rho));
-   if (!Rf_asLogical(infile)) rl_attempted_completion_over = 1;
-   UNPROTECT(2);
-   return matches;
-}
+// extern SEXP rcompgen_rho;
 
 //______________________________________________________________________________
 TRInterface::TRInterface(const int argc, const char *argv[], const bool loadRcpp, const bool verbose, const bool interactive)
@@ -279,9 +200,9 @@ void TRInterface::Xwin(TString opt)
    //every platform has it owns system.
    //see R manual for x11(unix based systems),windows(MS windows)
 #if defined(R__WIN32)
-      Parse(TString("windows(" + opt + ")").Data());
+   Parse(TString("windows(" + opt + ")").Data());
 #else
-      Parse(TString("x11(" + opt + ")").Data());
+   Parse(TString("x11(" + opt + ")").Data());
 #endif
 }
 
@@ -301,27 +222,27 @@ void TRInterface::Interactive()
    while (kTRUE) {
       char * line = readline("[r]:");
       if (!line) continue;
-      if (*line) add_history(line);
       if (std::string(line) == ".q") break;
       Parse(line, false);
+      if (*line) add_history(line);
       free(line);
    }
 }
 
 //______________________________________________________________________________
-void TRInterface::Install(TString pkg,TString options)
+void TRInterface::Install(TString pkg, TString options)
 {
-  //utility function to install R's packages with default options.
-  pkg.Prepend("install.packages('");
-  if(!options.IsNull()&&!options.IsWhitespace())pkg.Append("',"+options);
-  pkg.Append(")");
-  Parse(pkg);
+   //utility function to install R's packages with default options.
+   pkg.Prepend("install.packages('");
+   if (!options.IsNull() && !options.IsWhitespace())pkg.Append("'," + options);
+   pkg.Append(")");
+   Parse(pkg);
 }
 
 //______________________________________________________________________________
 void TRInterface::Remove(TString pkg)
 {
-  //utility function to remove R's packages with default options.
-  pkg.Prepend("revome.packages('").Append("')");
-  Parse(pkg);
+   //utility function to remove R's packages with default options.
+   pkg.Prepend("revome.packages('").Append("')");
+   Parse(pkg);
 }
