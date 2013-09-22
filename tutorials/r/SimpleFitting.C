@@ -1,7 +1,6 @@
 //Create an exponential fitting
-//The idea is to create a set of numbers x,y with noise from ROOT
-//Pass it to R and Fit the data to x^power with nkown function x^3
-//get the fitted coefficient(power) and plot the points with noise, 
+//The idea is to create a set of numbers x,y with  the function x^3 and some noise from ROOT,
+//fit the function to get the exponent (which must be near 3) and plot the points with noise,
 //the known function and the fitted function
 //Author: Omar Zapata
 {
@@ -12,11 +11,11 @@
    // draw a frame to define the range
    TMultiGraph *mg = new TMultiGraph();
 
-   // create first graph (points with gaussian noise)
+   // create the first graph (points with gaussian noise)
    const Int_t n = 24;
    Double_t x1[n] ;
    Double_t y1[n] ;
-   //Generate points along a X^3 with noise
+   //Generate the points along a X^3 with noise
    TRandom rg;
    rg.SetSeed(520);
    for (Int_t i = 0; i < n; i++) {
@@ -30,14 +29,14 @@
    gr1->SetMarkerSize(1);
    mg->Add(gr1);
 
-      // create second graph
+      // create the second graph
    TF1 *f_known=new TF1("f_known","pow(x,3)",0,1);
    TGraph *gr2 = new TGraph(f_known);
    gr2->SetMarkerColor(kRed);
    gr2->SetMarkerStyle(8);
    gr2->SetMarkerSize(1);
    mg->Add(gr2);
-   //passing to R x and y values to fit
+   //passing data to Rfot fitting
    ROOT::R::TRInterface &r=gR->Instance();
    r["x"]=TVectorD(n, x1);
    r["y"]=TVectorD(n, y1);
@@ -45,7 +44,7 @@
    r.Parse("ds<-data.frame(x=x,y=y)");
    //fitting x and y to X^power using Nonlinear Least Squares
    r.Parse("m <- nls(y ~ I(x^power),data = ds, start = list(power = 1),trace = T)");
-   //getting the value fitted(power)
+   //getting the exponent
    Double_t power=r.ParseEval("summary(m)$coefficients[1]").ToScalar();
 
    TF1 *f_fitted=new TF1("f_fitted","pow(x,[0])",0,1);

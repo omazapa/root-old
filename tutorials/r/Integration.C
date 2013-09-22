@@ -6,9 +6,9 @@
 #include<TF1.h>
 
 //To integrate using R the function should be vectorized
-//The idea is just receive a vector like a argument,to evaluate 
-//every element saving the result in other vector 
-//and return the result vector.
+//The idea is just to receive a vector like an argument,to evaluate 
+//every element saving the result in another vector 
+//and return the resultant vector.
 TVectorD  BreitWignerVectorized(TVectorD xx)
 {
   TVectorD result(xx.GetNoElements());
@@ -40,18 +40,18 @@ void Integration()
   Double_t value=r.ParseEval("integrate(BreitWigner, lower = -2, upper = 2)$value");
 
   std::cout.precision(18);
-  std::cout<<"Integral of BreitWigner Function in the interval [-2, 2] R        = "<<value<<std::endl;
+  std::cout<<"Integral of the BreitWigner Function in the interval [-2, 2] R        = "<<value<<std::endl;
 
   
   ROOT::Math::WrappedFunction<> wf(BreitWignerWrap);
   ROOT::Math::Integrator i(wf);
   value=i.Integral(-2,2);
-  std::cout<<"Integral of BreitWigner Function in the interval [-2, 2] MathMore = "<<value<<std::endl;
+  std::cout<<"Integral of the BreitWigner Function in the interval [-2, 2] MathMore = "<<value<<std::endl;
 
   
   TF1 f1("BreitWigner","BreitWignerWrap(x)");
   value=f1.Integral(-2,2);
-  std::cout<<"Integral of BreitWigner Function in the interval [-2, 2] TF1      = "<<value<<std::endl;
+  std::cout<<"Integral of the BreitWigner Function in the interval [-2, 2] TF1      = "<<value<<std::endl;
   
   //infinte limits
   value=r.ParseEval("integrate(BreitWigner, lower = -Inf, upper = Inf)$value");

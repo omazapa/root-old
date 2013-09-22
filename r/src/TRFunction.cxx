@@ -15,10 +15,10 @@
 <center><h2>TRFunction class</h2></center>
 
 <p>
-The TRFunction's class lets you to pass ROOT functions to R environment<br>
+The TRFunction class lets you pass ROOT's functions to R's environment<br>
 </p>
 <p>
-The next example was based  in <br>
+The next example was based in <br>
 <a href="http://root.cern.ch/root/html/tutorials/fit/NumericalMinimization.C.html">
 http://root.cern.ch/root/html/tutorials/fit/NumericalMinimization.C.html
 </a><br>
@@ -32,10 +32,10 @@ Begin_Latex
 Let f(x,y)=(x-1)^{2} + 100(y-x^{2})^{2}, which is called the Rosenbrock
 function.
 
-This function is 0 when y = x^{2} , and x = 1, so (1, 1) is a minimum.
-Let's get the minimum using optim package from R through ROOT R interface.
+It's known that this function has a minimum when y = x^{2} , and x = 1.
+Let's get the minimum using R's optim package through ROOTR's interface.
 In the code this function was called "Double_t RosenBrock(const TVectorD xx )", because for
-optim the input in your function deﬁnition must be a single vector.
+optim, the input in your function deﬁnition must be a single vector.
 
 
 The Gradient is formed by
@@ -43,16 +43,14 @@ The Gradient is formed by
 
 #frac{#partial f}{#partial y} =  200(y - x^{2});
 
-In the code "TVectorD RosenBrockGrad(const TVectorD xx )", because
-in the same way that RosenBrock's definition the input in your function must be a single vector
-and the return too.(see code below)
-
+The "TVectorD RosenBrockGrad(const TVectorD xx )" function
+must have  a single vector as the argument a it will return a single vetor.
 
 End_Latex
 Begin_Html
 <p>
-<i style="color:red;">NOTE</i>  The macro requires compilation with ACLiC, to compile it you should to use <br>
-a rootlogon.C macro that have the directives for compilation,<br>
+<i style="color:red;">NOTE</i>  The macro requires compilation with ACLiC, to compile it you should use <br>
+a rootlogon.C macro which has the directives for compilation,<br>
 you can find it in $ROOTSYS/tutorials/r/ <br>
 </p>
 <hr>
@@ -60,8 +58,8 @@ End_Html
 
 #include<TRInterface.h>
 
-///in the next function the pointer *double should be change by TVectorD, because the pointer has no
-///sense into R environment.
+///in the next function the pointer *double must be changed by TVectorD, because the pointer has no
+///sense in R's environment.
 Double_t RosenBrock(const TVectorD xx )
 {
   const Double_t x = xx[0];
@@ -99,13 +97,13 @@ void Minimization()
  r["RosenBrockGrad"]=ROOT::R::TRFunction(RosenBrockGrad);
 
  //the option "method" could be "Nelder-Mead", "BFGS", "CG", "L-BFGS-B", "SANN","Brent"
- //the option "control" let you put some constraints like
+ //the option "control" lets you put some constraints like:
  //"maxit" The maximum number of iterations
  //"abstol" The absolute convergence tolerance.
  //"reltol" Relative convergence tolerance.
  r.Parse("result <- optim( c(0.01,0.01), RosenBrock,method='BFGS',control = list(maxit = 1000000) )");
 
- //Getting result from R
+ //Getting results from R
  TVectorD  min=r.ParseEval("result$par").ToVector<Double_t>();
 
  std::cout.precision(8);

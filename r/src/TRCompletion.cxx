@@ -28,9 +28,9 @@ namespace ROOT {
 char *ROOT::R::R_completion_generator(const char *text, int state)
 {
    // If this is a new word to complete, initialize now.  This
-   //   involves saving 'text' to somewhere R can get at it, calling
-   //   completeToken(), and retrieving the completions.
-   //NOTE: Code based R code and ajusted to Rcpp
+   // involves saving 'text' to somewhere R can get it, calling
+   // completeToken(), and retrieving the completions.
+   //NOTE: R based code and ajusted to Rcpp
    static int list_index, ncomp;
    static char **compstrings;
 
@@ -61,7 +61,7 @@ char *ROOT::R::R_completion_generator(const char *text, int state)
    if (list_index < ncomp)
       return compstrings[list_index++];
    else {
-      /* nothing matched or remaining, so return NULL. */
+      /* nothing matched or remaining, returns NULL. */
       if (ncomp > 0) free(compstrings);
    }
    return (char *)NULL;
@@ -70,7 +70,7 @@ char *ROOT::R::R_completion_generator(const char *text, int state)
 
 char ** ROOT::R::R_custom_completion(const char *text, int start, int end)
 {
-   //NOTE: Code based R code and ajusted to Rcpp
+   //NOTE: R based code and ajusted to Rcpp
    char **matches = (char **)NULL;
    SEXP infile,
         linebufferCall = PROTECT(Rf_lang2(ROOT::R::RComp_assignBufferSym,
@@ -79,8 +79,8 @@ char ** ROOT::R::R_custom_completion(const char *text, int start, int end)
                          endCall = PROTECT(Rf_lang2(ROOT::R::RComp_assignEndSym, Rf_ScalarInteger(end)));
    SEXP filecompCall;
 
-   // Don't want spaces appended at the end.  Need to do this
-   // everytime, as readline>=6 resets it to ' '
+   // We don't want spaces appended at the end. It's nedded everytime
+   // since readline>=6 resets it to ' '
    rl_completion_append_character = '\0';
 
    Rf_eval(linebufferCall, ROOT::R::rcompgen_rho);

@@ -5,8 +5,8 @@
 
 #include<TRInterface.h>
 
-//in the next function the pointer *double should be change by TVectorD, because the pointer has no
-//sense into R enviroment.
+//in the next function the *double pointer should be changed by a TVectorD,
+//because the pointer has no meaning in R enviroment.
 Double_t RosenBrock(const TVectorD xx )
 {
   const Double_t x = xx[0];
@@ -37,20 +37,20 @@ void Minimization()
 #endif
  ROOT::R::TRInterface &r=gR->Instance();
  
- //passsing RosenBrock funtion to R
+ //passsing RosenBrock function to R
  r["RosenBrock"]=ROOT::R::TRFunction(RosenBrock);
  
- //passsing RosenBrockGrad funtion to R
+ //passsing RosenBrockGrad function to R
  r["RosenBrockGrad"]=ROOT::R::TRFunction(RosenBrockGrad);
  
  //the option "method" could be "Nelder-Mead", "BFGS", "CG", "L-BFGS-B", "SANN","Brent"
- //the option "control" let you put some constraints like 
- //"maxit" The maximum number of iterations
+ //the option "control" lets you put some constraints like 
+ //"maxit" The maximum number of iterations.
  //"abstol" The absolute convergence tolerance.
  //"reltol" Relative convergence tolerance.
  r.Parse("result <- optim( c(0.01,0.01), RosenBrock,method='BFGS',control = list(maxit = 1000000) )");
  
- //Getting result from R
+ //Getting results from R
  TVectorD  min=r.ParseEval("result$par").ToVector<Double_t>();
  
  std::cout.precision(8);

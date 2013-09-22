@@ -24,17 +24,17 @@ ROOT::R::TRInterface *gR = new ROOT::R::TRInterface(3, argvs, true, false, true)
 
 </p>
 The TRInterface class lets you procces R code from ROOT.<br>
-You can call R libraries and their functions, plot results in R or ROOT language<br>
-and to use the power of ROOT and R at the same time.<br>
+You can call R libraries and their functions, plot results in R or ROOT,<br>
+and use the power of ROOT and R at the same time.<br>
 It also lets you pass scalars, vectors and matrices from ROOT to R<br>
 and from R to ROOT using TRObjectProxy.<br>
 <br>
 To plot in R environment you should first call the method Xwin() to initiliaze the window's system<br>
 before calling the class' plotting methods.<br>
 <br>
-<i style="color:red;">NOTE</i> In the same way that TROOT class have an unique global object gROOT,<br>
-TRInterface has gR. Not more objects of TRInterface class can be instantiated, but you can create objects using the methods
-TRInterface& Instance() and TRInterface* InstancePtr() to create your objects or just to use directly gR object.<br>
+<i style="color:red;">NOTE</i> In the same way that TROOT class has an unique global object, gROOT,<br>
+TRInterface has gR. More objects of TRInterface class can not be instantiated, but you can create objects using the methods
+TRInterface& Instance() and TRInterface* InstancePtr() to create your own objects or just to use directly a gR object.<br>
 <br>
 </p>
 Show an example below:
@@ -44,8 +44,8 @@ Begin_Macro(source)
 
 //Create an exponential fit
 //The idea is to create a set of numbers x,y with noise from ROOT,
-//pass then to R and fit the data to x^3,
-//get the fitted coefficient(power) and plot the points with noise,
+//pass them to R and fit the data to x^3,
+//get the fitted coefficient(power) and plot the data,
 //the known function and the fitted function.
 //Author:: Omar Zapata
    TCanvas *c1 = new TCanvas("c1","Curve Fit",700,500);
@@ -80,7 +80,7 @@ Begin_Macro(source)
    gr2->SetMarkerSize(1);
    mg->Add(gr2);
 
-   //passing to R x and y values to fit
+   //passing x and y values to R for fitting
    gR->Assign(TVectorD(n, x1), "x");
    gR->Assign(TVectorD(n, y1), "y");
    //creating a R data frame
@@ -127,11 +127,11 @@ ClassImp(TRInterface)
 TRInterface::TRInterface(const int argc, const char *argv[], const bool loadRcpp, const bool verbose, const bool interactive)
 {
 // The command line arguments are by deafult argc=0 and argv=NULL,
-// The verbose mode are by default disabled but you can enable it to show procedures information in stdout/stderr
+// The verbose mode is by default disabled but you can enable it to show procedures information in stdout/stderr
    if (RInside::instancePtr()) throw std::runtime_error("Can only have one TRInterface instance");
    fR = new RInside(argc, argv, loadRcpp, verbose, interactive);
 
-   //installing the readline callbacks for completion in the
+   //Installing the readline callbacks for completion in the
    //method Interactive
    rcompgen_rho = R_FindNamespace(Rf_mkString("utils"));
    RComp_assignBufferSym  = Rf_install(".assignLinebuffer");
@@ -162,8 +162,8 @@ Int_t  TRInterface::ParseEval(const TString &code, TRObjectProxy  &ans)
 void TRInterface::Parse(const TString &code, Bool_t exception)
 {
 // Parse R code. The argument exception is by defualt false, and
-// if the code has some error prints an error and continues executing.
-// if exception if true, the code it launches an exception and stop the execution.
+// if the code has an error prints the error and continues executing.
+// if exception is true, the code launches an exception and stops the execution.
    if (exception) fR->parseEvalQ((std::string)code);
    else fR->parseEvalQNT(code.Data());
 }
@@ -172,8 +172,8 @@ void TRInterface::Parse(const TString &code, Bool_t exception)
 TRObjectProxy TRInterface::ParseEval(const TString &code, Bool_t exception)
 {
 // Parse R code. The argument exception is by defualt false, and
-// if the code has some error prints an error and continues executing.
-//if exception if true, the code launches an exception and stop the execution.
+// if the code has an error prints the error and continues executing.
+//if exception is true, the code launches an exception and stops the execution.
 //The RObject result of execution is returned in TRObjectProxy
    if (exception) return TRObjectProxy((SEXP)fR->parseEval(code.Data()));
    else return TRObjectProxy((SEXP)fR->parseEvalNT(code.Data()));
@@ -182,7 +182,7 @@ TRObjectProxy TRInterface::ParseEval(const TString &code, Bool_t exception)
 
 void TRInterface::SetVerbose(Bool_t status)
 {
-   //verbose mode shows you all procedures in stdout/stderr
+   //verbose mode shows you all the procedures in stdout/stderr
    //very important to debug and to see the results.
    fR->setVerbose(status);
 }
@@ -196,8 +196,8 @@ TRInterface::Binding TRInterface::operator[](const TString& name)
 //______________________________________________________________________________
 void TRInterface::Xwin(TString opt)
 {
-   //Initiliaze the window's system to do plots.
-   //every platform has it owns system.
+   //Initiliaze the window's system to make plots.
+   //every platform has its own system.
    //see R manual for x11(unix based systems),windows(MS windows)
 #if defined(R__WIN32)
    Parse(TString("windows(" + opt + ")").Data());
@@ -209,14 +209,14 @@ void TRInterface::Xwin(TString opt)
 //______________________________________________________________________________
 void TRInterface::Assign(const TRFunction &obj, const TString & name)
 {
-   //This method let you to pass c++ functions to R environment.
+   //This method lets you pass c++ functions to R environment.
    fR->assign(*obj.f, name.Data());
 }
 
 //______________________________________________________________________________
 void TRInterface::Interactive()
 {
-   //this method launch a R command line to run directly R code that you can
+   //This method launches a R command line to run directly R code which you can
    //pass to ROOT calling the apropiate method.
 
    while (kTRUE) {
@@ -232,7 +232,7 @@ void TRInterface::Interactive()
 //______________________________________________________________________________
 void TRInterface::Install(TString pkg, TString options)
 {
-   //utility function to install R's packages with default options.
+   //utility function to install R's packages with the default options.
    pkg.Prepend("install.packages('");
    if (!options.IsNull() && !options.IsWhitespace())pkg.Append("'," + options);
    pkg.Append(")");
@@ -242,7 +242,7 @@ void TRInterface::Install(TString pkg, TString options)
 //______________________________________________________________________________
 void TRInterface::Remove(TString pkg)
 {
-   //utility function to remove R's packages with default options.
+   //utility function to remove R's packages with the default options.
    pkg.Prepend("revome.packages('").Append("')");
    Parse(pkg);
 }

@@ -6,9 +6,9 @@
 #include<TBenchmark.h>
 #include<math.h>
 #include<stdlib.h>
-//In the next function the pointer *double should be change by TVectorD, because the pointer has no
-//sense in R enviroment. It is a generalization of RosenBrock
-//the min xi=1 i>0
+//In the next function the *double pointer should be changed by a TVectorD datatype,
+//because the pointer has no meaning in the R enviroment.
+//This is a generalization of the RosenBrock function, with the min xi=1 and i>0.
 Double_t GenRosenBrock(const TVectorD xx )
 {
   int length=xx.GetNoElements();
@@ -50,7 +50,7 @@ void GlobalMinimization()
 //  passing RosenBrock function to R
  r["GenRosenBrock"]=ROOT::R::TRFunction(GenRosenBrock);
 
- //maximun of iterations 
+ //maximun number of iterations 
  r["MaxIter"]=5000;
  //n = size of vector that is an argument for GenRosenBrock
  r["n"]=3;
@@ -72,9 +72,9 @@ void GlobalMinimization()
  
  //passing RosenBrock function to R
  r["Rastrigin"]=ROOT::R::TRFunction(Rastrigin);
- //maximun of iterations 
+ //maximun number of iterations 
  r["MaxIter"]=2000;
- //n = size of vector that is an argument for Rastrigin
+ //n = size of a vector which is an argument for Rastrigin
  r["n"]=3;
  //lower limits
  r.Parse("ll<-rep(-5, n)");

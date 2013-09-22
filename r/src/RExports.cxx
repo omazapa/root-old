@@ -40,7 +40,7 @@ namespace Rcpp {
       Int_t rows = m.GetNrows();
       Int_t cols = m.GetNcols();
       Double_t *data = new Double_t[rows * cols];
-      m.GetMatrix2Array(data, "F"); //ROOT have a bug here(Fixed)
+      m.GetMatrix2Array(data, "F"); //ROOT has a bug here(Fixed)
       NumericMatrix mat(rows, cols, data);
       return wrap(mat);
    }

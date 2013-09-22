@@ -45,8 +45,8 @@
 
 //std headers
 #include<string>
-//pragma to disable warnings on Rcpp that have
-//a so many noise compiling
+//pragma to disable warnings on Rcpp which have
+//so many noise compiling
 #if defined(__GNUC__)
 #pragma GCC diagnostic ignored "-Wshadow"
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
@@ -77,7 +77,7 @@ namespace Rcpp {
    template<> SEXP wrap(const TMatrixD &m);
    template<> TMatrixD as(SEXP) ;
 }
-#include<Rcpp.h>//this headers should be called after of templates definitions
+#include<Rcpp.h>//this headers should be called after templates definitions
 #include<RInside.h>
 #else
 class RInside;

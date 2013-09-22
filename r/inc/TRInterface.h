@@ -23,7 +23,7 @@
 #include<TRFunction.h>
 #endif
 
-//utility macro to create easily method from R function in the TRInterface
+//utility macro to easily create a method from R function in the TRInterface
 #define R_FUNCTION(func) inline void func(TString opt){ \
       TString code=#func;\
       code+="("+opt+")";\
@@ -71,7 +71,7 @@ namespace ROOT {
                return *this;
             }
             Binding& operator=(const TRFunction &fun) {
-               //The method assign for function is not a tamplate
+               //The method assign is not a template for a function
                fInterface->Assign(fun, fName);
                return *this;
             }
@@ -83,7 +83,7 @@ namespace ROOT {
          ~TRInterface() {}
 
          void SetVerbose(Bool_t status);
-         Int_t ParseEval(const TString &code, TRObjectProxy  &ans); // parse line, return in ans; error code rc
+         Int_t ParseEval(const TString &code, TRObjectProxy  &ans); // parse line, returns in ans; error code rc
          //throws on error if exception is kTRUE
          void  Parse(const TString &code, Bool_t exception = kFALSE);
 
@@ -123,7 +123,7 @@ namespace ROOT {
             return this;
          }
 
-         ClassDef(TRInterface, 0) //
+         ClassDef(TRInterface, 0)
       };
    }
 }

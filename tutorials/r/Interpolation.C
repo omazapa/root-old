@@ -5,7 +5,7 @@
 #include<TRandom.h>
 void Interpolation()
 {
-//creting points
+//Creting points
 TRandom r;
 TVectorD x(10),y(10);
 for(int i=0;i<10;i++)
@@ -18,21 +18,21 @@ for(int i=0;i<10;i++)
 (*gR)["y"]=y;
 
 
-gR->Xwin();//required to active new window for plot
-//Plot parameter. Plotting using two rows in one column
+gR->Xwin();//Required to active new window for plot
+//Plot parameter. Plotting using two rows and one column
 gR->Parse("par(mfrow = c(2,1))");
 
 //plotting the points
 gR->plot("x, y, main = 'approx(.) and approxfun(.)'");
 
-//approx returns a list with components x and y, 
+//The function "approx" returns a list with components x and y, 
 //containing n coordinates which interpolate the given data points according to the method (and rule) desired.
 gR->points("approx(x, y), col = 2, pch = '*'");
 gR->points("approx(x, y, method = 'constant'), col = 4, pch = '*'");
 
 
-//The function approxfun returns a function performing (linear or constant) 
-//interpolation of the given data points. 
+//The function "approxfun" returns a function performing (linear or constant) 
+//interpolation of the given data. 
 //For a given set of x values, this function will return the corresponding interpolated values.
 gR->Parse("f <- approxfun(x, y)");
 
@@ -42,6 +42,6 @@ gR->points("x, y");
 //using approxfun with const method
 gR->Parse("fc <- approxfun(x, y, method = 'const')");
 gR->curve("fc(x), 0, 10, col = 'darkblue', add = TRUE");
-// different extrapolation on left and right side :
+// different interpolation on left and right side :
 gR->plot("approxfun(x, y, rule = 2:1), 0, 11,col = 'tomato', add = TRUE, lty = 3, lwd = 2");
 }
