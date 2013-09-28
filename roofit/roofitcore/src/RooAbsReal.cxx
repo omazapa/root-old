@@ -2263,8 +2263,8 @@ RooPlot* RooAbsReal::plotAsymOn(RooPlot *frame, const RooAbsCategoryLValue& asym
   depPos.add(projDataVars) ;
   depNeg.add(projDataVars) ;
 
-  const RooAbsReal *posProj = funcPos->createPlotProjection(depPos, &projectedVars, posProjCompList) ;
-  const RooAbsReal *negProj = funcNeg->createPlotProjection(depNeg, &projectedVars, negProjCompList) ;
+  const RooAbsReal *posProj = funcPos->createPlotProjection(depPos, &projectedVars, posProjCompList, o.projectionRangeName) ;
+  const RooAbsReal *negProj = funcNeg->createPlotProjection(depNeg, &projectedVars, negProjCompList, o.projectionRangeName) ;
   if (!posProj || !negProj) {
     coutE(Plotting) << "RooAbsReal::plotAsymOn(" << GetName() << ") Unable to create projections, abort" << endl ;
     return frame ; 
@@ -3351,34 +3351,6 @@ Double_t RooAbsReal::maxVal(Int_t /*code*/) const
 
   assert(1) ;
   return 0 ;
-}
-
-
-
-//_____________________________________________________________________________
-void RooAbsReal::EvalError::setMessage(const char* tmp) 
-{ 
-  if (strlen(tmp)<1023) {
-    strlcpy(_msg,tmp,1023) ; 
-  } else {
-    strncpy(_msg,tmp,1020); 
-    _msg[1020]='.' ; _msg[1021]='.' ; 
-    _msg[1022]='.' ; _msg[1023]=0 ;    
-  }
-}
-
-
-
-//_____________________________________________________________________________
-void RooAbsReal::EvalError::setServerValues(const char* tmp) 
-{ 
-  if (strlen(tmp)<1023) {
-    strlcpy(_srvval,tmp,1023) ; 
-  } else {
-    strncpy(_srvval,tmp,1020); 
-    _srvval[1020]='.' ; _srvval[1021]='.' ;
-    _srvval[1022]='.' ; _srvval[1023]=0 ;    
-  }
 }
 
 

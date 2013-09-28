@@ -1078,7 +1078,7 @@ void TAxis::UnZoom()
 {
    // Reset first & last bin to the full range
 
-
+   if (!gPad) return;
    gPad->SetView();
 
    //unzoom object owning this axis
@@ -1098,8 +1098,8 @@ void TAxis::UnZoom()
          hobj1->SetMinimum(fXmin);
          hobj1->SetMaximum(fXmax);
       } else {
-         hobj1->SetMinimum();
-         hobj1->SetMaximum();
+         hobj1->SetMinimum(fXmin);
+         hobj1->SetMaximum(fXmax);
          hobj1->ResetBit(TH1::kIsZoomed);
       }
    }

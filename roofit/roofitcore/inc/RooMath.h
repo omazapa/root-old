@@ -19,17 +19,25 @@
 #include <cmath>
 #include <complex>
 
+#include "Rtypes.h"
+#include "TMath.h"
 #include "RooComplex.h"
 
-#include <fstream>
+#if defined(__my_func__)
+#undef __my_func__
+#endif
+#if defined(WIN32)
+#define __my_func__ __FUNCTION__
+#else
+#define __my_func__ __func__
+#endif
 
-typedef RooComplex* pRooComplex ;
-typedef Double_t* pDouble_t ;
+typedef Double_t* pDouble_t;
 
 class RooMath {
 public:
 
-  virtual ~RooMath() {} ;
+  virtual ~RooMath() {};
 
   /** @brief evaluate Faddeeva function for complex argument
    *
@@ -86,6 +94,18 @@ public:
    * to better than 4e-13 relative, the average relative error is better than
    * 7e-16. On a modern x86_64 machine, the routine is roughly three times as
    * fast than the old CERNLIB implementation and offers better accuracy.
+   *
+   * For large @f$|z|@f$, the familiar continued fraction approximation
+   * 
+   * @f[ w(z)=\frac{-iz/\sqrt{\pi}}{-z^2+\frac{1/2}{1+\frac{2/2}{-z^2 +
+   * \frac{3/2}{1+\frac{4/2}{-z^2+\frac{5/2}{1+\frac{6/2}{-z^2+\frac{7/2
+   * }{1+\frac{8/2}{-z^2+\frac{9/2}{1+\ldots}}}}}}}}}} @f]
+   *
+   * is used, truncated at the ellipsis ("...") in the formula; for @f$|z| >
+   * 12@f$, @f$Im(z)>0@f$ it will give full double precision at a smaller
+   * computational cost than the method described above. (For @f$|z|>12@f$,
+   * @f$Im(z)<0@f$, the symmetry property @f$w(x-iy)=2e^{-(x+iy)^2-w(x+iy)}@f$
+   * is used.
    */
   static std::complex<double> faddeeva(std::complex<double> z);
   /** @brief evaluate Faddeeva function for complex argument (fast version)
@@ -110,6 +130,17 @@ public:
    * interpolation/lookup table based fast method used previously in RooFit,
    * and offers better accuracy than the latter (the relative error is roughly
    * a factor 280 smaller than the old interpolation/table lookup routine).
+   *
+   * For large @f$|z|@f$, the familiar continued fraction approximation
+   * 
+   * @f[ w(z)=\frac{-iz/\sqrt{\pi}}{-z^2+\frac{1/2}{1+\frac{2/2}{-z^2 +
+   * \frac{3/2}{1+\ldots}}}} @f]
+   *
+   * is used, truncated at the ellipsis ("...") in the formula; for @f$|z| >
+   * 8@f$, @f$Im(z)>0@f$ it will give full float precision at a smaller
+   * computational cost than the method described above. (For @f$|z|>8@f$,
+   * @f$Im(z)<0@f$, the symmetry property @f$w(x-iy)=2e^{-(x+iy)^2-w(x+iy)}@f$
+   * is used.
    */
   static std::complex<double> faddeeva_fast(std::complex<double> z);
 
@@ -147,44 +178,58 @@ public:
    */
   static std::complex<double> erfc_fast(const std::complex<double> z);
 
-
-  // CERNLIB complex error function
-  static RooComplex ComplexErrFunc(Double_t re, Double_t im= 0);
-  static RooComplex ComplexErrFunc(const RooComplex& z);
-
-  // Interpolated CERF with automatic interpolation order selection
-  static RooComplex FastComplexErrFunc(const RooComplex& z) ;
-  
-  // Interpolated Re(CERF) with automatic interpolation order selection
-  static Double_t FastComplexErrFuncRe(const RooComplex& z) ;
-
-  // Interpolated Im(CERF) with automatic interpolation order selection
-  static Double_t FastComplexErrFuncIm(const RooComplex& z) ;
-
-  // Interpolated complex error function at specified interpolation order
-  static RooComplex ITPComplexErrFunc(const RooComplex& z, Int_t nOrder) ;
-  static Double_t ITPComplexErrFuncRe(const RooComplex& z, Int_t nOrder) ;
-  static Double_t ITPComplexErrFuncIm(const RooComplex& z, Int_t nOrder) ;
-
-  // Switch to use file cache for CERF lookup table
-  static void cacheCERF(Bool_t flag=kTRUE) ;
-
   // 1-D nth order polynomial interpolation routines
   static Double_t interpolate(Double_t yArr[],Int_t nOrder, Double_t x) ;
   static Double_t interpolate(Double_t xa[], Double_t ya[], Int_t n, Double_t x) ;
 
-  static Double_t erf(Double_t x) ;
-  static Double_t erfc(Double_t x) ;
+  static inline Double_t erf(Double_t x)
+  { return TMath::Erf(x); }
+
+  static inline Double_t erfc(Double_t x)
+  { return TMath::Erfc(x); }
   
-  static void cleanup() ;
-
-  // Allocate and initialize CERF lookup grid
-  static void initFastCERF(Int_t reBins= 800, Double_t reMin=-4.0, Double_t reMax=4.0, 
-			   Int_t imBins=1000, Double_t imMin=-4.0, Double_t imMax=6.0) ;
-
+  /// deprecated function
+  static RooComplex ComplexErrFunc(Double_t re, Double_t im = 0.)
+  { warn(__my_func__, "RooMath::faddeeva"); std::complex<Double_t> z = faddeeva(std::complex<Double_t>(re, im)); return RooComplex(z.real(), z.imag()); }
+  /// deprecated function
+  static RooComplex ComplexErrFunc(const RooComplex& zz)
+  { warn(__my_func__, "RooMath::faddeeva"); std::complex<Double_t> z = faddeeva(std::complex<Double_t>(zz.re(), zz.im())); return RooComplex(z.real(), z.imag()); }
+  /// deprecated function
+  static RooComplex ComplexErrFuncFast(const RooComplex& zz)
+  { warn(__my_func__, "RooMath::faddeeva_fast"); std::complex<Double_t> z = faddeeva_fast(std::complex<Double_t>(zz.re(), zz.im())); return RooComplex(z.real(), z.imag()); }
+  /// deprecated function
+  static Double_t ComplexErrFuncFastRe(const RooComplex& zz)
+  { warn(__my_func__, "RooMath::faddeeva_fast"); std::complex<Double_t> z = faddeeva_fast(std::complex<Double_t>(zz.re(), zz.im())); return z.real(); }
+  /// deprecated function
+  static Double_t ComplexErrFuncFastIm(const RooComplex& zz)
+  { warn(__my_func__, "RooMath::faddeeva_fast"); std::complex<Double_t> z = faddeeva_fast(std::complex<Double_t>(zz.re(), zz.im())); return z.imag(); }
+  /// deprecated function
+  static RooComplex ITPComplexErrFuncFast(const RooComplex& zz, Int_t)
+  { warn(__my_func__, "RooMath::faddeeva_fast"); std::complex<Double_t> z = faddeeva_fast(std::complex<Double_t>(zz.re(), zz.im())); return RooComplex(z.real(), z.imag()); }
+  /// deprecated function
+  static Double_t ITPComplexErrFuncFastRe(const RooComplex& zz, Int_t)
+  { warn(__my_func__, "RooMath::faddeeva_fast"); std::complex<Double_t> z = faddeeva_fast(std::complex<Double_t>(zz.re(), zz.im())); return z.real(); }
+  /// deprecated function
+  static Double_t ITPComplexErrFuncFastIm(const RooComplex& zz, Int_t)
+  { warn(__my_func__, "RooMath::faddeeva_fast"); std::complex<Double_t> z = faddeeva_fast(std::complex<Double_t>(zz.re(), zz.im())); return z.imag(); }
+  /// deprecated function
+  static void cacheCERF(Bool_t) { warn(__my_func__); }
+  /// deprecated function
+  static void cleanup() { warn(__my_func__); }
+  /// deprecated function
+  static void initFastCERF(Int_t /*reBins =  800*/, Double_t /*reMin = -4.0*/, Double_t /*reMax = 4.0*/, 
+			   Int_t /*imBins = 1000*/, Double_t /*imMin = -4.0*/, Double_t /*imMax = 6.0*/)
+  {
+    warn(__my_func__);
+  }
+  
 private:
+  // deprecation warnings
+  static void warn(const char* oldfun, const char* newfun = 0);
 
   ClassDef(RooMath,0) // math utility routines
 };
+
+#undef __my_func__
 
 #endif

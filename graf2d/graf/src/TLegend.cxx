@@ -97,6 +97,25 @@ Begin_Macro(source)
 End_Macro
 Begin_Html
 <br>
+<tt>TLegend</tt> inherits from <tt>TAttText</tt> therefore changing any
+text attributes (text alignmemt, font, color...) on a legend will changed the
+text attributes on each line.
+<br>
+In particular it can be interessting to change the text alignement that way. In
+order to have a base-line vertical alignment instead of a centered one simply do:
+<pre>
+   leg->SetTextAlign(13);
+</pre
+or
+<pre>
+   leg->SetTextAlign(11);
+</pre
+Text attributes can be also changed individually on each legend entry:
+<pre>
+   TLegendEntry *le = leg->AddEntry(h1,"Histogram filled with random numbers","f");
+   le->SetTextColor(kBlue);;
+</pre>
+<br>
 Note that the <tt>TPad</tt> class has a method to build automatically a legend
 for all objects in the pad. It is called <tt>TPad::BuildLegend()</tt>.
 <p>
@@ -122,10 +141,10 @@ Begin_Macro(source)
    TLegend* leg = new TLegend(0.2, 0.2, .8, .8);
    TH1* h = new TH1F("", "", 1, 0, 1);
 
-   leg->AddEntry(h, "Histogram \"h\"", "l"); 
-   leg->AddEntry((TObject*)0, "", "");  
+   leg->AddEntry(h, "Histogram \"h\"", "l");
+   leg->AddEntry((TObject*)0, "", "");
    leg->AddEntry((TObject*)0, "Some text", "");
-   leg->AddEntry((TObject*)0, "", "");  
+   leg->AddEntry((TObject*)0, "", "");
    leg->AddEntry(h, "Histogram \"h\" again", "l");
 
    leg->Draw();
@@ -141,17 +160,17 @@ End_Html
 Begin_Macro(source)
 {
    TCanvas *c3 = new TCanvas("c2","c2",500,300);
- 
+
    TLegend* leg = new TLegend(0.2, 0.2, .8, .8);
    TH1* h = new TH1F("", "", 1, 0, 1);
- 
+
    leg-> SetNColumns(2);
- 
+
    leg->AddEntry(h, "Column 1 line 1", "l");
    leg->AddEntry(h, "Column 2 line 1", "l");
    leg->AddEntry(h, "Column 1 line 2", "l");
    leg->AddEntry(h, "Column 2 line 2", "l");
- 
+
    leg->Draw();
    return c3;
 }
@@ -453,13 +472,13 @@ TLegendEntry *TLegend::GetEntry() const
       Error("GetEntry", "need to create a canvas first");
       return 0;
    }
-   
+
    Int_t nRows = GetNRows();
    if ( nRows == 0 ) return 0;
 
    Double_t ymouse = gPad->AbsPixeltoY(gPad->GetEventY())-fY1;
    Double_t yspace = (fY2 - fY1)/nRows;
-   
+
    Int_t nColumns = GetNColumns();
    Double_t xmouse = gPad->AbsPixeltoX(gPad->GetEventX())-fX1;
    Double_t xspace = 0.;
@@ -469,11 +488,11 @@ TLegendEntry *TLegend::GetEntry() const
    if (xspace > 0.) ix = (Int_t)(xmouse/xspace)+1;
    if (ix > nColumns) ix = nColumns;
    if (ix < 1)        ix = 1;
-   
+
    Int_t iy = nRows-(Int_t)(ymouse/yspace);
    if (iy > nRows) iy = nRows;
    if (iy < 1)     iy = 1;
-   
+
    Int_t nloops = TMath::Min(ix+(nColumns*(iy-1)), fPrimitives->GetSize());
 
    TIter next(fPrimitives);
@@ -516,7 +535,7 @@ void TLegend::InsertEntry( const char* objectName, const char* label, Option_t* 
       Error("InsertEntry", "need to create a canvas first");
       return;
    }
-   
+
    TLegendEntry* beforeEntry = GetEntry();   // get entry pointed by the mouse
    TObject *obj = gPad->FindObject( objectName );
 
@@ -627,7 +646,7 @@ void TLegend::PaintPrimitives()
          entrytex.SetNDC();
          Style_t tfont = entrysize->GetTextFont();
          if (tfont == 0) tfont = GetTextFont();
-	 if (tfont%10 == 3) --tfont;
+         if (tfont%10 == 3) --tfont;
          entrytex.SetTextFont(tfont);
          entrytex.SetTextSize(textsize);
          if ( entrytex.GetYsize() > maxentryheight ) {
@@ -672,7 +691,7 @@ void TLegend::PaintPrimitives()
          entrytex.SetNDC();
          Style_t tfont = entry->GetTextFont();
          if (tfont == 0) tfont = GetTextFont();
-	 if (autosize && tfont%10 == 3) --tfont;
+         if (autosize && tfont%10 == 3) --tfont;
          entrytex.SetTextFont(tfont);
          if(entry->GetTextSize() == 0) entrytex.SetTextSize(textsize);
          TString opt = entry->GetOption();
@@ -740,10 +759,15 @@ void TLegend::PaintPrimitives()
       if (halign == 2) x = 0.5*( (x1+entrymargin) + x2 );
       if (halign == 3) x = x2 - entrymargin/10.;
       Int_t valign = entry->GetTextAlign()%10;
+
+      // The vertical alignment "centered" is treated in a special to
+      // ensure a better spacing between lines.
+      if (valign == 2) entry->SetTextAlign(10*halign+1);
+
       if (valign == 1) y = ytext - (1. - fEntrySeparation)* yspace/2.;
-      if (valign == 2) y = ytext;
+      if (valign == 2) y = ytext - (1. - fEntrySeparation)* yspace/4.;
       if (valign == 3) y = ytext + (1. - fEntrySeparation)* yspace/2.;
-      //
+
       TLatex entrytex( x, y, entry->GetLabel() );
       entrytex.SetNDC();
       entry->TAttText::Copy(entrytex);
@@ -824,6 +848,9 @@ void TLegend::PaintPrimitives()
       // Draw error only
 
       if (opt.Contains("e") && !(opt.Contains("l") || opt.Contains("f"))) {
+         if (eobj && eobj->InheritsFrom(TAttLine::Class())) {
+            dynamic_cast<TAttLine*>(eobj)->Copy(*entry);
+         }
          TLine entryline(xsym, ysym - yspace*0.30,
                          xsym, ysym + yspace*0.30);
          entryline.SetBit(TLine::kLineNDC);
@@ -917,7 +944,7 @@ void TLegend::SetEntryLabel( const char* label )
    /* Begin_Html
    Edit the label of the entry pointed to by the mouse.
    End_Html */
-   
+
    TLegendEntry* entry = GetEntry();   // get entry pointed by the mouse
    if ( entry ) entry->SetLabel( label );
 }

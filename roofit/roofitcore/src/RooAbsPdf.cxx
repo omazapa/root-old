@@ -152,6 +152,7 @@
 #include "RooChi2Var.h"
 #include "RooMinimizer.h"
 #include "RooRealIntegral.h"
+#include "Math/CholeskyDecomp.h"
 #include <string>
 
 using namespace std;
@@ -964,7 +965,7 @@ RooFitResult* RooAbsPdf::fitTo(RooAbsData& data, const RooCmdArg& arg1, const Ro
 {
   // Fit PDF to given dataset. If dataset is unbinned, an unbinned maximum likelihood is performed. If the dataset
   // is binned, a binned maximum likelihood is performed. By default the fit is executed through the MINUIT
-  // commands MIGRAD, HESSE and MINOS in succession.
+  // commands MIGRAD, HESSE in succession.
   //
   // The following named arguments are supported
   //
@@ -1021,7 +1022,7 @@ RooFitResult* RooAbsPdf::fitTo(RooAbsData& data, const RooCmdArg& arg1, const Ro
   // InitialHesse(Bool_t flag)      -- Flag controls if HESSE before MIGRAD as well, off by default
   // Optimize(Bool_t flag)          -- Activate constant term optimization of test statistic during minimization (on by default)
   // Hesse(Bool_t flag)             -- Flag controls if HESSE is run after MIGRAD, on by default
-  // Minos(Bool_t flag)             -- Flag controls if MINOS is run after HESSE, on by default
+  // Minos(Bool_t flag)             -- Flag controls if MINOS is run after HESSE, off by default
   // Minos(const RooArgSet& set)    -- Only run MINOS on given subset of arguments
   // Save(Bool_t flag)              -- Flac controls if RooFitResult object is produced and returned, off by default
   // Strategy(Int_t flag)           -- Set Minuit strategy (0 through 2, default is 1)
@@ -1223,73 +1224,51 @@ RooFitResult* RooAbsPdf::fitTo(RooAbsData& data, const RooLinkedList& cmdList)
       }
       
       if (doSumW2==1 && m.getNPar()>0) {
-	
 	// Make list of RooNLLVar components of FCN
-	list<RooNLLVar*> nllComponents ;
-	RooArgSet* comps = nll->getComponents() ;
-	RooAbsArg* arg ;
-	TIterator* citer = comps->createIterator() ;
-	while((arg=(RooAbsArg*)citer->Next())) {
-	  RooNLLVar* nllComp = dynamic_cast<RooNLLVar*>(arg) ;
-	  if (nllComp) {
-	    nllComponents.push_back(nllComp) ;
-	  }
+	RooArgSet* comps = nll->getComponents();
+	vector<RooNLLVar*> nllComponents;
+	nllComponents.reserve(comps->getSize());
+	TIterator* citer = comps->createIterator();
+	RooAbsArg* arg;
+	while ((arg=(RooAbsArg*)citer->Next())) {
+	  RooNLLVar* nllComp = dynamic_cast<RooNLLVar*>(arg);
+	  if (!nllComp) continue;
+	  nllComponents.push_back(nllComp);
 	}
-	delete citer ;
-	delete comps ;  
+	delete citer;
+	delete comps; 
 	
 	// Calculated corrected errors for weighted likelihood fits
-	RooFitResult* rw = m.save() ;
-	for (list<RooNLLVar*>::iterator iter1=nllComponents.begin() ; iter1!=nllComponents.end() ; iter1++) {
-	  (*iter1)->applyWeightSquared(kTRUE) ;
+	RooFitResult* rw = m.save();
+	for (vector<RooNLLVar*>::iterator it = nllComponents.begin(); nllComponents.end() != it; ++it) {
+	  (*it)->applyWeightSquared(kTRUE);
 	}
 	coutI(Fitting) << "RooAbsPdf::fitTo(" << GetName() << ") Calculating sum-of-weights-squared correction matrix for covariance matrix" << endl ;
-	m.hesse() ;
-	RooFitResult* rw2 = m.save() ;
-	for (list<RooNLLVar*>::iterator iter2=nllComponents.begin() ; iter2!=nllComponents.end() ; iter2++) {
-	  (*iter2)->applyWeightSquared(kFALSE) ;
+	m.hesse();
+	RooFitResult* rw2 = m.save();
+	for (vector<RooNLLVar*>::iterator it = nllComponents.begin(); nllComponents.end() != it; ++it) {
+	  (*it)->applyWeightSquared(kFALSE);
 	}
 	
 	// Apply correction matrix
-	const TMatrixDSym& V = rw->covarianceMatrix() ;
-	TMatrixDSym  C = rw2->covarianceMatrix() ;
-	
-	// Invert C
-	Double_t det(0) ;
-	C.Invert(&det) ;
-	if (det==0) {
+	const TMatrixDSym& matV = rw->covarianceMatrix();
+	TMatrixDSym matC = rw2->covarianceMatrix();
+	using ROOT::Math::CholeskyDecompGenDim;
+	CholeskyDecompGenDim<Double_t> decomp(matC.GetNrows(), matC);
+	if (!decomp) {
 	  coutE(Fitting) << "RooAbsPdf::fitTo(" << GetName() 
 			 << ") ERROR: Cannot apply sum-of-weights correction to covariance matrix: correction matrix calculated with weight-squared is singular" <<endl ;
 	} else {
-	  
-	  // Calculate corrected covariance matrix = V C-1 V
-	  TMatrixD VCV(V,TMatrixD::kMult,TMatrixD(C,TMatrixD::kMult,V)) ; 
-	  
-	  // Make matrix explicitly symmetric
-	  Int_t n = VCV.GetNrows() ;
-	  TMatrixDSym VCVsym(n) ;
-	  for (Int_t i=0 ; i<n ; i++) {
-	    for (Int_t j=i ; j<n ; j++) {
-	      if (i==j) {
-		VCVsym(i,j) = VCV(i,j) ;
-	      }
-	      if (i!=j) {
-		Double_t deltaRel = (VCV(i,j)-VCV(j,i))/sqrt(VCV(i,i)*VCV(j,j)) ;
-		if (fabs(deltaRel)>1e-3) {
-		  coutW(Fitting) << "RooAbsPdf::fitTo(" << GetName() << ") WARNING: Corrected covariance matrix is not (completely) symmetric: V[" << i << "," << j << "] = " 
-				 << VCV(i,j) << " V[" << j << "," << i << "] = " << VCV(j,i) << " explicitly restoring symmetry by inserting average value" << endl ;
-		}
-		VCVsym(i,j) = (VCV(i,j)+VCV(j,i))/2 ;
-	      }
-	    }
-	  }
-	  
+	  // replace C by its inverse
+	  decomp.Invert(matC); 
+	  matC.Similarity(matV);
+	  // C now contiains V C^-1 V
 	  // Propagate corrected errors to parameters objects
-	  m.applyCovarianceMatrix(VCVsym) ;
+	  m.applyCovarianceMatrix(matC);
 	}
 	
-	delete rw ;
-	delete rw2 ;
+	delete rw;
+	delete rw2;
       }
       
       if (minos) {
@@ -3222,7 +3201,7 @@ RooArgSet* RooAbsPdf::getAllConstraints(const RooArgSet& observables, RooArgSet&
   while((arg=(RooAbsArg*)iter->Next())) {
     RooAbsPdf* pdf = dynamic_cast<RooAbsPdf*>(arg) ;
     if (pdf && !ret->find(pdf->GetName())) {
-      RooArgSet* compRet = pdf->getConstraints(observables,constrainedParams,stripDisconnected) ;
+      RooArgSet* compRet = pdf->getConstraints(observables,constrainedParams,stripDisconnected) ; 
       if (compRet) {
 	ret->add(*compRet,kFALSE) ;
 	delete compRet ;

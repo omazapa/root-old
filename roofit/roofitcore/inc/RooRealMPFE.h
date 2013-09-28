@@ -25,6 +25,7 @@
 #include <vector> 
 
 class RooArgSet ;
+namespace RooFit { class BidirMMapPipe; }
 
 class RooRealMPFE : public RooAbsReal {
 public:
@@ -52,12 +53,13 @@ public:
   virtual Double_t evaluate() const ;
   friend class RooAbsTestStatistic ;
   virtual void constOptimizeTestStatistic(ConstOpCode opcode, Bool_t doAlsoTracking=kTRUE) ;
+  virtual Double_t getCarry() const;
 
   enum State { Initialize,Client,Server,Inline } ;
   State _state ;
 
-  enum Message { SendReal=0, SendCat=1, Calculate=2, Retrieve=3, ReturnValue=4, Terminate=5, 
-		 ConstOpt=6, Verbose=7, RetrieveErrors=8, SendError=9, LogEvalError=10, ApplyNLLW2=11, EnableOffset=12, CalculateNoOffset=13 } ;
+  enum Message { SendReal=0, SendCat, Calculate, Retrieve, ReturnValue, Terminate, 
+		 ConstOpt, Verbose, LogEvalError, ApplyNLLW2, EnableOffset, CalculateNoOffset } ;
   
   void initialize() ; 
   void initVars() ;
@@ -74,19 +76,18 @@ public:
   Bool_t _inlineMode ;
   mutable Bool_t _forceCalc ;
   mutable RooAbsReal::ErrorLoggingMode _remoteEvalErrorLoggingState ;
-  Int_t  _pid ;            // PID of child process
 
-  Int_t _pipeToClient[2] ; // Pipe to client process
-  Int_t _pipeToServer[2] ; // Pipe to server process
+  RooFit::BidirMMapPipe *_pipe; //! connection to child
 
   mutable std::vector<Bool_t> _valueChanged ; //! Flags if variable needs update on server-side
   mutable std::vector<Bool_t> _constChanged ; //! Flags if variable needs update on server-side
   RooRealMPFE* _updateMaster ; //! Update master
   mutable Bool_t _retrieveDispatched ; //!
+  mutable Double_t _evalCarry; //!
 
   static RooMPSentinel _sentinel ;
 
-  ClassDef(RooRealMPFE,1) // Multi-process front-end for parallel calculation of a real valued function 
+  ClassDef(RooRealMPFE,2) // Multi-process front-end for parallel calculation of a real valued function 
 };
 
 #endif

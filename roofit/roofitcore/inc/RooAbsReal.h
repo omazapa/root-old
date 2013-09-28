@@ -251,12 +251,12 @@ public:
   // Evaluation error logging 
   class EvalError {
   public:
-    EvalError() { _msg[0] = 0 ; _srvval[0] = 0 ; }
-    EvalError(const EvalError& other) { strlcpy(_msg,other._msg,1024) ; strlcpy(_srvval,other._srvval,1024) ; } ;
-    void setMessage(const char* tmp) ;
-    void setServerValues(const char* tmp) ;
-    char _msg[1024] ;
-    char _srvval[1024] ;
+    EvalError() { }
+    EvalError(const EvalError& other) : _msg(other._msg), _srvval(other._srvval) { }
+    void setMessage(const char* tmp) { std::string s(tmp); s.swap(_msg); }
+    void setServerValues(const char* tmp) { std::string s(tmp); s.swap(_srvval); }
+    std::string _msg;
+    std::string _srvval;
   } ;
 
   enum ErrorLoggingMode { PrintErrors, CollectErrors, CountErrors, Ignore } ;
@@ -312,10 +312,6 @@ public:
   static Bool_t hideOffset() ;
 
 protected:
-
-  // PlotOn with command list
-  virtual RooPlot* plotOn(RooPlot* frame, RooLinkedList& cmdList) const ;
-
   // Hook for objects with normalization-dependent parameters interperetation
   virtual void selectNormalization(const RooArgSet* depSet=0, Bool_t force=kFALSE) ;
   virtual void selectNormalizationRange(const char* rangeName=0, Bool_t force=kFALSE) ;
@@ -450,6 +446,12 @@ protected:
 
   // Plot implementation functions
   virtual RooPlot *plotOn(RooPlot* frame, PlotOpt o) const;
+
+public:
+  // PlotOn with command list
+  virtual RooPlot* plotOn(RooPlot* frame, RooLinkedList& cmdList) const ;
+
+ protected:
   virtual RooPlot *plotAsymOn(RooPlot *frame, const RooAbsCategoryLValue& asymCat, PlotOpt o) const;
 
 

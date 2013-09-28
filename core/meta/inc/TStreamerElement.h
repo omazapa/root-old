@@ -68,7 +68,8 @@ public:
       kRepeat       = BIT(10),
       kRead         = BIT(11),
       kWrite        = BIT(12),
-      kDoNotDelete  = BIT(13)
+      kDoNotDelete  = BIT(13),
+      kWholeObject  = BIT(14)
    };
 
    TStreamerElement();
@@ -90,6 +91,7 @@ public:
    TClass*          GetNewClass() const { return fNewClass; }
    Int_t            GetType() const {return fType;}
    Int_t            GetOffset() const {return fOffset;}
+   void             GetSequenceType(TString &type) const;
    Int_t            GetTObjectOffset() const { return fTObjectOffset; }
    const char      *GetTypeName() const {return fTypeName.Data();}
    const char      *GetTypeNameBasic() const;

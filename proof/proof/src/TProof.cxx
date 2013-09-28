@@ -599,6 +599,8 @@ void TProof::InitMembers()
    
    fPerfTree = "";
 
+   fWrksOutputReady = 0;
+
    fSelector = 0;
 
    // Check if the user defined a list of environment variables to send over:
@@ -687,6 +689,10 @@ TProof::~TProof()
    SafeDelete(fInputData);
    SafeDelete(fRunningDSets);
    SafeDelete(fCloseMutex);
+   if (fWrksOutputReady) {
+      fWrksOutputReady->SetOwner(kFALSE);
+      delete fWrksOutputReady;
+   }
 
    // remove file with redirected logs
    if (TestBit(TProof::kIsClient)) {
@@ -1098,7 +1104,7 @@ void TProof::ParseConfigField(const char *config)
             // Check if we have to add a var
             if (wrk == "" || wrk.BeginsWith("valgrind_opts:")) {
                wrk.ReplaceAll("valgrind_opts:","");
-               var.Form("%s --log-file=<logfilewrk>.valgrind.log %s%s", cmd.Data(), wrk.Data(), cq);
+               var.Form("%s --log-file=<logfilewrk>.__valgrind__.log %s%s", cmd.Data(), wrk.Data(), cq);
                TProof::AddEnvVar("PROOF_SLAVE_WRAPPERCMD", var);
                TString nwrks("2");
                Int_t inw = opt.Index('#');
@@ -1114,8 +1120,8 @@ void TProof::ParseConfigField(const char *config)
                }
                wrklab = nwrks;
                // Register the additional worker log in the session file
-               // (for the master is done automatically)
-               TProof::AddEnvVar("PROOF_ADDITIONALLOG", "valgrind.log*");
+               // (for the master this is done automatically)
+               TProof::AddEnvVar("PROOF_ADDITIONALLOG", "__valgrind__.log*");
             } else if (wrk != "") {
                wrklab = "ALL";
             }
@@ -1138,6 +1144,30 @@ void TProof::ParseConfigField(const char *config)
          Printf(" ---> Logs will be available as special tags in the log window (from the progress dialog or TProof::LogViewer()) ");
          Printf(" ---> (Reminder: this debug run makes sense only if you are running a debug version of ROOT)");
          Printf(" ");
+
+      } else if (opt.BeginsWith("igprof-pp")) {
+
+         // IgProf profiling on master and worker. PROOF does not set the
+         // environment for you: proper environment variables (like PATH and
+         // LD_LIBRARY_PATH) should be set externally
+
+         Printf("*** Requested IgProf performance profiling ***");
+         TString addLogExt = "__igprof.pp__.log";
+         TString addLogFmt = "igprof -pk -pp -t proofserv.exe -o %s.%s";
+         TString tmp;
+
+         if (IsLite()) {
+            addLogFmt.Append("\"");
+            addLogFmt.Prepend("\"");
+         }
+
+         tmp.Form(addLogFmt.Data(), "<logfilemst>", addLogExt.Data());
+         TProof::AddEnvVar("PROOF_MASTER_WRAPPERCMD",  tmp.Data());
+
+         tmp.Form(addLogFmt.Data(), "<logfilewrk>", addLogExt.Data());
+         TProof::AddEnvVar("PROOF_SLAVE_WRAPPERCMD", tmp.Data() );
+
+         TProof::AddEnvVar("PROOF_ADDITIONALLOG", addLogExt.Data());
 
       } else if (opt.BeginsWith("workers=")) {
 
@@ -2734,6 +2764,33 @@ Int_t TProof::Collect(TMonitor *mon, Long_t timeout, Int_t endtype, Bool_t deact
          if (s == (TSocket *)(-1) && nto > 0)
             nto--;
       }
+
+      // Check if there are workers with ready output to be sent and ask the first to send it
+      if (IsMaster() && fWrksOutputReady && fWrksOutputReady->GetSize() > 0) {
+         // Maximum number of concurrent sendings
+         Int_t mxws = gEnv->GetValue("Proof.ControlSendOutput", 1);
+         if (TProof::GetParameter(fPlayer->GetInputList(), "PROOF_ControlSendOutput", mxws) != 0)
+            mxws = gEnv->GetValue("Proof.ControlSendOutput", 1);
+         TIter nxwr(fWrksOutputReady);
+         TSlave *wrk = 0;
+         while (mxws && (wrk = (TSlave *) nxwr())) {
+            if (!wrk->TestBit(TSlave::kOutputRequested)) {
+               // Ask worker for output
+               TMessage sendoutput(kPROOF_SENDOUTPUT);
+               PDB(kCollect, 2)
+                  Info("Collect", "worker %s was asked to send its output to master",
+                                                wrk->GetOrdinal());
+               if (wrk->GetSocket()->Send(sendoutput) != 1) {
+                  wrk->SetBit(TSlave::kOutputRequested);
+                  mxws--;
+               }
+            } else {
+               // Count
+               mxws--;
+            }
+         }
+      }
+
       // Check if we need to check the socket activity (we do it every 10 cycles ~ 10 sec)
       sto = -1;
       if (--nsto <= 0) {
@@ -3064,6 +3121,11 @@ Int_t TProof::HandleInputMessage(TSlave *sl, TMessage *mess, Bool_t deactonfail)
             // Deactivate the worker, if required
             if (deactonfail) DeactivateWorker(sl->fOrdinal);
          }
+         // Remove from the workers-ready list
+         if (fWrksOutputReady && fWrksOutputReady->FindObject(sl)) {
+            sl->ResetBit(TSlave::kOutputRequested);
+            fWrksOutputReady->Remove(sl);
+         }
          rc = 1;
          break;
 
@@ -3151,6 +3213,20 @@ Int_t TProof::HandleInputMessage(TSlave *sl, TMessage *mess, Bool_t deactonfail)
             default:
                Error("HandleInputMessage", "kPROOF_PACKAGE_LIST: unknown type: %d", type);
             }
+         }
+         break;
+
+      case kPROOF_SENDOUTPUT:
+         {  // Worker is ready to send output: make sure the relevant bit is reset
+            sl->ResetBit(TSlave::kOutputRequested);
+            PDB(kGlobal,2)
+               Info("HandleInputMessage","kPROOF_SENDOUTPUT: enter (%s)", sl->GetOrdinal());
+            // Create the list if not yet done
+            if (!fWrksOutputReady) {
+               fWrksOutputReady = new TList;
+               fWrksOutputReady->SetOwner(kFALSE);
+            }
+            fWrksOutputReady->Add(sl);
          }
          break;
 
@@ -5115,6 +5191,12 @@ Long64_t TProof::Process(TDSet *dset, const char *selector, Option_t *option,
 
    // Make sure we get a fresh result
    fOutputList.Clear();
+
+   // Make sure that the workers ready list is empty
+   if (fWrksOutputReady) {
+      fWrksOutputReady->SetOwner(kFALSE);
+      fWrksOutputReady->Clear();
+   }
    
    Long64_t rv = -1;
    if (selector && strlen(selector)) {
@@ -5443,7 +5525,7 @@ Long64_t TProof::Process(const char *dsetname, const char *selector,
    } else if (fSelector) {
       retval = Process(dset, fSelector, option, nentries, first);
    } else {
-      Error("Process", "neither a selecrot file nor a selector object have"
+      Error("Process", "neither a selector file nor a selector object have"
                        " been specified: cannot process!");
    }
    // Cleanup
@@ -12091,8 +12173,16 @@ void TProof::SaveWorkerInfo()
 
    // Do we need to register an additional line for another log?
    TString addlogext;
+   TString addLogTag;
    if (gSystem->Getenv("PROOF_ADDITIONALLOG")) {
       addlogext = gSystem->Getenv("PROOF_ADDITIONALLOG");
+      TPMERegexp reLogTag("^__(.*)__\\.log");  // $
+      if (reLogTag.Match(addlogext) == 2) {
+         addLogTag = reLogTag[1];
+      }
+      else {
+         addLogTag = "+++";
+      }
       if (gDebug > 0)
          Info("SaveWorkerInfo", "request for additional line with ext: '%s'",  addlogext.Data());
    }
@@ -12115,9 +12205,9 @@ void TProof::SaveWorkerInfo()
                    wrk->GetOrdinal(), logfile.Data());
       // Additional line, if required
       if (addlogext.Length() > 0) {
-         fprintf(fwrk,"%s@%s:%d %d %s %s.%s\n",
+         fprintf(fwrk,"%s@%s:%d %d %s(%s) %s.%s\n",
                      wrk->GetUser(), wrk->GetName(), wrk->GetPort(), status,
-                     wrk->GetOrdinal(), logfile.Data(), addlogext.Data());
+                     wrk->GetOrdinal(), addLogTag.Data(), logfile.Data(), addlogext.Data());
       }
 
    }
@@ -12148,6 +12238,12 @@ void TProof::SaveWorkerInfo()
       else continue;  // invalid (should not happen)
       fprintf(fwrk, "%s 2 %s %s.log\n",
               sli->GetName(), sli->GetOrdinal(), logfile.Data());
+      // Additional line, if required
+      if (addlogext.Length() > 0) {
+         fprintf(fwrk, "%s 2 %s(%s) %s.%s\n",
+                 sli->GetName(), sli->GetOrdinal(), addLogTag.Data(),
+                 logfile.Data(), addlogext.Data());
+      }
    }
 
    // Close file
@@ -12299,49 +12395,95 @@ Int_t TProof::AssertDataSet(TDSet *dset, TList *input,
    // defined: assume that a dataset, stored on the PROOF master by that
    // name, should be processed.
    if (!dataset) {
-      TString dsns(dsname.Data()), dsn1;
-      Int_t from1 = 0;
-      while (dsns.Tokenize(dsn1, from1, "[, ]")) {
-         TString dsn2, enl;
-         Int_t from2 = 0;
-         TFileCollection *fc = 0;
-         while (dsn1.Tokenize(dsn2, from2, "|")) {
-            enl = "";
-            Int_t ienl = dsn2.Index("?enl=");
-            if (ienl != kNPOS) {
-               enl = dsn2(ienl + 5, dsn2.Length());
-               dsn2.Remove(ienl);
-            }
-            if ((fc = mgr->GetDataSet(dsn2.Data()))) {
-               // Save dataset name in TFileInfo's title to use it in TDset 
-               TIter nxfi(fc->GetList());
-               TFileInfo *fi = 0;
-               while ((fi = (TFileInfo *) nxfi())) { fi->SetTitle(dsn2.Data()); }
-               dsnparse = dsn2;
-               if (!dataset) {
-                  // This is our dataset
-                  dataset = fc;
-               } else {
-                  // Add it to the dataset
-                  dataset->Add(fc);
-                  SafeDelete(fc);
+
+      // First of all check if the full string (except the "entry list" part)
+      // is the name of a single existing dataset: if it is, don't break it
+      // into parts
+      TString dsns( dsname.Data() ), enl;
+      Ssiz_t eli = dsns.Index("?enl=");
+      TFileCollection *fc;
+      if (eli != kNPOS) {
+         enl = dsns(eli+5, dsns.Length());
+         dsns.Remove(eli, dsns.Length()-eli);
+      }
+
+      // Check if the entry list is valid. If it has spaces, commas, or pipes,
+      // it is not considered as valid and we revert to the "multiple datasets"
+      // case
+      Bool_t validEnl = ((enl.Index("|") == kNPOS) &&
+        (enl.Index(",") == kNPOS) && (enl.Index(" ") == kNPOS));
+
+      if (validEnl && (( fc = mgr->GetDataSet(dsns) ))) {
+
+         //
+         // String corresponds to ONE dataset only
+         //
+
+         TIter nxfi(fc->GetList());
+         TFileInfo *fi;
+         while (( fi = (TFileInfo *)nxfi() ))
+            fi->SetTitle(dsns.Data());
+         dataset = fc;
+         dsnparse = dsns;  // without entry list
+
+         // Adds the entry list (or empty string if not specified)
+         datasets->Add( new TPair(dataset, new TObjString( enl.Data() )) );
+
+      }
+      else {
+
+         //
+         // String does NOT correspond to one dataset: check if many datasets
+         // were specified instead
+         //
+
+         dsns = dsname.Data();
+         TString dsn1;
+         Int_t from1 = 0;
+         while (dsns.Tokenize(dsn1, from1, "[, ]")) {
+            TString dsn2;
+            Int_t from2 = 0;
+            while (dsn1.Tokenize(dsn2, from2, "|")) {
+               enl = "";
+               Int_t ienl = dsn2.Index("?enl=");
+               if (ienl != kNPOS) {
+                  enl = dsn2(ienl + 5, dsn2.Length());
+                  dsn2.Remove(ienl);
+               }
+               if ((fc = mgr->GetDataSet(dsn2.Data()))) {
+                  // Save dataset name in TFileInfo's title to use it in TDset 
+                  TIter nxfi(fc->GetList());
+                  TFileInfo *fi;
+                  while ((fi = (TFileInfo *) nxfi())) { fi->SetTitle(dsn2.Data()); }
+                  dsnparse = dsn2;
+                  if (!dataset) {
+                     // This is our dataset
+                     dataset = fc;
+                  } else {
+                     // Add it to the dataset
+                     dataset->Add(fc);
+                     SafeDelete(fc);
+                  }
                }
             }
-         }
-         // The dataset name(s) in the first element
-         if (dataset) {
-            if (dataset->GetList()->First())
-               ((TFileInfo *)(dataset->GetList()->First()))->SetTitle(dsn1.Data());
-            // Add it to the local list
-            if (enl.IsNull()) {
-               datasets->Add(new TPair(dataset, new TObjString("")));
-            } else {
+            // The dataset name(s) in the first element
+            if (dataset) {
+               if (dataset->GetList()->First())
+                  ((TFileInfo *)(dataset->GetList()->First()))->SetTitle(dsn1.Data());
+               // Add it to the local list
                datasets->Add(new TPair(dataset, new TObjString(enl.Data())));
             }
+            // Reset the pointer
+            dataset = 0;
          }
-         // Reset the pointer
-         dataset = 0;
+
       }
+
+      //
+      // At this point the dataset(s) to be processed, if any, are found in the
+      // "datasets" variable
+      //
+
       if (!datasets || datasets->GetSize() <= 0) {
          emsg.Form("no dataset(s) found on the master corresponding to: %s", dsname.Data());
          return -1;

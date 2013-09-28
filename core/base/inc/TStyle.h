@@ -1,4 +1,4 @@
-// @(#)root/base:$Id$
+// @(#)root/base:$Id: 5214d7dc2746ceb518366bc6c4f4068b652d5241 $
 // Author: Rene Brun   12/12/94
 
 /*************************************************************************
@@ -160,7 +160,12 @@ public:
    TStyle(const char *name, const char *title);
    TStyle(const TStyle &style);
    virtual          ~TStyle();
-   Int_t            AxisChoice(Option_t *axis) const;
+   inline Int_t     AxisChoice(Option_t *axis) const {
+      // Return axis number (1 for X, 2 for Y, 3 for Z)
+      UChar_t a = *axis;
+      a -= (a >= 'x') ? 'x' : 'X'; // toupper and a-='X'; intentional underflow
+      return (a > 2) ? 0 : (Int_t)(a+1);
+   };
    virtual void     Browse(TBrowser *b);
    static  void     BuildStyles();
    virtual void     Copy(TObject &style) const;
@@ -370,8 +375,8 @@ public:
    void             SetPaintTextFormat(const char *format="g") {fPaintTextFormat = format;}
    void             SetPaperSize(EPaperSize size);
    void             SetPaperSize(Float_t xsize=20, Float_t ysize=26);
-   void             SetStatColor(Int_t color=19) {fStatColor=color;}
-   void             SetStatTextColor(Int_t color=1) {fStatTextColor=color;}
+   void             SetStatColor(Color_t color=19) {fStatColor=color;}
+   void             SetStatTextColor(Color_t color=1) {fStatTextColor=color;}
    void             SetStatStyle(Style_t style=1001) {fStatStyle=style;}
    void             SetStatBorderSize(Width_t size=2) {fStatBorderSize=size;}
    void             SetStatFont(Style_t font=62) {fStatFont=font;}
