@@ -10,9 +10,6 @@
 * For the list of contributors see $ROOTSYS/README/CREDITS.              *
 *************************************************************************/
 #include<TRInterface.h>
-// #include<Rembedded.h>
-// #include<Rinterface.h>
-// #include<Rinternals.h>
 #include"TRCompletion.h"
 #include<vector>
 
@@ -144,8 +141,6 @@ TRInterface::TRInterface(const int argc, const char *argv[], const bool loadRcpp
    rl_attempted_completion_function = R_custom_completion;
 
 }
-
-
 
 //______________________________________________________________________________
 Int_t  TRInterface::ParseEval(const TString &code, TRObjectProxy  &ans)

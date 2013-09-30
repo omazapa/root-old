@@ -39,6 +39,7 @@ namespace ROOT {
          TString ToString();
          template<class Type> Type ToScalar();
          template<class Type> TVectorT<Type> ToVector();
+         template<class Type> std::vector<Type> ToStdVector();
          template<class TypeClass, class TypeData> TypeClass   ToArray();
          template<class Type> TMatrixT<Type>   ToMatrix();
          template <typename T> operator T() {
@@ -65,6 +66,13 @@ namespace ROOT {
       return TVectorT<Type>(vec.size(), vec.data());
    }
 
+//______________________________________________________________________________
+   template<class Type> std::vector<Type> ROOT::R::TRObjectProxy::ToStdVector()
+   {
+      return ::Rcpp::as<std::vector<Type> >(x);
+   }
+   
+   
 //______________________________________________________________________________
    template<class TypeClass, class TypeData> TypeClass   ROOT::R::TRObjectProxy::ToArray()
    {

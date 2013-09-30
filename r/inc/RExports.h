@@ -45,6 +45,8 @@
 
 //std headers
 #include<string>
+#include<vector>
+
 //pragma to disable warnings on Rcpp which have
 //so many noise compiling
 #if defined(__GNUC__)

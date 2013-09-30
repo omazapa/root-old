@@ -28,6 +28,9 @@
 #pragma link C++ function ROOT::R::TRInterface::Assign<TString>(const TString&,const TString&);
 #pragma link C++ function ROOT::R::TRInterface::Assign<TVectorD>(const TVectorD&,const TString&);
 #pragma link C++ function ROOT::R::TRInterface::Assign<TMatrixD>(const TMatrixD&,const TString&);
+#pragma link C++ function ROOT::R::TRInterface::Assign<std::vector<Double_t> >(const std::vector<Double_t>&,const TString&);
+#pragma link C++ function ROOT::R::TRInterface::Assign<std::vector<Float_t> >(const std::vector<Float_t>&,const TString&);
+#pragma link C++ function ROOT::R::TRInterface::Assign<std::vector<Int_t> >(const std::vector<Int_t>&,const TString&);
 
 #pragma link C++ function ROOT::R::TRInterface::Binding::operator=(Int_t&);
 #pragma link C++ function ROOT::R::TRInterface::Binding::operator=(Double_t&);
@@ -35,6 +38,9 @@
 #pragma link C++ function ROOT::R::TRInterface::Binding::operator=(TString&);
 #pragma link C++ function ROOT::R::TRInterface::Binding::operator=(TVectorD&);
 #pragma link C++ function ROOT::R::TRInterface::Binding::operator=(TMatrixD&);
+#pragma link C++ function ROOT::R::TRInterface::Binding::operator=(std::vector<Double_t>&);
+#pragma link C++ function ROOT::R::TRInterface::Binding::operator=(std::vector<Float_t>&);
+#pragma link C++ function ROOT::R::TRInterface::Binding::operator=(std::vector<Int_t>&);
 
 #pragma link C++ class ROOT::R::TRObjectProxy+;
 #pragma link C++ function  ROOT::R::TRObjectProxy::ToScalar<Double_t>();
@@ -43,6 +49,10 @@
 
 #pragma link C++ function  ROOT::R::TRObjectProxy::ToVector<Double_t>();
 #pragma link C++ function  ROOT::R::TRObjectProxy::ToVector<Float_t>();
+
+#pragma link C++ function  ROOT::R::TRObjectProxy::ToStdVector<Double_t>();
+#pragma link C++ function  ROOT::R::TRObjectProxy::ToStdVector<Float_t>();
+#pragma link C++ function  ROOT::R::TRObjectProxy::ToStdVector<Int_t>();
 
 #pragma link C++ function  ROOT::R::TRObjectProxy::ToArray<TArrayD,Double_t>();
 #pragma link C++ function  ROOT::R::TRObjectProxy::ToArray<TArrayF,Float_t>();
