@@ -6277,6 +6277,7 @@ if test ! "x$enable_r" = "xno"; then
          RINSIDEINCLSTATUS=$?
          RINSIDELIBS=`echo 'RInside:::LdFlags(static=0)'   | $REXE --vanilla --slave 2> /dev/null`
          RINSIDELIBSSTATUS=$?
+
          if [ $RINSIDEINCLSTATUS -eq 0 ] && [ $RINSIDELIBSSTATUS -eq 0 ] ; then
              echo "found"
 	 else
@@ -6285,7 +6286,7 @@ if test ! "x$enable_r" = "xno"; then
 	    result "no"
          fi
          rflags="$RCPPFLAGS $RCPPINCL $RINSIDEINCL"
-         rlibs="$RLDFLAGS $RCPPLIBS $RINSIDELIBS"
+         rlibs=" $RCPPLIBS $RINSIDELIBS $RLDFLAGS"
      else
         message "R not found"
         enable_r="no"
