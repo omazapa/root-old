@@ -45,6 +45,8 @@
 #include "TBrowser.h"
 #include "TUrl.h"
 
+#include <stdlib.h>
+
 #if defined(R__MACOSX) && (TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR)
 #include "TGIOS.h"
 #endif
@@ -73,6 +75,13 @@ Bool_t TIdleTimer::Notify()
 
 
 ClassImp(TApplication)
+
+static void CallEndOfProcessCleanups()
+{
+  // Insure that the files, canvases and sockets are closed.
+
+  gROOT->EndOfProcessCleanups();
+}
 
 //______________________________________________________________________________
 TApplication::TApplication() :
@@ -126,6 +135,10 @@ TApplication::TApplication(const char *appClassName, Int_t *argc, char **argv,
    if (!gSystem)
       ::Fatal("TApplication::TApplication", "gSystem not initialized");
 
+   if (!gApplication) {
+      // If we are the first TApplication register the atexit)
+      atexit(CallEndOfProcessCleanups);
+   }
    gApplication = this;
    gROOT->SetApplication(this);
    gROOT->SetName(appClassName);
@@ -205,6 +218,17 @@ TApplication::~TApplication()
    if (fUseMemstat) {
       ProcessLine("TMemStat::Close()");
       fUseMemstat = kFALSE;
+   }
+
+   // Reduce the risk of the files or sockets being closed after the
+   // end of 'main' (or more exactly before the library start being
+   // unloaded).
+   if (fgApplications == 0 || fgApplications->FirstLink() == 0 ) {
+      if (gROOT) {
+         gROOT->EndOfProcessCleanups();
+      } else if (gInterpreter) {
+         gInterpreter->ResetGlobals();
+      }
    }
 }
 
@@ -945,7 +969,7 @@ Long_t TApplication::ExecuteFile(const char *file, Int_t *error, Bool_t keep)
    Long_t retval = 0;
 
    while (1) {
-      bool res = macro.getline(currentline, kBufSize);
+      bool res = (bool)macro.getline(currentline, kBufSize);
       if (macro.eof()) break;
       if (!res) {
          // Probably only read kBufSize, let's ignore the remainder of

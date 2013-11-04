@@ -556,6 +556,8 @@ TLatexFormSize TLatex::Analyse(Double_t x, Double_t y, TextSpec_t spec, const Ch
    Int_t opPerp          = 0;    // position of #perp
    Int_t opOdot          = 0;    // position of #odot
    Int_t opHbar          = 0;    // position of #hbar
+   Int_t opMinus         = 0;    // position of #minus
+   Int_t opPlus          = 0;    // position of #plus
    Int_t opMp            = 0;    // position of #mp
    Int_t opBackslash     = 0;    // position of #backslash
    Int_t opParallel      = 0;    // position of #parallel
@@ -564,6 +566,8 @@ TLatexFormSize TLatex::Analyse(Double_t x, Double_t y, TextSpec_t spec, const Ch
    Int_t opLower         = -1;   // Position of first #lower
    Int_t opBf            = -1;   // Position of first #bf
    Int_t opIt            = -1;   // Position of first #it
+   Int_t opMbox          = -1;   // Position of first #mbox
+
    Bool_t opFound = kFALSE;
    Bool_t quote1 = kFALSE, quote2 = kFALSE ;
 
@@ -720,6 +724,16 @@ TLatexFormSize TLatex::Analyse(Double_t x, Double_t y, TextSpec_t spec, const Ch
                if (i>0 && opCloseCurly==-2) opCloseCurly=i-1;
                continue ;
             }
+            if (!opMinus && strncmp(buf,"minus",5)==0) {
+               opMinus=1; opFound = kTRUE;
+               if (i>0 && opCloseCurly==-2) opCloseCurly=i-1;
+               continue;
+            }
+            if (strncmp(buf,"mbox[",5)==0 || strncmp(buf,"mbox{",5)==0) {
+               opMbox=i; opFound = kTRUE;
+               if (i>0 && opCloseCurly==-2) opCloseCurly=i-1;
+               continue ;
+            }
          }
          if (length>i+4) {
             Char_t buf[5];
@@ -736,6 +750,11 @@ TLatexFormSize TLatex::Analyse(Double_t x, Double_t y, TextSpec_t spec, const Ch
             }
             if (!opPerp && strncmp(buf,"perp",4)==0) {
                opPerp=1; opFound = kTRUE;
+               if (i>0 && opCloseCurly==-2) opCloseCurly=i-1;
+               continue;
+            }
+            if (!opPlus && strncmp(buf,"plus",4)==0) {
+               opPlus=1; opFound = kTRUE;
                if (i>0 && opCloseCurly==-2) opCloseCurly=i-1;
                continue;
             }
@@ -1075,7 +1094,7 @@ TLatexFormSize TLatex::Analyse(Double_t x, Double_t y, TextSpec_t spec, const Ch
          fs1 = Analyse(x+square,y,spec,text+5,length-5);
          TText hbar;
          hbar.SetTextFont(12);
-         hbar.SetTextColor(fTextColor);
+         hbar.SetTextColor(spec.fColor);
          hbar.SetTextSize(spec.fSize);
          hbar.SetTextAngle(fTextAngle);
          Double_t xOrigin = (Double_t)gPad->XtoAbsPixel(fX);
@@ -1088,6 +1107,46 @@ TLatexFormSize TLatex::Analyse(Double_t x, Double_t y, TextSpec_t spec, const Ch
       }
       result = fs1 + TLatexFormSize(square,square,0);
    }
+   else if (opMinus) {
+      Double_t square = GetHeight()*spec.fSize/2;
+      if (!fShow) {
+         fs1 = Anal1(spec,text+6,length-6);
+      } else {
+         fs1 = Analyse(x+square,y,spec,text+6,length-6);
+         TText minus;
+         minus.SetTextFont(122);
+         minus.SetTextColor(spec.fColor);
+         minus.SetTextSize(spec.fSize);
+         minus.SetTextAngle(fTextAngle);
+         Double_t xOrigin = (Double_t)gPad->XtoAbsPixel(fX);
+         Double_t yOrigin = (Double_t)gPad->YtoAbsPixel(fY);
+         Double_t angle   = kPI*spec.fAngle/180.;
+         Double_t xx = gPad->AbsPixeltoX(Int_t((x-xOrigin)*TMath::Cos(angle)+(y-yOrigin)*TMath::Sin(angle)+xOrigin));
+         Double_t yy = gPad->AbsPixeltoY(Int_t((x-xOrigin)*TMath::Sin(-angle)+(y-yOrigin)*TMath::Cos(angle)+yOrigin));
+         minus.PaintText(xx,yy,"-");
+      }
+      result = fs1 + TLatexFormSize(square,square,0);
+   }
+   else if (opPlus) {
+      Double_t square = GetHeight()*spec.fSize/2;
+      if (!fShow) {
+         fs1 = Anal1(spec,text+5,length-5);
+      } else {
+         fs1 = Analyse(x+square,y,spec,text+5,length-5);
+         TText plus;
+         plus.SetTextFont(122);
+         plus.SetTextColor(spec.fColor);
+         plus.SetTextSize(spec.fSize);
+         plus.SetTextAngle(fTextAngle);
+         Double_t xOrigin = (Double_t)gPad->XtoAbsPixel(fX);
+         Double_t yOrigin = (Double_t)gPad->YtoAbsPixel(fY);
+         Double_t angle   = kPI*spec.fAngle/180.;
+         Double_t xx = gPad->AbsPixeltoX(Int_t((x-xOrigin)*TMath::Cos(angle)+(y-yOrigin)*TMath::Sin(angle)+xOrigin));
+         Double_t yy = gPad->AbsPixeltoY(Int_t((x-xOrigin)*TMath::Sin(-angle)+(y-yOrigin)*TMath::Cos(angle)+yOrigin));
+         plus.PaintText(xx,yy,"+");
+      }
+      result = fs1 + TLatexFormSize(square,square,0);
+   }
    else if (opMp) {
       Double_t square = GetHeight()*spec.fSize/2;
       if (!fShow) {
@@ -1096,7 +1155,7 @@ TLatexFormSize TLatex::Analyse(Double_t x, Double_t y, TextSpec_t spec, const Ch
          fs1 = Analyse(x+square,y,spec,text+3,length-3);
          TText mp;
          mp.SetTextFont(122);
-         mp.SetTextColor(fTextColor);
+         mp.SetTextColor(spec.fColor);
          mp.SetTextSize(spec.fSize);
          mp.SetTextAngle(fTextAngle+180);
          Double_t xOrigin = (Double_t)gPad->XtoAbsPixel(fX);
@@ -1132,7 +1191,7 @@ TLatexFormSize TLatex::Analyse(Double_t x, Double_t y, TextSpec_t spec, const Ch
          fs1 = Analyse(x+square,y,spec,text+10,length-10);
          TText bs;
          bs.SetTextFont(GetTextFont());
-         bs.SetTextColor(fTextColor);
+         bs.SetTextColor(spec.fColor);
          bs.SetTextSize(spec.fSize);
          bs.SetTextAngle(fTextAngle);
          Double_t xOrigin = (Double_t)gPad->XtoAbsPixel(fX);
@@ -1306,7 +1365,7 @@ TLatexFormSize TLatex::Analyse(Double_t x, Double_t y, TextSpec_t spec, const Ch
                Double_t yy  = gPad->AbsPixeltoY(Int_t((x2-xOrigin)*-sinang+(y2-yOrigin)*cosang+yOrigin));
                TText tilde;
                tilde.SetTextFont(fTextFont);
-               tilde.SetTextColor(fTextColor);
+               tilde.SetTextColor(spec.fColor);
                tilde.SetTextSize(0.9*spec.fSize);
                tilde.SetTextAlign(22);
                tilde.SetTextAngle(fTextAngle);
@@ -1678,6 +1737,17 @@ TLatexFormSize TLatex::Analyse(Double_t x, Double_t y, TextSpec_t spec, const Ch
       }
       result = fs1;
    }
+   else if (opMbox>-1) { // dummy operator #mbox{arg}
+      TextSpec_t newSpec = spec;
+      if (!fShow) {
+         fs1 = Anal1(newSpec,text+5,length-5);
+         Savefs(&fs1);
+      } else {
+         fs1 = Readfs();
+         Analyse(x,y,newSpec,text+5,length-5);
+      }
+      result = fs1;
+   }
    else if (opIt>-1) { // operator #it{arg}
       TextSpec_t newSpec = spec;
       Int_t lut[] = {13, 3, 2, 5, 4, 7, 6, 9, 8, 11, 10, 15, 1, 14, 12};
@@ -1770,7 +1840,7 @@ TLatex *TLatex::DrawLatex(Double_t x, Double_t y, const char *text)
 TLatex *TLatex::DrawLatexNDC(Double_t x, Double_t y, const char *text)
 {
    // Draw this TLatex with new coordinates in NDC.
-   
+
    TLatex *newtext = DrawLatex(x, y, text);
    newtext->SetNDC();
    return newtext;
@@ -1890,22 +1960,75 @@ void TLatex::PaintLatex(Double_t x, Double_t y, Double_t angle, Double_t size, c
    TAttText::Modify();  // Change text attributes only if necessary.
 
    TVirtualPS *saveps = gVirtualPS;
-               
+
    if (gVirtualPS) {
       if (gVirtualPS->InheritsFrom("TTeXDump")) {
          gVirtualPS->SetTextAngle(angle);
          TString t(text1);
          if (t.Index("#")>=0 || t.Index("^")>=0 || t.Index("\\")>=0) {
+            t.ReplaceAll("#LT","\\langle");
+            t.ReplaceAll("#GT","\\rangle");
+            t.ReplaceAll("#club","\\clubsuit");
+            t.ReplaceAll("#spade","\\spadesuit");
+            t.ReplaceAll("#heart","\\heartsuit");
+            t.ReplaceAll("#diamond","\\diamondsuit");
+            t.ReplaceAll("#voidn","\\wp");
+            t.ReplaceAll("#voidb","f");
+            t.ReplaceAll("#ocopyright","\\copyright");
+            t.ReplaceAll("#trademark","TM");
+            t.ReplaceAll("#void3","TM");
+            t.ReplaceAll("#oright","R");
+            t.ReplaceAll("#void1","R");
+            t.ReplaceAll("#3dots","\\ldots");
+            t.ReplaceAll("#lbar","\\mid");
+            t.ReplaceAll("#void8","\\mid");
+            t.ReplaceAll("#divide","\\div");
+            t.ReplaceAll("#Jgothic","\\Im");
+            t.ReplaceAll("#Rgothic","\\Re");
+            t.ReplaceAll("#doublequote","\"");
+            t.ReplaceAll("#plus","+");
+            t.ReplaceAll("#minus","-");
+            t.ReplaceAll("#/","/");
+            t.ReplaceAll("#upoint",".");
+            t.ReplaceAll("#aa","\\mbox{\\aa}");
+            t.ReplaceAll("#AA","\\mbox{\\AA}");
+
+            t.ReplaceAll("#omicron","o");
+            t.ReplaceAll("#Alpha","A");
+            t.ReplaceAll("#Beta","B");
+            t.ReplaceAll("#Epsilon","E");
+            t.ReplaceAll("#Zeta","Z");
+            t.ReplaceAll("#Eta","H");
+            t.ReplaceAll("#Iota","I");
+            t.ReplaceAll("#Kappa","K");
+            t.ReplaceAll("#Mu","M");
+            t.ReplaceAll("#Nu","N");
+            t.ReplaceAll("#Omicron","O");
+            t.ReplaceAll("#Rho","P");
+            t.ReplaceAll("#Tau","T");
+            t.ReplaceAll("#Chi","X");
+            t.ReplaceAll("#varomega","\\varpi");
+
+            t.ReplaceAll("#varUpsilon","?");
+            t.ReplaceAll("#corner","?");
+            t.ReplaceAll("#ltbar","?");
+            t.ReplaceAll("#bottombar","?");
+            t.ReplaceAll("#notsubset","?");
+            t.ReplaceAll("#arcbottom","?");
+            t.ReplaceAll("#cbar","?");
+            t.ReplaceAll("#arctop","?");
+            t.ReplaceAll("#topbar","?");
+            t.ReplaceAll("#arcbar","?");
+            t.ReplaceAll("#downleftarrow","?");
+
             t.ReplaceAll("#","\\");
             t.ReplaceAll("%","\\%");
-            t.Prepend("$");
-            t.Append("$");
          }
          gVirtualPS->Text(x,y,t.Data());
          gVirtualPS = 0;
       }
    }
-   
+
    // Do not use Latex if font is low precision.
    if (fTextFont%10 < 2) {
       if (gVirtualX) gVirtualX->SetTextAngle(angle);
@@ -1926,6 +2049,7 @@ void TLatex::PaintLatex(Double_t x, Double_t y, Double_t angle, Double_t size, c
 
    TString newText = text1;
    if( newText.Length() == 0) return;
+   newText.ReplaceAll("#hbox","#mbox");
 
    Double_t saveSize = size;
    Int_t saveFont = fTextFont;
@@ -2012,18 +2136,18 @@ Int_t TLatex::CheckLatexSyntax(TString &text)
    // Check if the Latex syntax is correct
 
    const Char_t *kWord1[] = {"{}^{","{}_{","^{","_{","#scale{","#color{","#font{","#sqrt{","#[]{","#{}{","#||{",
-                       "#bar{","#vec{","#dot{","#hat{","#ddot{","#acute{","#grave{","#check{","#tilde{","#slash{","#bf{","#it{",
+                       "#bar{","#vec{","#dot{","#hat{","#ddot{","#acute{","#grave{","#check{","#tilde{","#slash{","#bf{","#it{","#mbox{",
                        "\\scale{","\\color{","\\font{","\\sqrt{","\\[]{","\\{}{","\\||{","#(){","\\(){",
-                       "\\bar{","\\vec{","\\dot{","\\hat{","\\ddot{","\\acute{","\\grave{","\\check{","\\bf{","\\it{"}; // check for }
+                       "\\bar{","\\vec{","\\dot{","\\hat{","\\ddot{","\\acute{","\\grave{","\\check{","\\bf{","\\it{","\\mbox{"}; // check for }
    const Char_t *kWord2[] = {"#scale[","#color[","#font[","#sqrt[","#kern[","#lower[","\\scale[","\\color[","\\font[","\\sqrt[","\\kern[","\\lower["}; // check for ]{ + }
    const Char_t *kWord3[] = {"#frac{","\\frac{","#splitline{","\\splitline{"}; // check for }{ then }
    const Char_t *kLeft1[] = {"#left[","\\left[","#left{","\\left{","#left|","\\left|","#left(","\\left("};
    const Char_t *kLeft2[] = {"#[]{","#[]{","#{}{","#{}{","#||{","#||{","#(){","#(){"};
    const Char_t *kRight[] = {"#right]","\\right]","#right}","\\right}","#right|","\\right|","#right)","\\right)"};
-   const Int_t lkWord1[]  = {4,4,2,2,7,7,6,6,4,4,4,5,5,5,5,6,7,7,7,7,7,4,4,7,7,6,6,4,4,4,4,4,5,5,5,5,6,7,7,7,4,4};
+   const Int_t lkWord1[]  = {4,4,2,2,7,7,6,6,4,4,4,5,5,5,5,6,7,7,7,7,7,4,4,6,7,7,6,6,4,4,4,4,4,5,5,5,5,6,7,7,7,4,4,6};
    const Int_t lkWord2[]  = {7,7,6,6,6,7,7,7,6,6,6,7} ;
    const Int_t lkWord3[]  = {6,6,11,11} ;
-   Int_t nkWord1 = 42, nkWord2 = 12, nkWord3 = 4;
+   Int_t nkWord1 = 44, nkWord2 = 12, nkWord3 = 4;
    Int_t i,k ;
    Int_t nLeft1 , nRight , nOfLeft, nOfRight;
    Int_t lLeft1 = 6 ;

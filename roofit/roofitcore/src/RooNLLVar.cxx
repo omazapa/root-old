@@ -121,8 +121,8 @@ RooNLLVar::RooNLLVar(const char *name, const char *title, RooAbsPdf& pdf, RooAbs
       _binnedPdf = 0 ;
     } else {
       RooRealVar* var = (RooRealVar*) obs->first() ;
-      list<Double_t>* boundaries = _binnedPdf->binBoundaries(*var,var->getMin(),var->getMax()) ;
-      list<Double_t>::iterator biter = boundaries->begin() ;
+      std::list<Double_t>* boundaries = _binnedPdf->binBoundaries(*var,var->getMin(),var->getMax()) ;
+      std::list<Double_t>::iterator biter = boundaries->begin() ;
       _binw.resize(boundaries->size()-1) ;
       Double_t lastBound = (*biter) ;
       biter++ ;
@@ -163,8 +163,8 @@ RooNLLVar::RooNLLVar(const char *name, const char *title, RooAbsPdf& pdf, RooAbs
       _binnedPdf = 0 ;
     } else {
       RooRealVar* var = (RooRealVar*) obs->first() ;
-      list<Double_t>* boundaries = _binnedPdf->binBoundaries(*var,var->getMin(),var->getMax()) ;
-      list<Double_t>::iterator biter = boundaries->begin() ;
+      std::list<Double_t>* boundaries = _binnedPdf->binBoundaries(*var,var->getMin(),var->getMax()) ;
+      std::list<Double_t>::iterator biter = boundaries->begin() ;
       _binw.resize(boundaries->size()-1) ;
       Double_t lastBound = (*biter) ;
       biter++ ;
@@ -246,7 +246,7 @@ Double_t RooNLLVar::evaluatePartition(Int_t firstEvent, Int_t lastEvent, Int_t s
 
   // cout << "RooNLLVar::evaluatePartition(" << GetName() << ") projDeps = " << (_projDeps?*_projDeps:RooArgSet()) << endl ;
   
-  _dataClone->store()->recalculateCache( _projDeps, firstEvent, lastEvent, stepSize ) ;
+  _dataClone->store()->recalculateCache( _projDeps, firstEvent, lastEvent, stepSize,(_binnedPdf?kFALSE:kTRUE) ) ;
 
   Double_t sumWeight(0), sumWeightCarry(0);
 
@@ -261,22 +261,38 @@ Double_t RooNLLVar::evaluatePartition(Int_t firstEvent, Int_t lastEvent, Int_t s
       
       Double_t eventWeight = _dataClone->weight();
 
+
       // Calculate log(Poisson(N|mu) for this bin
       Double_t N = eventWeight ;
       Double_t mu = _binnedPdf->getVal()*_binw[i] ; 
-      Double_t term = -1*(-mu + N*log(mu) - TMath::LnGamma(N+1)) ;
+      //cout << "RooNLLVar::binnedL(" << GetName() << ") N=" << N << " mu = " << mu << endl ;
 
-      // Kahan summation of sumWeight
-      Double_t y = eventWeight - sumWeightCarry;
-      Double_t t = sumWeight + y;
-      sumWeightCarry = (t - sumWeight) - y;
-      sumWeight = t;
-      
-      // Kahan summation of result
-      y = term - carry;
-      t = result + y;
-      carry = (t - result) - y;
-      result = t;
+      if (mu<=0 && N>0) {
+
+	// Catch error condition: data present where zero events are predicted
+	logEvalError(Form("Observed %f events in bin %d with zero event yield",N,i)) ;
+	
+      } else if (fabs(mu)<1e-10 && fabs(N)<1e-10) {
+
+	// Special handling of this case since log(Poisson(0,0)=0 but can't be calculated with usual log-formula
+	// since log(mu)=0. No update of result is required since term=0.
+
+      } else {
+
+	Double_t term = -1*(-mu + N*log(mu) - TMath::LnGamma(N+1)) ;
+
+	// Kahan summation of sumWeight
+	Double_t y = eventWeight - sumWeightCarry;
+	Double_t t = sumWeight + y;
+	sumWeightCarry = (t - sumWeight) - y;
+	sumWeight = t;
+	
+	// Kahan summation of result
+	y = term - carry;
+	t = result + y;
+	carry = (t - result) - y;
+	result = t;
+      }
     }
 
 
@@ -318,8 +334,24 @@ Double_t RooNLLVar::evaluatePartition(Int_t firstEvent, Int_t lastEvent, Int_t s
 	  Double_t t = sumW2 + y;
 	  sumW2carry = (t - sumW2) - y;
 	  sumW2 = t;
+
+
 	}
-	Double_t y = pdfClone->extendedTerm(sumW2 , _dataClone->get()) - carry;
+
+	Double_t expected= pdfClone->expectedEvents(_dataClone->get());
+		
+	// Adjust calculation of extended term with W^2 weighting: adjust poisson such that 
+	// estimate of Nexpected stays at the same value, but has a different variance, rescale
+        // both the observed and expected count of the Poisson with a factor sum[w] / sum[w^2]
+	// i.e. change Poisson(Nobs = sum[w]| Nexp ) --> Poisson( sum[w] * sum[w] / sum[w^2] | Nexp * sum[w] / sum[w^2] )
+
+	Double_t observedW2 = ( _dataClone->sumEntries() * _dataClone->sumEntries() ) / sumW2 ;
+	Double_t expectedW2 = expected * _dataClone->sumEntries() / sumW2 ;
+	Double_t extra= expectedW2 - observedW2*log(expectedW2);	
+
+	// Double_t y = pdfClone->extendedTerm(sumW2, _dataClone->get()) - carry;
+	    
+	Double_t y = extra - carry ;
 	Double_t t = result + y;
 	carry = (t - result) - y;
 	result = t;
@@ -357,7 +389,7 @@ Double_t RooNLLVar::evaluatePartition(Int_t firstEvent, Int_t lastEvent, Int_t s
     
     // If no offset is stored enable this feature now
     if (_offset==0 && result !=0 ) {
-      coutI(Minimization) << "RooNLLVar::evaluatePartition(" << GetName() << ") first = "<< firstEvent << " last = " << lastEvent << " Likelihood offset now set to " << result << endl ;
+      coutI(Minimization) << "RooNLLVar::evaluatePartition(" << GetName() << ") first = "<< firstEvent << " last = " << lastEvent << " Likelihood offset now set to " << result << std::endl ;
       _offset = result ;
       _offsetCarry = carry;
     }

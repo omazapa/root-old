@@ -33,6 +33,8 @@
 
 class TF1;
 class TFile;
+class TGraphErrors;
+class TProfile;
 class TProof;
 class TProofBenchRunCPU;
 class TProofBenchRunDataRead;
@@ -56,6 +58,7 @@ protected:
    TString fDataSet;             // Name of the dataset
    Int_t   fNFilesWrk;           // Number of files generated files per worker
    Int_t   fNumWrkMax;           // Max number of workers (required for dynamic setups)
+   Bool_t  fReleaseCache;        // Release cache for data reads between runs 
 
    TString fCPUSel;              // Selector to be used for CPU benchmarks
    TString fCPUPar;              // List of par files to be loaded for CPU benchmarks
@@ -72,10 +75,16 @@ protected:
 
    TNamed *fDescription;         // Strings describing the cluster for this test (saved in the output file)
 
+   static TGraphErrors *GetGraph(TDirectory *d, const char *pfn,
+                                 Int_t &nb, Double_t &xmi, Double_t &xmx,
+                                 Double_t &ymi, Double_t &ymx, Int_t &kmx, TProfile *&pf);
+
    static TF1 *fgFp1;                 // Simple 1st degree polynomial
    static TF1 *fgFp1n;                // Normalized 1st degree
    static TF1 *fgFp2;                 // Simple 2nd degree polynomial
    static TF1 *fgFp2n;                // Normalized 2nd degree
+
+   static TList *fgGraphs;        // List of TGraphErrors created by Draw actions
 
    static void AssertFittingFun(Double_t mi, Double_t mx);
 
@@ -106,6 +115,7 @@ public:
    void  SetHistType(TPBHistType *histtype) { fHistType = histtype; }
    void  SetNHist(Int_t nh) { fNHist = nh; }
    void  SetReadType(TPBReadType *readtype) { fReadType = readtype; }
+   void  SetReleaseCache(Bool_t on = kTRUE) { fReleaseCache = on; }
 
    void  SetCPUSel(const char *sel) { fCPUSel = sel; }
    void  SetCPUPar(const char *par) { fCPUPar = par; }
@@ -123,6 +133,9 @@ public:
    static void DrawCPU(const char *outfile, const char *opt = "std:", Bool_t verbose = kFALSE, Int_t dofit = 0);
    static void DrawDataSet(const char *outfile, const char *opt = "std:", const char *type = "mbs", Bool_t verbose = kFALSE);
    static void GetPerfSpecs(const char *path = ".", Int_t degfit = 1);
+   static void DrawEfficiency(const char *outfile, const char *opt = "", Bool_t verbose = kFALSE);
+
+   static TList *GetGraphs() { return fgGraphs; }
 
    ClassDef(TProofBench, 0)   // Steering class for PROOF benchmarks
 };

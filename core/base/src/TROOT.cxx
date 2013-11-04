@@ -173,6 +173,7 @@ static Int_t ITIMQQ(const char *time)
    sscanf(time, "%d:%d:%d", &hh, &mm, &ss);
    return 100*hh + mm;
 }
+
 //______________________________________________________________________________
 static void CleanUpROOTAtExit()
 {
@@ -510,10 +511,13 @@ TROOT::~TROOT()
       SafeDelete(fClosedObjects);
 
       fFunctions->Delete();  SafeDelete(fFunctions);   // etc..
-      fColors->Delete();     SafeDelete(fColors);
-      fStyles->Delete();     SafeDelete(fStyles);
       fGeometries->Delete(); SafeDelete(fGeometries);
       fBrowsers->Delete();   SafeDelete(fBrowsers);
+#ifdef R__COMPLETE_MEM_TERMINATION
+      SafeDelete(fCanvases);
+#endif
+      fColors->Delete();     SafeDelete(fColors);
+      fStyles->Delete();     SafeDelete(fStyles);
 
 #ifdef R__COMPLETE_MEM_TERMINATION
       if (gGuiFactory != gBatchGuiFactory) SafeDelete(gGuiFactory);
@@ -727,7 +731,31 @@ void TROOT::CloseFiles()
    if (fMappedFiles && fMappedFiles->First()) {
       R__ListSlowClose(static_cast<TList*>(fMappedFiles));
    }
+
 }
+
+//______________________________________________________________________________
+void TROOT::EndOfProcessCleanups()
+{
+   // Execute the cleanups necessary at the end of the process, in particular
+   // those that must be executed before the library start being unloaded.
+
+   CloseFiles();
+   
+   if (gInterpreter) {
+      gInterpreter->ResetGlobals();
+   }
+
+   // Now a set of simpler things to delete.  See the same ordering in
+   // TROOT::~TROOT
+   fFunctions->Delete();
+   fGeometries->Delete();
+   fBrowsers->Delete();
+   fCanvases->Delete();
+   fColors->Delete();
+   fStyles->Delete();
+}
+
 
 //______________________________________________________________________________
 TObject *TROOT::FindObject(const TObject *) const
@@ -1823,6 +1851,77 @@ void TROOT::RefreshBrowsers()
    TBrowser *b;
    while ((b = (TBrowser*) next()))
       b->SetRefreshFlag(kTRUE);
+}
+
+
+//______________________________________________________________________________
+namespace ROOT {
+   static void CallCloseFiles()
+   {
+      // Insure that the files, canvases and sockets are closed.
+
+      if (gROOT) gROOT->CloseFiles();
+   }
+
+   void RegisterModule()
+   {
+      // Register for each loaded dictionary (and thus for each
+      // library), that we need to Close the ROOT files as soon as
+      // this library might start being unloaded after main.
+      //
+      // By calling atexit here (rather than directly from within the
+      // library) we make sure that this is not called if the library
+      // is 'only' dlclosed.
+
+      // On Ubuntu the linker strips the unused libraries.  Eventhough
+      // stressHistogram is explicitly linked against libNet, it is
+      // not retained and thus is loaded only as needed in the middle
+      // part of the execution.  Concretely this also means that it is
+      // loaded *after* the construction of the TApplication object
+      // and thus after the registration (atexit) of the
+      // EndOfProcessCleanups routine.  Consequently, after the end of
+      // main, libNet is unloaded before EndOfProcessCleanups is
+      // called.  When EndOfProcessCleanups is executed it indirectly
+      // needs the TClass for TSocket and its search will use
+      // resources that have already been unloaded (technically the
+      // function static in TUnixSystem's DynamicPath and the
+      // dictionary from libNet).
+
+      // Similarly, the ordering (before this commit) was broken in
+      // the following case:
+
+      //    TApplication creation (EndOfProcessCleanups registration)
+      //    load UserLibrary
+      //    create TFile
+      //    Append UserObject to TFile
+
+      // and after the end of main the order of execution was
+
+      //    unload UserLibrary
+      //    call EndOfProcessCleanups
+      //       Write the TFile
+      //         attempt to write the user object.
+      //    ....
+
+      // where what we need is to have the files closen/written before
+      // the unloading of the library.
+
+      // To solve the problem we now register an atexit function for
+      // every dictionary thus making sure there is at least one
+      // executed before the first library tear down after main.
+
+      // If atexit is called directly within a library's code, the
+      // function will called *either* when the library is 'dlclose'd
+      // or after then end of main (whichever comes first).  We do
+      // *not* want the files to be closed whenever a library is
+      // unloaded via dlclose.  To avoid this, we add the function
+      // (CallCloseFiles) from the dictionary indirectly (via
+      // ROOT::RegisterModule).  In this case the function will only
+      // only be called either when libCore is 'dlclose'd or right
+      // after the end of main.
+
+      atexit(CallCloseFiles);
+   }
 }
 
 //______________________________________________________________________________

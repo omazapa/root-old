@@ -1409,7 +1409,7 @@ void TBranchElement::FillLeavesCollection(TBuffer& b)
    b << n;
 
    if(fSTLtype != TClassEdit::kVector && proxy->HasPointers() && fSplitLevel > TTree::kSplitCollectionOfPointers ) {
-      fPtrIterators->CreateIterators(fObject);
+      fPtrIterators->CreateIterators(fObject, proxy);
    } else {
       //NOTE: this does not work for not vectors since the CreateIterators expects a TGenCollectionProxy::TStaging as its argument!
       //NOTE: and those not work in general yet, since the TStaging object is neither created nor passed.
@@ -1417,7 +1417,7 @@ void TBranchElement::FillLeavesCollection(TBuffer& b)
       if (proxy->GetProperties() & TVirtualCollectionProxy::kIsAssociative) {
          // do nothing for now ...
       } else {
-         fIterators->CreateIterators(fObject);
+         fIterators->CreateIterators(fObject, proxy);
       }
    }
 
@@ -3075,7 +3075,7 @@ void TBranchElement::InitializeOffsets()
             // If we have the are the sub-branch of the TBranchSTL, we need
             // to remove it's name to get the correct real data offsets
             //-----------------------------------------------------------------
-            if( stlParentName.Length() )
+            if( dynamic_cast<TBranchSTL*>(fParent) && stlParentName.Length() )
             {
                if( !strncmp( stlParentName.Data(), dataName.Data(), stlParentName.Length()-1 )
                    && dataName[ stlParentName.Length() ] == '.' )
@@ -3712,9 +3712,9 @@ void TBranchElement::ReadLeavesCollection(TBuffer& b)
    TVirtualCollectionProxy::TPushPop helper(proxy, fObject);
    void* alternate = proxy->Allocate(fNdata, true);
    if(fSTLtype != TClassEdit::kVector && proxy->HasPointers() && fSplitLevel > TTree::kSplitCollectionOfPointers ) {
-      fPtrIterators->CreateIterators(alternate);
+      fPtrIterators->CreateIterators(alternate, proxy);
    } else {
-      fIterators->CreateIterators(alternate);
+      fIterators->CreateIterators(alternate, proxy);
    }
 
    Int_t nbranches = fBranches.GetEntriesFast();

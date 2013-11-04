@@ -14,6 +14,8 @@
 
 #include <cstddef>
 #include <assert.h>
+#include <vector>
+#include <map>
 
 // Macro indicating the version of the Collection Proxy interface followed
 // by this Reflex build, this must match the version number of
@@ -22,17 +24,20 @@
 #define REFLEX_COLLECTIONPROXY_VERSION 3
 
 // Forward declarations
+
+class TVirtualCollectionProxy;
+
 namespace std {
    template <class T, class A> class deque;
-   template <class T, class A> class vector;
+   //template <class T, class A> class vector;
    template <class T, class A> class list;
    template <class T, class A> class queue;
    template <class T, class A> class stack;
    template <class K, class T, class A> class set;
    template <class K, class T, class A> class multiset;
-   template <class K, class T, class R, class A> class map;
+   //template <class K, class T, class R, class A> class map;
    template <class K, class T, class R, class A> class multimap;
-   template <class T> class allocator;
+   //template <class T> class allocator;
 }
 // Hash map forward declarations
 #if defined(__GNUC__)
@@ -141,7 +146,7 @@ namespace Reflex  {
          typedef Cont_t *PCont_t;
          typedef typename Cont_t::iterator iterator;
 
-         static void create(void *coll, void **begin_arena, void **end_arena) {
+         static void create(void *coll, void **begin_arena, void **end_arena, TVirtualCollectionProxy *) {
             PCont_t c = PCont_t(coll);
             new (*begin_arena) iterator(c->begin());
             new (*end_arena) iterator(c->end());
@@ -182,7 +187,7 @@ namespace Reflex  {
          typedef Cont_t *PCont_t;
          typedef typename Cont_t::iterator iterator;
 
-         static void create(void *coll, void **begin_arena, void **end_arena) {
+         static void create(void *coll, void **begin_arena, void **end_arena, TVirtualCollectionProxy *) {
             PCont_t c = PCont_t(coll);
             if (c->empty()) {
                *begin_arena = 0;
@@ -219,7 +224,7 @@ namespace Reflex  {
          typedef Cont_t *PCont_t;
          typedef Cont_t::iterator iterator;
 
-         static void create(void *coll, void **begin_arena, void **end_arena) {
+         static void create(void *coll, void **begin_arena, void **end_arena, TVirtualCollectionProxy *) {
             PCont_t c = PCont_t(coll);
             new (*begin_arena) iterator(c->begin());
             new (*end_arena) iterator(c->end());
@@ -255,7 +260,7 @@ namespace Reflex  {
          typedef Cont_t *PCont_t;
          typedef typename Cont_t::iterator iterator;
 
-         static void create(void *coll, void **begin_arena, void **end_arena) {
+         static void create(void *coll, void **begin_arena, void **end_arena, TVirtualCollectionProxy *) {
             PCont_t  c = PCont_t(coll);
             *begin_arena = new iterator(c->begin());
             *end_arena = new iterator(c->end());        
@@ -563,7 +568,7 @@ namespace Reflex  {
       void*  (*create_env)();
 
       // Set of function of direct iteration of the collections.
-      void (*fCreateIterators)(void *collection, void **begin_arena, void **end_arena); 
+      void (*fCreateIterators)(void *collection, void **begin_arena, void **end_arena, TVirtualCollectionProxy *proxy);
       // begin_arena and end_arena should contain the location of memory arena  of size fgIteratorSize. 
       // If the collection iterator are of that size or less, the iterators will be constructed in place in those location (new with placement)
       // Otherwise the iterators will be allocated via a regular new and their address returned by modifying the value of begin_arena and end_arena.
@@ -912,7 +917,7 @@ namespace Reflex  {
          // In the other iterator we store the index
          // and the value.
 
-         static void create(void *coll, void **begin_arena, void **end_arena) {
+         static void create(void *coll, void **begin_arena, void **end_arena, TVirtualCollectionProxy *) {
             iterator *begin = new (*begin_arena) iterator;
             begin->first.fIndex = 0;
             begin->second = false;

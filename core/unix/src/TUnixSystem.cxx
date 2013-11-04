@@ -304,8 +304,75 @@ enum {
 // End FPE handling includes
 
 
-static STRUCT_UTMP *gUtmpContents;
+struct TUtmpContent {
+   STRUCT_UTMP *fUtmpContents;
+   UInt_t       fEntries; // Number of entries in utmp file.
 
+   TUtmpContent() : fUtmpContents(0), fEntries(0) {}
+   ~TUtmpContent() { free(fUtmpContents); }
+
+   STRUCT_UTMP *SearchUtmpEntry(const char *tty)
+   {
+      // Look for utmp entry which is connected to terminal tty.
+
+      STRUCT_UTMP *ue = fUtmpContents;
+
+      UInt_t n = fEntries;
+      while (n--) {
+         if (ue->ut_name[0] && !strncmp(tty, ue->ut_line, sizeof(ue->ut_line)))
+            return ue;
+         ue++;
+      }
+      return 0;
+   }
+
+   int ReadUtmpFile()
+   {
+      // Read utmp file. Returns number of entries in utmp file.
+
+      FILE  *utmp;
+      struct stat file_stats;
+      size_t n_read, size;
+
+      fEntries = 0;
+
+      R__LOCKGUARD2(gSystemMutex);
+
+      utmp = fopen(UTMP_FILE, "r");
+      if (!utmp)
+         return 0;
+
+      if (fstat(fileno(utmp), &file_stats) == -1) {
+         fclose(utmp);
+         return 0;
+      }
+      size = file_stats.st_size;
+      if (size <= 0) {
+         fclose(utmp);
+         return 0;
+      }
+
+      fUtmpContents = (STRUCT_UTMP *) malloc(size);
+      if (!fUtmpContents) {
+         fclose(utmp);
+         return 0;
+      }
+
+      n_read = fread(fUtmpContents, 1, size, utmp);
+      if (!ferror(utmp)) {
+         if (fclose(utmp) != EOF && n_read == size) {
+            fEntries = size / sizeof(STRUCT_UTMP);
+            return fEntries;
+         }
+      } else
+         fclose(utmp);
+
+      free(fUtmpContents);
+      fUtmpContents = 0;
+      return 0;
+   }
+
+};
 
 const char *kServerPath     = "/tmp";
 const char *kProtocolName   = "tcp";
@@ -618,9 +685,10 @@ void TUnixSystem::SetDisplay()
       if (tty) {
          tty += 5;               // remove "/dev/"
 
-         R__LOCKGUARD2(gSystemMutex);
+         TUtmpContent utmp;
+         utmp.ReadUtmpFile();
 
-         STRUCT_UTMP *utmp_entry = (STRUCT_UTMP *)SearchUtmpEntry(ReadUtmpFile(), tty);
+         STRUCT_UTMP *utmp_entry = utmp.SearchUtmpEntry(tty);
          if (utmp_entry) {
             if (utmp_entry->ut_host[0]) {
                if (strchr(utmp_entry->ut_host, ':')) {
@@ -649,7 +717,6 @@ void TUnixSystem::SetDisplay()
             }
 #endif
          }
-         free(gUtmpContents);
       }
    }
 }
@@ -1073,14 +1140,14 @@ void TUnixSystem::DispatchOneEvent(Bool_t pendingOnly)
             if (fReadmask->IsSet(fd)) {
                rc = UnixSelect(fd+1, &t, 0, 0);
                if (rc < 0 && rc != -2) {
-                  SysError("DispatchOneEvent", "select: read error on %d\n", fd);
+                  SysError("DispatchOneEvent", "select: read error on %d", fd);
                   fReadmask->Clr(fd);
                }
             }
             if (fWritemask->IsSet(fd)) {
                rc = UnixSelect(fd+1, 0, &t, 0);
                if (rc < 0 && rc != -2) {
-                  SysError("DispatchOneEvent", "select: write error on %d\n", fd);
+                  SysError("DispatchOneEvent", "select: write error on %d", fd);
                   fWritemask->Clr(fd);
                }
             }
@@ -2121,9 +2188,8 @@ void TUnixSystem::Exit(int code, Bool_t mode)
    // Insures that the files and sockets are closed before any library is unloaded
    // and before emptying CINT.
    if (gROOT) {
-      gROOT->CloseFiles();
-   }
-   if (gInterpreter) {
+      gROOT->EndOfProcessCleanups();
+   } else if (gInterpreter) {
       gInterpreter->ResetGlobals();
    }
 
@@ -2388,7 +2454,12 @@ void TUnixSystem::StackTrace()
                Bool_t nodebug = kTRUE;
 #ifdef R__MACOSX
                if (libaddr) { }  // use libaddr
+#if defined(MAC_OS_X_VERSION_10_9)
+               // suppress deprecation warning with option -d
+               snprintf(buffer, sizeof(buffer), "%s -d -p %d 0x%016lx", addr2line, GetPid(), addr);
+#else
                snprintf(buffer, sizeof(buffer), "%s -p %d 0x%016lx", addr2line, GetPid(), addr);
+#endif
 #else
                ULong_t offset = (addr >= libaddr) ? addr - libaddr :
                                                     libaddr - addr;
@@ -4308,7 +4379,7 @@ int TUnixSystem::UnixTcpService(int port, Bool_t reuse, int backlog,
 
    // Bind socket
    if (port > 0) {
-      if (bind(sock, (struct sockaddr*) &inserver, sizeof(inserver))) {
+      if (::bind(sock, (struct sockaddr*) &inserver, sizeof(inserver))) {
          ::SysError("TUnixSystem::UnixTcpService", "bind");
          close(sock);
          return -2;
@@ -4317,7 +4388,7 @@ int TUnixSystem::UnixTcpService(int port, Bool_t reuse, int backlog,
       int bret;
       do {
          inserver.sin_port = htons(tryport++);
-         bret = bind(sock, (struct sockaddr*) &inserver, sizeof(inserver));
+         bret = ::bind(sock, (struct sockaddr*) &inserver, sizeof(inserver));
       } while (bret < 0 && GetErrno() == EADDRINUSE && tryport < kSOCKET_MAXPORT);
       if (bret < 0) {
          ::SysError("TUnixSystem::UnixTcpService", "bind (port scan)");
@@ -4327,7 +4398,7 @@ int TUnixSystem::UnixTcpService(int port, Bool_t reuse, int backlog,
    }
 
    // Start accepting connections
-   if (listen(sock, backlog)) {
+   if (::listen(sock, backlog)) {
       ::SysError("TUnixSystem::UnixTcpService", "listen");
       close(sock);
       return -3;
@@ -4369,7 +4440,7 @@ int TUnixSystem::UnixUdpService(int port, int backlog)
 
    // Bind socket
    if (port > 0) {
-      if (bind(sock, (struct sockaddr*) &inserver, sizeof(inserver))) {
+      if (::bind(sock, (struct sockaddr*) &inserver, sizeof(inserver))) {
          ::SysError("TUnixSystem::UnixUdpService", "bind");
          close(sock);
          return -2;
@@ -4378,7 +4449,7 @@ int TUnixSystem::UnixUdpService(int port, int backlog)
       int bret;
       do {
          inserver.sin_port = htons(tryport++);
-         bret = bind(sock, (struct sockaddr*) &inserver, sizeof(inserver));
+         bret = ::bind(sock, (struct sockaddr*) &inserver, sizeof(inserver));
       } while (bret < 0 && GetErrno() == EADDRINUSE && tryport < kSOCKET_MAXPORT);
       if (bret < 0) {
          ::SysError("TUnixSystem::UnixUdpService", "bind (port scan)");
@@ -4388,7 +4459,7 @@ int TUnixSystem::UnixUdpService(int port, int backlog)
    }
 
    // Start accepting connections
-   if (listen(sock, backlog)) {
+   if (::listen(sock, backlog)) {
       ::SysError("TUnixSystem::UnixUdpService", "listen");
       close(sock);
       return -3;
@@ -4454,14 +4525,14 @@ int TUnixSystem::UnixUnixService(const char *sockpath, int backlog)
       return -1;
    }
 
-   if (bind(sock, (struct sockaddr*) &unserver, strlen(unserver.sun_path)+2)) {
+   if (::bind(sock, (struct sockaddr*) &unserver, strlen(unserver.sun_path)+2)) {
       ::SysError("TUnixSystem::UnixUnixService", "bind");
       close(sock);
       return -1;
    }
 
    // Start accepting connections
-   if (listen(sock, backlog)) {
+   if (::listen(sock, backlog)) {
       ::SysError("TUnixSystem::UnixUnixService", "listen");
       close(sock);
       return -1;
@@ -4890,63 +4961,6 @@ void TUnixSystem::UnixDynUnload(const char *lib)
    // should call CINT unload file here, but does not work for sl's yet.
    ::Error("TUnixSystem::UnixDynUnload", "not yet implemented for this platform");
 #endif
-}
-
-//______________________________________________________________________________
-int TUnixSystem::ReadUtmpFile()
-{
-   // Read utmp file. Returns number of entries in utmp file.
-
-   FILE  *utmp;
-   struct stat file_stats;
-   size_t n_read, size;
-
-   R__LOCKGUARD2(gSystemMutex);
-
-   gUtmpContents = 0;
-
-   utmp = fopen(UTMP_FILE, "r");
-   if (!utmp)
-      return 0;
-
-   fstat(fileno(utmp), &file_stats);
-   size = file_stats.st_size;
-   if (size <= 0) {
-      fclose(utmp);
-      return 0;
-   }
-
-   gUtmpContents = (STRUCT_UTMP *) malloc(size);
-   if (!gUtmpContents) {
-      fclose(utmp);
-      return 0;
-   }
-
-   n_read = fread(gUtmpContents, 1, size, utmp);
-   if (!ferror(utmp)) {
-      if (fclose(utmp) != EOF && n_read == size)
-         return size / sizeof(STRUCT_UTMP);
-   } else
-      fclose(utmp);
-
-   free(gUtmpContents);
-   gUtmpContents = 0;
-   return 0;
-}
-
-//______________________________________________________________________________
-void *TUnixSystem::SearchUtmpEntry(int n, const char *tty)
-{
-   // Look for utmp entry which is connected to terminal tty.
-
-   STRUCT_UTMP *ue = gUtmpContents;
-
-   while (n--) {
-      if (ue->ut_name[0] && !strncmp(tty, ue->ut_line, sizeof(ue->ut_line)))
-         return ue;
-      ue++;
-   }
-   return 0;
 }
 
 //---- System, CPU and Memory info ---------------------------------------------

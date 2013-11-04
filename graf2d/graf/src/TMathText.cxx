@@ -36,7 +36,7 @@ Begin_Macro(source)
 End_Macro
 Begin_Html
 <p>
-The list of all available symbol is givern in the following example:
+The list of all available symbol is given in the following example:
 End_Html
 Begin_Macro(source)
 ../../../tutorials/graphics/tmathtext2.C
@@ -379,7 +379,7 @@ TMathText::TMathText(const TMathText &text)
 //______________________________________________________________________________
 TMathText &TMathText::operator=(const TMathText &rhs)
 {
-   // Assignemnt operator.
+   // Assignment operator.
 
    if (this != &rhs) {
       TText::operator    = (rhs);
@@ -627,7 +627,7 @@ void TMathText::PaintMathText(Double_t x, Double_t y, Double_t angle,
 
    if (newText.Length() == 0) return;
 
-   // Compatibility with TLatex
+   // Compatibility with TLatex and Latex
    newText.ReplaceAll("\\omicron","o");
    newText.ReplaceAll("\\Alpha","A");
    newText.ReplaceAll("\\Beta","B");
@@ -643,6 +643,7 @@ void TMathText::PaintMathText(Double_t x, Double_t y, Double_t angle,
    newText.ReplaceAll("\\Tau","T");
    newText.ReplaceAll("\\Chi","X");
    newText.ReplaceAll("\\varomega","\\varpi");
+   newText.ReplaceAll("\\mbox","\\hbox");
    if (newText.Contains("\\frac")) {
       Int_t len,i1,i2;
       TString str;

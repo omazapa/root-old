@@ -25,6 +25,7 @@
 
 #include "TProofBenchRunDataRead.h"
 #include "TProofBenchDataSet.h"
+#include "TProofPerfAnalysis.h"
 #include "TProofNodes.h"
 #include "TFileCollection.h"
 #include "TFileInfo.h"
@@ -48,6 +49,7 @@
 #include "TQueryResult.h"
 #include "TMath.h"
 #include "TStyle.h"
+#include "TLegend.h"
 #include "TROOT.h"
 
 ClassImp(TProofBenchRunDataRead)
@@ -60,11 +62,16 @@ TProofBenchRunDataRead::TProofBenchRunDataRead(TProofBenchDataSet *pbds, TPBRead
                        : TProofBenchRun(proof, kPROOF_BenchSelDataDef), fProof(proof),
                          fReadType(readtype), fDS(pbds),
                          fNEvents(nevents), fNTries(ntries), fStart(start), fStop(stop), fStep(step),
-                         fDebug(debug), fFilesPerWrk(2), fDirProofBench(dirproofbench), fNodes(nodes),
+                         fDebug(debug), fFilesPerWrk(2), fReleaseCache(kTRUE),
+                         fDirProofBench(dirproofbench), fNodes(nodes),
                          fListPerfPlots(0), fProfile_perfstat_event(0), fHist_perfstat_event(0),
+                         fProfile_perfstat_evtmax(0), fNorm_perfstat_evtmax(0),
                          fProfile_queryresult_event(0), fNorm_queryresult_event(0),
-                         fProfile_perfstat_IO(0), fHist_perfstat_IO(0), fProfile_queryresult_IO(0),
-                         fNorm_queryresult_IO(0), fCPerfProfiles(0), fName(0)
+                         fProfile_perfstat_IO(0), fHist_perfstat_IO(0),
+                         fProfile_perfstat_IOmax(0),
+                         fProfile_queryresult_IO(0), fNorm_queryresult_IO(0), fProfile_cpu_eff(0),
+                         fProfLegend_evt(0), fNormLegend_evt(0), fProfLegend_mb(0), fNormLegend_mb(0),
+                         fCPerfProfiles(0), fName(0)
 {
 
    // Default constructor
@@ -94,6 +101,10 @@ TProofBenchRunDataRead::~TProofBenchRunDataRead()
    fDirProofBench=0;
    SafeDelete(fListPerfPlots);
    if (fCPerfProfiles) delete fCPerfProfiles;
+   SafeDelete(fProfLegend_evt);
+   SafeDelete(fProfLegend_mb);
+   SafeDelete(fNormLegend_evt);
+   SafeDelete(fNormLegend_mb);
 } 
 
 //______________________________________________________________________________
@@ -217,9 +228,14 @@ void TProofBenchRunDataRead::Run(const char *dset, Int_t start, Int_t stop,
    Int_t npad = 1; //pad number
 
    Int_t nnodes = fNodes->GetNNodes(); // Number of machines
+   Int_t ncores = fNodes->GetNCores(); // Number of cores
    
-   Double_t ymi = -1., ymx = -1., ymiio = -1., ymxio = -1.;
+   Bool_t drawpf = kFALSE;
+   Double_t ymi = -1., ymx = -1., emx =- 1, ymiio = -1., ymxio = -1., mbmx = -1.;
    for (Int_t nactive = start; nactive <= stop; nactive += step) {
+
+      // For CPU effectiveness (ok for lite; should do it properly for standard clusters)
+      Int_t ncoren = (nactive < ncores) ? nactive : ncores;
 
       // Actvate the wanted workers
       Int_t nw = -1;
@@ -261,7 +277,7 @@ void TProofBenchRunDataRead::Run(const char *dset, Int_t start, Int_t stop,
 
          // Cleanup run
          const char *dsnr = (fDS->IsProof(fProof)) ? dsn.Data() : dsname.Data();
-         fDS->ReleaseCache(dsnr);
+         if (fReleaseCache) fDS->ReleaseCache(dsnr);
 
          DeleteParameters();
          SetParameters();
@@ -283,9 +299,67 @@ void TProofBenchRunDataRead::Run(const char *dset, Int_t start, Int_t stop,
          TTree *t = 0;
          if (l) t = dynamic_cast<TTree*>(l->FindObject(perfstats_name.Data()));
          if (t) {
+            drawpf = kTRUE;
             TTree* tnew=(TTree*)t->Clone("tnew");
 
             FillPerfStatProfiles(tnew, nactive);
+
+            TProofPerfAnalysis pfa(tnew);
+            Double_t pf_eventrate = pfa.GetEvtRateAvgMax();
+            Double_t pf_IOrate = pfa.GetMBRateAvgMax();
+            fProfile_perfstat_evtmax->Fill(nactive, pf_eventrate);
+            fCPerfProfiles->cd(npad);
+            fProfile_perfstat_evtmax->SetMaximum(1.6*emx);
+            fProfile_perfstat_evtmax->SetMinimum(0.);
+            fProfile_perfstat_evtmax->Draw();
+            fProfLegend_evt->Draw();
+            gPad->Update();
+            fProfile_perfstat_IOmax->Fill(nactive, pf_IOrate);
+            fCPerfProfiles->cd(npad + 2);
+            fProfile_perfstat_IOmax->SetMaximum(1.6*mbmx);
+            fProfile_perfstat_IOmax->SetMinimum(0.);
+            fProfile_perfstat_IOmax->Draw();
+            fProfLegend_mb->Draw();
+            gPad->Update();
+            // The normalised histos
+            // Use the first bin to set the Y range for the histo
+            Double_t nert = nx ? pf_eventrate/nactive/nnodes : pf_eventrate/nactive;
+            fNorm_perfstat_evtmax->Fill(nactive, nert);
+            Double_t y1 = fNorm_perfstat_evtmax->GetBinContent(1);
+            Double_t e1 = fNorm_perfstat_evtmax->GetBinError(1);
+            Double_t dy = 5 * e1;
+            if (dy / y1 < 0.2) dy = y1 * 0.2;
+            if (dy > y1) dy = y1*.999999;
+            if (ymi < 0.) ymi = y1 - dy;
+            if (fNorm_perfstat_evtmax->GetBinContent(nactive) < ymi)
+               ymi = fNorm_perfstat_evtmax->GetBinContent(nactive) / 2.;
+            if (ymx < 0.) ymx = y1 + dy;
+            if (fNorm_perfstat_evtmax->GetBinContent(nactive) > ymx)
+               ymx = fNorm_perfstat_evtmax->GetBinContent(nactive) * 1.5;
+            fNorm_perfstat_evtmax->SetMaximum(ymx);
+            fNorm_perfstat_evtmax->SetMinimum(ymi);
+            fCPerfProfiles->cd(npad + 1);
+            fNorm_perfstat_evtmax->Draw();
+            gPad->Update();
+            //
+            Double_t niort = nx ? pf_IOrate/nactive/nnodes : pf_IOrate/nactive;
+            fNorm_perfstat_IOmax->Fill(nactive, niort);
+            y1 = fNorm_perfstat_IOmax->GetBinContent(1);
+            e1 = fNorm_perfstat_IOmax->GetBinError(1);
+            dy = 5 * e1;
+            if (dy / y1 < 0.2) dy = y1 * 0.2;
+            if (dy > y1) dy = y1*.999999;
+            if (ymiio < 0.) ymiio = y1 - dy;
+            if (fNorm_perfstat_IOmax->GetBinContent(nactive) < ymiio)
+               ymiio = fNorm_perfstat_IOmax->GetBinContent(nactive) / 2.;
+            if (ymxio < 0.) ymxio = y1 + dy;
+            if (fNorm_perfstat_IOmax->GetBinContent(nactive) > ymxio)
+               ymxio = fNorm_perfstat_IOmax->GetBinContent(nactive) * 1.5;
+            fNorm_perfstat_IOmax->SetMaximum(ymxio);
+            fNorm_perfstat_IOmax->SetMinimum(ymiio);
+            fCPerfProfiles->cd(npad + 3);
+            fNorm_perfstat_IOmax->Draw();
+            gPad->Update();
 
             //change the name
             TString newname = TString::Format("%s_%s_%dwrks%dthtry", t->GetName(), GetName(), nactive, j);
@@ -312,6 +386,8 @@ void TProofBenchRunDataRead::Run(const char *dset, Int_t start, Int_t stop,
                Error("Run", "PROOF output list is empty!");
          }
 
+         // 
+         const char *drawopt = t ? "SAME" : "";
          // Performance measures from TQueryResult
          TQueryResult *queryresult = fProof->GetQueryResult();
          if (queryresult) {
@@ -322,15 +398,25 @@ void TProofBenchRunDataRead::Run(const char *dset, Int_t start, Int_t stop,
 
             Long64_t qr_entries = queryresult->GetEntries();
 
+            // Calculate and fill CPU efficiency
+            Float_t qr_cpu_eff = -1.;
+            if (qr_proc > 0.) {
+               qr_cpu_eff = queryresult->GetUsedCPU() / ncoren / qr_proc ;
+               fProfile_cpu_eff->Fill(nactive, qr_cpu_eff);
+               Printf("cpu_eff: %f", qr_cpu_eff);
+            }
+
             // Calculate event rate, fill and draw
             Double_t qr_eventrate=0;
 
             qr_eventrate = qr_entries / Double_t(qr_proc);
+            if (qr_eventrate > emx) emx = qr_eventrate;
 
             fProfile_queryresult_event->Fill(nactive, qr_eventrate);
             fCPerfProfiles->cd(npad);
             fProfile_queryresult_event->SetMinimum(0.);
-            fProfile_queryresult_event->Draw();
+            fProfile_queryresult_event->Draw(drawopt);
+            fProfLegend_evt->Draw();
             gPad->Update();
 
             // Calculate IO rate, fill and draw
@@ -339,11 +425,13 @@ void TProofBenchRunDataRead::Run(const char *dset, Int_t start, Int_t stop,
             const Double_t Dmegabytes = 1024*1024;
 
             qr_IOrate = qr_bytes / Dmegabytes / Double_t(qr_proc);
+            if (qr_IOrate > mbmx) mbmx = qr_IOrate;
 
             fProfile_queryresult_IO->Fill(nactive, qr_IOrate);
             fCPerfProfiles->cd(npad + 2);
             fProfile_queryresult_IO->SetMinimum(0.);
-            fProfile_queryresult_IO->Draw();
+            fProfile_queryresult_IO->Draw(drawopt);
+            fProfLegend_mb->Draw();
             gPad->Update();
 
             // The normalised histos
@@ -361,10 +449,11 @@ void TProofBenchRunDataRead::Run(const char *dset, Int_t start, Int_t stop,
             if (ymx < 0.) ymx = y1 + dy;
             if (fNorm_queryresult_event->GetBinContent(nactive) > ymx)
                ymx = fNorm_queryresult_event->GetBinContent(nactive) * 1.5;
-            fNorm_queryresult_event->SetMaximum(ymx);
+//            fNorm_queryresult_event->SetMaximum(ymx);
             fNorm_queryresult_event->SetMinimum(ymi);
             fCPerfProfiles->cd(npad + 1);
-            fNorm_queryresult_event->Draw();
+            fNorm_queryresult_event->Draw(drawopt);
+            fNormLegend_evt->Draw();
             gPad->Update();
             //
             Double_t niort = nx ? qr_IOrate/nactive/nnodes : qr_IOrate/nactive;
@@ -380,10 +469,11 @@ void TProofBenchRunDataRead::Run(const char *dset, Int_t start, Int_t stop,
             if (ymxio < 0.) ymxio = y1 + dy;
             if (fNorm_queryresult_IO->GetBinContent(nactive) > ymxio)
                ymxio = fNorm_queryresult_IO->GetBinContent(nactive) * 1.5;
-            fNorm_queryresult_IO->SetMaximum(ymxio);
+//            fNorm_queryresult_IO->SetMaximum(ymxio);
             fNorm_queryresult_IO->SetMinimum(ymiio);
             fCPerfProfiles->cd(npad + 3);
-            fNorm_queryresult_IO->Draw();
+            fNorm_queryresult_IO->Draw(drawopt);
+            fNormLegend_mb->Draw();
             gPad->Update();
          }
          fCPerfProfiles->cd(0); 
@@ -395,13 +485,23 @@ void TProofBenchRunDataRead::Run(const char *dset, Int_t start, Int_t stop,
 
    // Make the result persistent
    fCPerfProfiles->cd(npad);
+   fProfile_queryresult_event->SetMaximum(1.6*emx);
    fProfile_queryresult_event->DrawCopy();
+   if (drawpf) fProfile_perfstat_evtmax->DrawCopy("SAME");
+   fProfLegend_evt->Draw();
    fCPerfProfiles->cd(npad + 2);
+   fProfile_queryresult_IO->SetMaximum(1.6*mbmx);
    fProfile_queryresult_IO->DrawCopy();
+   if (drawpf) fProfile_perfstat_IOmax->DrawCopy("SAME");
+   fProfLegend_mb->Draw();
    fCPerfProfiles->cd(npad + 1);
    fNorm_queryresult_event->DrawCopy();
+   if (drawpf) fNorm_perfstat_evtmax->DrawCopy("SAME");
+   fNormLegend_evt->Draw();
    fCPerfProfiles->cd(npad + 3);
    fNorm_queryresult_IO->DrawCopy();
+   if (drawpf) fNorm_perfstat_IOmax->DrawCopy("SAME");
+   fProfLegend_mb->Draw();
    gPad->Update();
    
    //save performance profiles to file
@@ -663,7 +763,7 @@ Int_t TProofBenchRunDataRead::SetParameters()
    if (!fReadType) fReadType = new TPBReadType(TPBReadType::kReadOpt);
    fProof->AddInput(fReadType);
    fProof->SetParameter("PROOF_BenchmarkDebug", Int_t(fDebug));
-   // Fo Mac Os X only: do not OS cache the files read
+   // For Mac Os X only: do not OS cache the files read
    fProof->SetParameter("PROOF_DontCacheFiles", Int_t(1));
    return 0;
 }
@@ -695,6 +795,11 @@ void TProofBenchRunDataRead::BuildHistos(Int_t start, Int_t stop, Int_t step, Bo
    Double_t ns_min = start - step/2.;
    Double_t ns_max = quotient*step + start + step/2.;
 
+   fProfLegend_evt = new TLegend(0.1, 0.8, 0.3, 0.9);
+   fNormLegend_evt = new TLegend(0.7, 0.8, 0.9, 0.9);
+   fProfLegend_mb = new TLegend(0.1, 0.8, 0.3, 0.9);
+   fNormLegend_mb = new TLegend(0.7, 0.8, 0.9, 0.9);
+
    TString axtitle("Active Workers"), namelab(GetName()), sellab(GetSelName());
    if (nx) {
       axtitle = "Active Workers/Node";
@@ -704,6 +809,23 @@ void TProofBenchRunDataRead::BuildHistos(Int_t start, Int_t stop, Int_t step, Bo
       sellab.Form("%s_%s", GetSelName(), GetNameStem().Data());
 
    TString name, title;
+
+   // Book perfstat profile (max evts)
+   name.Form("Prof_%s_PS_MaxEvts_%s", namelab.Data(), sellab.Data());
+   title.Form("Profile %s PerfStat Event- %s", namelab.Data(), sellab.Data());
+   fProfile_perfstat_evtmax = new TProfile(name, title, ndiv, ns_min, ns_max);
+   fProfile_perfstat_evtmax->SetDirectory(fDirProofBench);
+   fProfile_perfstat_evtmax->GetYaxis()->SetTitle("Events/sec");
+   fProfile_perfstat_evtmax->GetXaxis()->SetTitle(axtitle);
+   fProfile_perfstat_evtmax->SetMarkerStyle(23);
+   fProfile_perfstat_evtmax->SetMarkerStyle(2);
+   if ((o = fListPerfPlots->FindObject(name))) {
+      fListPerfPlots->Remove(o);
+      delete o;
+   }
+   fListPerfPlots->Add(fProfile_perfstat_evtmax);
+   fProfLegend_evt->AddEntry(fProfile_perfstat_evtmax, "Maximum");
+
    // Book perfstat profile (evts)
    name.Form("Prof_%s_PS_Evts_%s", namelab.Data(), sellab.Data());
    title.Form("Profile %s PerfStat Event - %s", namelab.Data(), sellab.Data());
@@ -732,6 +854,22 @@ void TProofBenchRunDataRead::BuildHistos(Int_t start, Int_t stop, Int_t step, Bo
    }
    fListPerfPlots->Add(fHist_perfstat_event);
 
+   // Book normalized perfstat profile (max evts)
+   name.Form("Norm_%s_PF_MaxEvts_%s", namelab.Data(), sellab.Data());
+   title.Form("Profile %s Normalized QueryResult Event - %s", namelab.Data(), sellab.Data());
+   fNorm_perfstat_evtmax = new TProfile(name, title, ndiv, ns_min, ns_max);
+   fNorm_perfstat_evtmax->SetDirectory(fDirProofBench);
+   fNorm_perfstat_evtmax->GetYaxis()->SetTitle("Events/sec");
+   fNorm_perfstat_evtmax->GetXaxis()->SetTitle(axtitle);
+   fNorm_perfstat_evtmax->SetMarkerStyle(23);
+   fNorm_perfstat_evtmax->SetMarkerColor(2);
+   if ((o = fListPerfPlots->FindObject(name))) {
+      fListPerfPlots->Remove(o);
+      delete o;
+   }
+   fListPerfPlots->Add(fNorm_perfstat_evtmax);
+   fNormLegend_evt->AddEntry(fNorm_perfstat_evtmax, "Maximum");
+
    // Book queryresult profile (evts)
    name.Form("Prof_%s_QR_Evts_%s", namelab.Data(), sellab.Data());
    title.Form("Profile %s QueryResult Event - %s", namelab.Data(), sellab.Data());
@@ -745,6 +883,7 @@ void TProofBenchRunDataRead::BuildHistos(Int_t start, Int_t stop, Int_t step, Bo
       delete o;
    }
    fListPerfPlots->Add(fProfile_queryresult_event);
+   fProfLegend_evt->AddEntry(fProfile_queryresult_event, "Average");
 
    // Book normalized queryresult profile (evts)
    name.Form("Norm_%s_QR_Evts_%s", namelab.Data(), sellab.Data());
@@ -759,6 +898,7 @@ void TProofBenchRunDataRead::BuildHistos(Int_t start, Int_t stop, Int_t step, Bo
       delete o;
    }
    fListPerfPlots->Add(fNorm_queryresult_event);
+   fNormLegend_evt->AddEntry(fNorm_queryresult_event, "Average");
 
    // Book perfstat profile (mbs)
    name.Form("Prof_%s_PS_IO_%s", namelab.Data(), sellab.Data());
@@ -788,6 +928,38 @@ void TProofBenchRunDataRead::BuildHistos(Int_t start, Int_t stop, Int_t step, Bo
    }
    fListPerfPlots->Add(fHist_perfstat_IO);
 
+   // Book perfstat profile (max mbs)
+   name.Form("Prof_%s_PS_MaxIO_%s", namelab.Data(), sellab.Data());
+   title.Form("Profile %s PerfStat I/O - %s", namelab.Data(), sellab.Data());
+   fProfile_perfstat_IOmax = new TProfile(name, title, ndiv, ns_min, ns_max);
+   fProfile_perfstat_IOmax->SetDirectory(fDirProofBench);
+   fProfile_perfstat_IOmax->GetYaxis()->SetTitle("MB/sec");
+   fProfile_perfstat_IOmax->GetXaxis()->SetTitle(axtitle);
+   fProfile_perfstat_IOmax->SetMarkerStyle(21);
+   fProfile_perfstat_IOmax->SetMarkerColor(2);
+   if ((o = fListPerfPlots->FindObject(name))) {
+      fListPerfPlots->Remove(o);
+      delete o;
+   }
+   fListPerfPlots->Add(fProfile_perfstat_IOmax);
+   fProfLegend_mb->AddEntry(fProfile_perfstat_IOmax, "Maximum");
+
+   // Book normalized perfstat profile (max mbs)
+   name.Form("Norm_%s_PS_MaxIO_%s", namelab.Data(), sellab.Data());
+   title.Form("Profile %s Normalized PerfStat I/O - %s", namelab.Data(), sellab.Data());
+   fNorm_perfstat_IOmax = new TProfile(name, title, ndiv, ns_min, ns_max);
+   fNorm_perfstat_IOmax->SetDirectory(fDirProofBench);
+   fNorm_perfstat_IOmax->GetYaxis()->SetTitle("MB/sec");
+   fNorm_perfstat_IOmax->GetXaxis()->SetTitle(axtitle);
+   fNorm_perfstat_IOmax->SetMarkerStyle(23);
+   fNorm_perfstat_IOmax->SetMarkerColor(2);
+   if ((o = fListPerfPlots->FindObject(name))) {
+      fListPerfPlots->Remove(o);
+      delete o;
+   }
+   fListPerfPlots->Add(fNorm_perfstat_IOmax);
+   fNormLegend_mb->AddEntry(fNorm_perfstat_IOmax, "Maximum");
+
    // Book queryresult profile (mbs)
    name.Form("Prof_%s_QR_IO_%s", namelab.Data(), sellab.Data());
    title.Form("Profile %s QueryResult I/O - %s", namelab.Data(), sellab.Data());
@@ -801,6 +973,7 @@ void TProofBenchRunDataRead::BuildHistos(Int_t start, Int_t stop, Int_t step, Bo
       delete o;
    }
    fListPerfPlots->Add(fProfile_queryresult_IO);
+   fProfLegend_mb->AddEntry(fProfile_queryresult_IO, "Average");
 
    // Book normalized queryresult profile (mbs)
    name.Form("Norm_%s_QR_IO_%s", namelab.Data(), sellab.Data());
@@ -815,4 +988,19 @@ void TProofBenchRunDataRead::BuildHistos(Int_t start, Int_t stop, Int_t step, Bo
       delete o;
    }
    fListPerfPlots->Add(fNorm_queryresult_IO);
+   fNormLegend_mb->AddEntry(fNorm_queryresult_IO, "Average");
+
+   // Book CPU efficiency profile
+   name.Form("Prof_%s_CPU_eff_%s", namelab.Data(), sellab.Data());
+   title.Form("Profile %s CPU efficiency - %s", namelab.Data(), sellab.Data());
+   fProfile_cpu_eff = new TProfile(name, title, ndiv, ns_min, ns_max);
+   fProfile_cpu_eff->SetDirectory(fDirProofBench);
+   fProfile_cpu_eff->GetYaxis()->SetTitle("Efficiency");
+   fProfile_cpu_eff->GetXaxis()->SetTitle(axtitle);
+   fProfile_cpu_eff->SetMarkerStyle(22);
+   if ((o = fListPerfPlots->FindObject(name))) {
+      fListPerfPlots->Remove(o);
+      delete o;
+   }
+   fListPerfPlots->Add(fProfile_cpu_eff);
 }

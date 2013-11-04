@@ -36,6 +36,7 @@ class TProof;
 class TCanvas;
 class TH2;
 class TProfile;
+class TLegend;
 class TTree;
 class TFileCollection;
 
@@ -59,6 +60,7 @@ private:
    Int_t fStep;                  //test to be performed every fStep workers
    Int_t fDebug;                 //debug switch
    Int_t fFilesPerWrk;           //# of files to be processed per worker
+   Bool_t fReleaseCache;         // Release cache for data reads between runs 
 
    TDirectory  *fDirProofBench;   //directory for proof outputs
 
@@ -67,12 +69,22 @@ private:
    TList        *fListPerfPlots;            //list of performance plots
    TProfile     *fProfile_perfstat_event;
    TH2          *fHist_perfstat_event;
+   TProfile     *fProfile_perfstat_evtmax;
+   TProfile     *fNorm_perfstat_evtmax;
    TProfile     *fProfile_queryresult_event;
    TProfile     *fNorm_queryresult_event;
    TProfile     *fProfile_perfstat_IO;
    TH2          *fHist_perfstat_IO;
+   TProfile     *fProfile_perfstat_IOmax;
+   TProfile     *fNorm_perfstat_IOmax;
    TProfile     *fProfile_queryresult_IO;
    TProfile     *fNorm_queryresult_IO;
+   TProfile     *fProfile_cpu_eff;
+
+   TLegend     *fProfLegend_evt;            // Legend for profiles evts
+   TLegend     *fNormLegend_evt;            // Legend for norms evts
+   TLegend     *fProfLegend_mb;            // Legend for profiles mbs
+   TLegend     *fNormLegend_mb;            // Legend for norms mbs
 
    TCanvas *fCPerfProfiles;      //canvas for performance profile histograms
 
@@ -115,6 +127,7 @@ public:
    void SetDebug(Int_t debug) { fDebug = debug; }
    void SetDirProofBench(TDirectory* dir) { fDirProofBench = dir; }
    void SetFilesPerWrk(Int_t fpw) { fFilesPerWrk = fpw; }
+   void SetReleaseCache(Bool_t on = kTRUE) { fReleaseCache = on; }
 
    TPBReadType *GetReadType() const { return fReadType; }
    Long64_t GetNEvents() const { return fNEvents; }

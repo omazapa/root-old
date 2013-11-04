@@ -10,9 +10,12 @@
 #ifndef BIDIRMMAPPIPE_H
 #define BIDIRMMAPPIPE_H
 
+#include <unistd.h> // for ssize_t
+
 #include <list>
 #include <vector>
 #include <cassert>
+#include <cstring>
 
 #define BEGIN_NAMESPACE_ROOFIT namespace RooFit {
 #define END_NAMESPACE_ROOFIT }

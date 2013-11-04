@@ -34,6 +34,7 @@ class TCanvas;
 class TList;
 class TProof;
 class TProfile;
+class TLegend;
 class TH2;
 class TTree;
 
@@ -67,8 +68,14 @@ private:
 
    TProfile    *fProfile_perfstat_event;
    TH2         *fHist_perfstat_event;
+   TProfile    *fProfile_perfstat_evtmax;
+   TProfile    *fNorm_perfstat_evtmax;
    TProfile    *fProfile_queryresult_event;
    TProfile    *fNorm_queryresult_event;
+   TProfile    *fProfile_cpu_eff;
+
+   TLegend     *fProfLegend;            // Legend for profiles
+   TLegend     *fNormLegend;            // Legend for norms
 
    TString      fName;                  //name of CPU run
 
