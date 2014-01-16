@@ -12,6 +12,10 @@ ROOTDDIR     := $(MODDIR)
 ROOTDDIRS    := $(ROOTDDIR)/src
 ROOTDDIRI    := $(ROOTDDIR)/inc
 
+ifneq (,$(filter $(ARCH),win32gcc win64gcc))
+AUTHLIBS      += -lz
+endif
+
 ##### rootd #####
 ROOTDH       := $(wildcard $(MODDIRI)/*.h)
 ROOTDS       := $(wildcard $(MODDIRS)/*.cxx)

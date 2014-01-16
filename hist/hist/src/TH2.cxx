@@ -532,10 +532,12 @@ void TH2::FillRandom(const char *fname, Int_t ntimes)
    //*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-**-*-*-*-*-*-*-*
 
    Int_t bin, binx, biny, ibin, loop;
-   Double_t r1, x, y, xv[2];
+   Double_t r1, x, y;
    //*-*- Search for fname in the list of ROOT defined functions
-   TF1 *f1 = (TF1*)gROOT->GetFunction(fname);
-   if (!f1) { Error("FillRandom", "Unknown function: %s",fname); return; }
+   TObject *fobj = gROOT->GetFunction(fname);
+   if (!fobj) { Error("FillRandom", "Unknown function: %s",fname); return; }
+   TF2 * f1 = dynamic_cast<TF2*>(fobj);
+   if (!f1) { Error("FillRandom", "Function: %s is not a TF2",fname); return; }
 
    //*-*- Allocate temporary space to store the integral and compute integral
    Int_t nbinsx = GetNbinsX();
@@ -546,11 +548,10 @@ void TH2::FillRandom(const char *fname, Int_t ntimes)
    ibin = 0;
    integral[ibin] = 0;
    for (biny=1;biny<=nbinsy;biny++) {
-      xv[1] = fYaxis.GetBinCenter(biny);
       for (binx=1;binx<=nbinsx;binx++) {
-         xv[0] = fXaxis.GetBinCenter(binx);
          ibin++;
-         integral[ibin] = integral[ibin-1] + f1->Eval(xv[0],xv[1]);
+         Double_t fint = f1->Integral(fXaxis.GetBinLowEdge(binx), fXaxis.GetBinUpEdge(binx), fYaxis.GetBinLowEdge(biny), fYaxis.GetBinUpEdge(biny));
+         integral[ibin] = integral[ibin-1] + fint;
       }
    }
 
@@ -2151,7 +2152,7 @@ TProfile *TH2::ProfileX(const char *name, Int_t firstybin, Int_t lastybin, Optio
    //   To invert the cut, it is enough to put a "-" in front of its name:
    //      myhist->ProfileX(" ",firstybin,lastybin,"[-cutg]");
    //   It is possible to apply several cuts ("," means logical AND):
-   //      myhist->ProfileX(" ",firstybin,lastybin,[cutg1,cutg2]");
+   //      myhist->ProfileX(" ",firstybin,lastybin,"[cutg1,cutg2]");
    //
    //   NOTE that if a TProfile named "name" exists in the current directory or pad with
    //   a compatible axis the profile is reset and filled again with the projected contents of the TH2.
@@ -2196,7 +2197,7 @@ TProfile *TH2::ProfileY(const char *name, Int_t firstxbin, Int_t lastxbin, Optio
    //   To invert the cut, it is enough to put a "-" in front of its name:
    //      myhist->ProfileY(" ",firstybin,lastybin,"[-cutg]");
    //   It is possible to apply several cuts:
-   //      myhist->ProfileY(" ",firstybin,lastybin,[cutg1,cutg2]");
+   //      myhist->ProfileY(" ",firstybin,lastybin,"[cutg1,cutg2]");
    //
    //   NOTE that if a TProfile named "name" exists in the current directory or pad with
    //   a compatible axis the profile is reset and filled again with the projected contents of the TH2.
@@ -2475,7 +2476,7 @@ TH1D *TH2::ProjectionX(const char *name, Int_t firstybin, Int_t lastybin, Option
    //   To invert the cut, it is enough to put a "-" in front of its name:
    //      myhist->ProjectionX(" ",firstybin,lastybin,"[-cutg]");
    //   It is possible to apply several cuts:
-   //      myhist->ProjectionX(" ",firstybin,lastybin,[cutg1,cutg2]");
+   //      myhist->ProjectionX(" ",firstybin,lastybin,"[cutg1,cutg2]");
    //
    //   NOTE that if a TH1D named "name" exists in the current directory or pad 
    //   the histogram is reset and filled again with the projected contents of the TH2.
@@ -2515,7 +2516,7 @@ TH1D *TH2::ProjectionY(const char *name, Int_t firstxbin, Int_t lastxbin, Option
    //   To invert the cut, it is enough to put a "-" in front of its name:
    //      myhist->ProjectionY(" ",firstxbin,lastxbin,"[-cutg]");
    //   It is possible to apply several cuts:
-   //      myhist->ProjectionY(" ",firstxbin,lastxbin,[cutg1,cutg2]");
+   //      myhist->ProjectionY(" ",firstxbin,lastxbin,"[cutg1,cutg2]");
    //
    //   NOTE that if a TH1D named "name" exists in the current directory or pad and having
    //   a compatible axis, the histogram is reset and filled again with the projected contents of the TH2.
@@ -2616,7 +2617,11 @@ void TH2::Smooth(Int_t ntimes, Option_t *option)
    // Smooth bin contents of this 2-d histogram using kernel algorithms
    // similar to the ones used in the raster graphics community.
    // Bin contents in the active range are replaced by their smooth values.
-   // If Errors are defined via Sumw2, they are scaled.
+   // If Errors are defined via Sumw2, they are also scaled and computed. 
+   // However, note the resulting errors will be correlated between different-bins, so 
+   // the errors should not be used blindly to perform any calculation involving several bins,
+   // like fitting the histogram.  One would need to compute also the bin by bin correlation matrix.
+   //
    // 3 kernels are proposed k5a, k5b and k3a.
    // k5a and k5b act on 5x5 cells (i-2,i-1,i,i+1,i+2, and same for j)
    // k5b is a bit more stronger in smoothing
@@ -2705,7 +2710,7 @@ void TH2::Smooth(Int_t ntimes, Option_t *option)
                   if ( k != 0.0 ) {
                      norm    += k;
                      content += k*buf[bin];
-                     if (ebuf) error   += k*k*buf[bin]*buf[bin];
+                     if (ebuf) error   += k*k*ebuf[bin]*ebuf[bin];
                   }
                }
             }

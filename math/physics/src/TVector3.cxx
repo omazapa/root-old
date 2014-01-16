@@ -284,9 +284,10 @@ Double_t TVector3::Theta() const
 TVector3 TVector3::Unit() const 
 {
    // return unit vector parallel to this.
-   Double_t  tot = Mag2();
-   TVector3 p(fX,fY,fZ);
-   return tot > 0.0 ? p *= (1.0/TMath::Sqrt(tot)) : p;
+   Double_t  tot2 = Mag2();
+   Double_t tot = (tot2 > 0) ?  1.0/TMath::Sqrt(tot2) : 1.0;
+   TVector3 p(fX*tot,fY*tot,fZ*tot);
+   return p;
 }
 
 //______________________________________________________________________________
@@ -353,6 +354,7 @@ Double_t TVector3::PseudoRapidity() const {
    // guard against Pt=0
    double cosTheta = CosTheta();
    if (cosTheta*cosTheta < 1) return -0.5* TMath::Log( (1.0-cosTheta)/(1.0+cosTheta) );
+   if (fZ == 0) return 0;
    Warning("PseudoRapidity","transvers momentum = 0! return +/- 10e10");
    if (fZ > 0) return 10e10;
    else        return -10e10;

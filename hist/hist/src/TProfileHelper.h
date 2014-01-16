@@ -34,6 +34,9 @@ public:
    static Bool_t Add(T* p, const TH1 *h1,  const TH1 *h2, Double_t c1, Double_t c2=1);
 
    template <typename T>
+   static void BuildArray(T* p);
+
+   template <typename T>
    static Double_t GetBinEffectiveEntries(T* p, Int_t bin);
 
    template <typename T>
@@ -56,6 +59,9 @@ public:
 
    template <typename T>
    static Double_t GetBinError(T* p, Int_t bin);
+
+   template <typename T>
+   static void SetBinEntries(T* p, Int_t bin, Double_t w);
 
    template <typename T>
    static void SetErrorOption(T* p, Option_t * opt);
@@ -119,6 +125,19 @@ Bool_t TProfileHelper::Add(T* p, const TH1 *h1,  const TH1 *h2, Double_t c1, Dou
    }
    return kTRUE;
 }
+
+template <typename T>
+void TProfileHelper::BuildArray(T* p) { 
+   // Build the extra profile data structure in addition to the histograms
+   // this are:    array of bin entries:  fBinEntries 
+   //              array of sum of profiled observable value - squared
+   //              stored in TH1::fSumw2 
+   //              array of some of weight squared (optional) in TProfile::fBinSumw2
+   p->fBinEntries.Set(p->fNcells);
+   p->fSumw2.Set(p->fNcells);  
+   if (TH1::GetDefaultSumw2() || p->fBinSumw2.fN > 0 ) p->fBinSumw2.Set(p->fNcells);
+}
+
 
 template <typename T>
 Double_t TProfileHelper::GetBinEffectiveEntries(T* p, Int_t bin) 
@@ -688,7 +707,21 @@ Double_t TProfileHelper::GetBinError(T* p, Int_t bin)
 
    // default case : fErrorMode = kERRORMEAN 
    // return standard error on the mean of y 
+   //if (neff == 0) std::cerr << "NEFF = 0 for bin " << bin << "   " << eprim << "  " << neff << "  " << std::endl;
    return eprim/TMath::Sqrt(neff);
+
+}
+
+
+template <typename T>
+void TProfileHelper::SetBinEntries(T* p, Int_t bin, Double_t w) { 
+//    Set the number of entries in bin for the profile 
+//    In case the profile stores the sum of weight squares - set the sum of weight square to the number entries  
+//    (i.e. assume the entries have been filled all with a weight == 1 )   
+
+   if (bin < 0 || bin >= p->fNcells) return;
+   p->fBinEntries.fArray[bin] = w;
+   if (p->fBinSumw2.fN) p->fBinSumw2.fArray[bin] = w;
 
 }
 

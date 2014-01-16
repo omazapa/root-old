@@ -1,6 +1,7 @@
-#import <stddef.h>
-#import <stdlib.h>
-#import <math.h>
+#import <cstddef>
+#import <vector>
+#import <cmath>
+#import <new>
 
 #import <CoreGraphics/CoreGraphics.h>
 #import <CoreGraphics/CGContext.h>
@@ -21,19 +22,16 @@
    BOOL processTap;
 }
 
-- (void) handlePanGesture : (UIPanGestureRecognizer *)panGesture;
-- (void) handleTapGesture : (UITapGestureRecognizer *)tapGesture;
-
 @end
 
 @implementation PadView
 
 //_________________________________________________________________
-- (id) initWithFrame:(CGRect)frame forPad : (ROOT::iOS::Pad*)pd
+- (id) initWithFrame : (CGRect) frame forPad : (ROOT::iOS::Pad*) pd
 {
    self = [super initWithFrame : frame];
-
    if (self) {
+      assert(pd != nullptr && "initWithFrame:forPad:, parameter 'pd' is null");
       //Initialize C++ objects here.
       pad = pd;
 
@@ -44,9 +42,11 @@
 }
 
 //_________________________________________________________________
-- (void)drawRect : (CGRect)rect
+- (void) drawRect : (CGRect)rect
 {
    // Drawing code
+   assert(pad != nullptr && "drawRect:, pad is null");
+   
    CGContextRef ctx = UIGraphicsGetCurrentContext();
 
    CGContextClearRect(ctx, rect);
@@ -64,16 +64,20 @@
 //_________________________________________________________________
 - (void) clearPad
 {
+   assert(pad != nullptr && "clearPad, pad is null");
+
    pad->Clear();
 }
 
 //_________________________________________________________________
-- (void) handlePanGesture : (UIPanGestureRecognizer *)panGesture
+- (void) handlePanGesture : (UIPanGestureRecognizer *) panGesture
 {
    if (!processPan)
       return;
 
-   const CGPoint p = [panGesture locationInView:self];
+   assert(pad != nullptr && "handlePanGesture:, pad is null");
+
+   const CGPoint p = [panGesture locationInView : self];
    [selectionView setPad : pad];
    [selectionView setShowRotation : YES];
    
@@ -93,8 +97,10 @@
 }
 
 //_________________________________________________________________
-- (CGImageRef) initCGImageForPicking
+- (UIImage *) createImageForPicking
 {
+   assert(pad != nullptr && "initCGImageForPicking, pad is null");
+
    const CGRect rect = CGRectMake(0.f, 0.f, 640.f, 640.f);
    //Create bitmap context.
    UIGraphicsBeginImageContext(rect.size);
@@ -114,19 +120,20 @@
    pad->SetContext(ctx);
    pad->PaintForSelection();
    
-   UIImage *uiImageForPicking = UIGraphicsGetImageFromCurrentImageContext();//autoreleased UIImage.
-   CGImageRef cgImageForPicking = uiImageForPicking.CGImage;
-   CGImageRetain(cgImageForPicking);//It must live as long, as I need :)
-   
+   UIImage * const uiImageForPicking = UIGraphicsGetImageFromCurrentImageContext();//autoreleased UIImage.
    UIGraphicsEndImageContext();
    
-   return cgImageForPicking;
-
+   return uiImageForPicking;
 } 
 
 //_________________________________________________________________
-- (BOOL) fillPickingBufferFromCGImage : (CGImageRef) cgImage
+- (BOOL) fillPickingBufferFromImage : (UIImage *) image
 {
+   assert(image != nil && "fillPickingBufferFromImage:, parameter 'image' is nil");
+   assert(pad != nullptr && "fillPickingBufferFromImage:, pad is null");
+
+   CGImageRef cgImage = image.CGImage;
+
 	const size_t pixelsW = CGImageGetWidth(cgImage);
 	const size_t pixelsH = CGImageGetHeight(cgImage);
 	//Declare the number of bytes per row. Each pixel in the bitmap
@@ -141,61 +148,53 @@
       //Log error: color space allocation failed.
       return NO;
    }
-	
-   unsigned char *buffer = (unsigned char*)malloc(bitmapByteCount);
-   if (!buffer) {
-      //Log error: memory allocation failed.
+
+   try {
+      std::vector<unsigned char> buffer(bitmapByteCount);
+      CGContextRef ctx = CGBitmapContextCreate(&buffer[0], pixelsW, pixelsH, 8, bitmapBytesPerRow, colorSpace, kCGImageAlphaPremultipliedFirst);
       CGColorSpaceRelease(colorSpace);
-      return NO;
-   }
+      
+      if (!ctx)
+         return NO;
 
-	// Create the bitmap context. We want pre-multiplied ARGB, 8-bits 
-	// per component. Regardless of what the source image format is 
-	// (CMYK, Grayscale, and so on) it will be converted over to the format
-	// specified here by CGBitmapContextCreate.
-   CGContextRef ctx = CGBitmapContextCreate(buffer, pixelsW, pixelsH, 8, bitmapBytesPerRow, colorSpace, kCGImageAlphaPremultipliedFirst);
-
-   CGColorSpaceRelease(colorSpace);
-
-	if (!ctx) {
-      //Log error: bitmap context creation failed.
-      free(buffer);
-      return NO;
-   }
-	
-	const CGRect rect = CGRectMake(0.f, 0.f, pixelsW, pixelsH); 
-	//Draw the image to the bitmap context. Once we draw, the memory 
-	//allocated for the context for rendering will then contain the 
-	//raw image data in the specified color space.
+      const CGRect rect = CGRectMake(0.f, 0.f, pixelsW, pixelsH);
+      //Draw the image to the bitmap context. Once we draw, the memory
+      //allocated for the context for rendering will then contain the 
+      //raw image data in the specified color space.
    
-   CGContextSetAllowsAntialiasing(ctx, 0);//Check, if I need this for a bitmap.
-	CGContextDrawImage(ctx, rect, cgImage);
+      CGContextSetAllowsAntialiasing(ctx, false);//Check, if I need this for a bitmap.
+      CGContextDrawImage(ctx, rect, cgImage);
 
-   pad->SetSelectionBuffer(pixelsW, pixelsH, buffer);
-	// When finished, release the context
-	CGContextRelease(ctx); 
-   free(buffer);
+      pad->SetSelectionBuffer(pixelsW, pixelsH, &buffer[0]);
+      // When finished, release the context
+      CGContextRelease(ctx); 
 
-   return YES;
+      return YES;
+   } catch (const std::bad_alloc &e) {
+      CGColorSpaceRelease(colorSpace);
+   }
+
+   return NO;
 }
 
 //_________________________________________________________________
 - (BOOL) initPadPicking
 {
-   CGImageRef cgImage = [self initCGImageForPicking];
-   if (!cgImage)
+   UIImage * const pickImage = [self createImageForPicking];
+   if (!pickImage)
       return NO;
-
-   const BOOL res = [self fillPickingBufferFromCGImage : cgImage];
-   CGImageRelease(cgImage);
    
-   return res;
+   return [self fillPickingBufferFromImage : pickImage];
 }
 
 //_________________________________________________________________
 - (void) handleTapGesture : (UITapGestureRecognizer *) tapGesture
 {
+   assert(tapGesture != nil && "handleTapGesture:, parameter 'tapGesture' is nil");
+
    if (processTap) {
+      assert(pad != nullptr && "handleTapGesture:, pad is null");
+   
       const CGPoint tapPt = [tapGesture locationInView : self];
       
       if (!pad->SelectionIsValid() && ![self initPadPicking])
@@ -215,7 +214,7 @@
 }
 
 //_________________________________________________________________
-- (void) setSelectionView:(SelectionView *)sv
+- (void) setSelectionView : (SelectionView *) sv
 {
    selectionView = sv;
 }

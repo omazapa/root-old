@@ -790,6 +790,8 @@ void TAxis::SetBinLabel(Int_t bin, const char *label)
       if ( obj->GetUniqueID()==(UInt_t)bin ) {
          // It does. Overwrite it.
          obj->SetString(label);
+         // LM need to rehash the labels list (see ROOT-5025)
+         fLabels->Rehash(fLabels->GetSize() );
          return;
       }
    }
@@ -1098,8 +1100,13 @@ void TAxis::UnZoom()
          hobj1->SetMinimum(fXmin);
          hobj1->SetMaximum(fXmax);
       } else {
-         hobj1->SetMinimum(fXmin);
-         hobj1->SetMaximum(fXmax);
+         if (fXmin==hobj1->GetMinimum() && fXmax==hobj1->GetMaximum()) {
+            hobj1->SetMinimum(fXmin);
+            hobj1->SetMaximum(fXmax);
+         } else {
+            hobj1->SetMinimum();
+            hobj1->SetMaximum();
+         }
          hobj1->ResetBit(TH1::kIsZoomed);
       }
    }

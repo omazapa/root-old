@@ -514,9 +514,11 @@ TFile::~TFile()
    SafeDelete(fInfoCache);
    SafeDelete(fOpenPhases);
 
-   R__LOCKGUARD2(gROOTMutex);
-   gROOT->GetListOfClosedObjects()->Remove(this);
-   gROOT->GetUUIDs()->RemoveUUID(GetUniqueID());
+   {
+      R__LOCKGUARD2(gROOTMutex);
+      gROOT->GetListOfClosedObjects()->Remove(this);
+      gROOT->GetUUIDs()->RemoveUUID(GetUniqueID());
+   }
 
    if (IsOnHeap()) {
       // Delete object from CINT symbol table so it can not be used anymore.
@@ -872,9 +874,6 @@ void TFile::Close(Option_t *option)
       WriteStreamerInfo();
    }
 
-   delete fClassIndex;
-   fClassIndex = 0;
-
    // Finish any concurrent I/O operations before we close the file handles.
    if (fCacheRead) fCacheRead->Close();
    {
@@ -903,6 +902,9 @@ void TFile::Close(Option_t *option)
 
    if (gMonitoringWriter)
       gMonitoringWriter->SendFileCloseEvent(this);
+
+   delete fClassIndex;
+   fClassIndex = 0;
 
    // Delete free segments from free list (but don't delete list header)
    if (fFree) {
@@ -4021,7 +4023,8 @@ TFileOpenHandle *TFile::AsyncOpen(const char *url, Option_t *option,
       if (type == kNet) {
          // Network files
          if ((h = gROOT->GetPluginManager()->FindHandler("TFile", name)) &&
-            !strcmp(h->GetClass(),"TXNetFile") && h->LoadPlugin() == 0) {
+            (!strcmp(h->GetClass(),"TXNetFile") || !strcmp(h->GetClass(),"TNetXNGFile"))
+            && h->LoadPlugin() == 0) {
             f = (TFile*) h->ExecPlugin(6, name.Data(), option, ftitle, compress, netopt, kTRUE);
             notfound = kFALSE;
          }
@@ -4443,9 +4446,8 @@ TFile::EFileType TFile::GetType(const char *name, Option_t *option, TString *pre
 
    EFileType type = kDefault;
 
-   TRegexp re("^root.*:");
-   TString sname = name;
-   if (sname.Index(re) != kNPOS) {
+   TPMERegexp re("^(root|xroot).*", "i");
+   if (re.Match(name)) {
       //
       // Should be a network file ...
       type = kNet;

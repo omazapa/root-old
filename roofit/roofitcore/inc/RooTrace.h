@@ -17,16 +17,25 @@
 #define ROO_TRACE
 
 #include <assert.h>
+#include <map>
 #include "Riosfwd.h"
 #include "RooLinkedList.h"
 
+#ifndef __CINT__
+#define TRACE_CREATE  RooTrace::create(this); 
+#define TRACE_DESTROY RooTrace::destroy(this); 
+#endif
+
 class RooTrace {
 public:
-
+  RooTrace() ;
   virtual ~RooTrace() {} ;
 
   static void create(const TObject* obj) ;
   static void destroy(const TObject* obj) ;
+
+  static void createSpecial(const char* name, int size) ;
+  static void destroySpecial(const char* name) ;
   
   static void active(Bool_t flag) ;
   static void verbose(Bool_t flag) ;
@@ -34,23 +43,42 @@ public:
   static void dump() ;
   static void dump(std::ostream& os, Bool_t sinceMarked=kFALSE) ;
   static void mark() ;
+
+  static void printObjectCounts() ;
   
   static void callgrind_zero() ;
   static void callgrind_dump() ;
+  
+  static RooTrace& instance() ;
 
 protected:
 
-  static void create2(const TObject* obj) ;
-  static void destroy2(const TObject* obj) ;
+  static RooTrace* _instance ;
+
+  void dump3(std::ostream&, Bool_t sinceMarked) ;
+
+  void mark3() ;
+  void printObjectCounts3() ;
+
+  void create2(const TObject* obj) ;
+  void destroy2(const TObject* obj) ;
+
+  void create3(const TObject* obj) ;
+  void destroy3(const TObject* obj) ;
+
+  void createSpecial3(const char* name, int size) ;
+  void destroySpecial3(const char* name) ;
 
   void addPad(const TObject* ref, Bool_t doPad) ;
   Bool_t removePad(const TObject* ref) ;
 
-  static Bool_t _active ;
-  static Bool_t _verbose ;
-  
-  static RooLinkedList _list ;
-  static RooLinkedList _markList ;
+  Bool_t _active ;
+  Bool_t _verbose ;
+  RooLinkedList _list ;
+  RooLinkedList _markList ;
+  std::map<TClass*,int> _objectCount ;
+  std::map<std::string,int> _specialCount ;
+  std::map<std::string,int> _specialSize ;
 
   ClassDef(RooTrace,0) // Memory tracer utility for RooFit objects
 };

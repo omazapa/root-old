@@ -8,6 +8,7 @@
  * For the licensing terms see $ROOTSYS/LICENSE.                         *
  * For the list of contributors see $ROOTSYS/README/CREDITS.             *
  *************************************************************************/
+#include <stdlib.h>
 
 #include "Riostream.h"
 #include "Strlen.h"
@@ -541,7 +542,7 @@ void TDirectory::Delete(const char *namecycle)
    TDirectory::TContext ctxt(gDirectory, this);
    Short_t  cycle;
    char     name[kMaxLen];
-   DecodeNameCycle(namecycle, name, cycle);
+   DecodeNameCycle(namecycle, name, cycle, kMaxLen);
 
    Int_t deleteall    = 0;
    Int_t deletetree   = 0;
@@ -683,7 +684,7 @@ TObject *TDirectory::Get(const char *namecycle)
    Short_t  cycle;
    char     name[kMaxLen];
 
-   DecodeNameCycle(namecycle, name, cycle);
+   DecodeNameCycle(namecycle, name, cycle, kMaxLen);
    char *namobj = name;
    Int_t nch = strlen(name);
    for (Int_t i = nch-1; i > 0; i--) {
@@ -768,7 +769,7 @@ void *TDirectory::GetObjectChecked(const char *namecycle, const TClass* expected
    Short_t  cycle;
    char     name[kMaxLen];
 
-   DecodeNameCycle(namecycle, name, cycle);
+   DecodeNameCycle(namecycle, name, cycle, kMaxLen);
    char *namobj = name;
    Int_t nch = strlen(name);
    for (Int_t i = nch-1; i > 0; i--) {
@@ -1089,27 +1090,42 @@ void TDirectory::EncodeNameCycle(char *buffer, const char *name, Short_t cycle)
 }
 
 //______________________________________________________________________________
-void TDirectory::DecodeNameCycle(const char *buffer, char *name, Short_t &cycle)
+void TDirectory::DecodeNameCycle(const char *buffer, char *name, Short_t &cycle,
+                                 const size_t namesize)
 {
-   // Decode a namecycle "aap;2" into name "aap" and cycle "2".
+   // Decode a namecycle "aap;2" into name "aap" and cycle "2". Destination
+   // buffer size for name (including string terminator) should be specified in
+   // namesize.
 
-   cycle     = 9999;
-   Int_t nch = buffer ? strlen(buffer) : 0;
-   for (Int_t i = 0; i < nch; i++) {
-      if (buffer[i] != ';')
-         name[i] = buffer[i];
-      else {
-         name[i] = 0;
-         if (i < nch-1 )
-            if (buffer[i+1] == '*') {
-               cycle = 10000;
-               return;
-            }
-         sscanf(buffer+i+1, "%hd", &cycle);
-         return;
-      }
+   size_t len = 0;
+   const char *ni = strchr(buffer, ';');
+
+   if (ni) {
+      // Found ';'
+      len = ni - buffer;
+      ++ni;
+   } else {
+      // No ';' found
+      len = strlen(buffer);
+      ni = &buffer[len];
    }
-   name[nch] = 0;
+
+   if (namesize) {
+      if (len > namesize-1ul) len = namesize-1;  // accommodate string terminator
+   } else {
+      ::Warning("TDirectory::DecodeNameCycle",
+         "Using unsafe version: invoke this metod by specifying the buffer size");
+   }
+
+   strncpy(name, buffer, len);
+   name[len] = '\0';
+
+   if (*ni == '*')
+      cycle = 10000;
+   else if (isdigit(*ni))
+      cycle = atoi(ni);
+   else
+      cycle = 9999;
 }
 
 //______________________________________________________________________________

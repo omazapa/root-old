@@ -252,7 +252,7 @@ End_Html */
 #include "TSystem.h"
 #include "TEnv.h"
 
-#include "fontembed.h"
+#include "../../../graf2d/mathtext/inc/fontembed.h"
 
 // to scale fonts to the same size as the old TT version
 const Float_t kScale = 0.93376068;
@@ -2834,6 +2834,10 @@ void TPostScript::Text(Double_t xx, Double_t yy, const wchar_t *chars)
 
       // Embed the fonts at the right place
       FILE *sg = fopen(tmpname.Data(),"r");
+      if (sg == 0) {
+         Error("Text", "Cannot open file: %s\n", tmpname.Data());
+         return;
+      }
       char line[255];
       while (fgets(line,255,sg)) {
          if (strstr(line,"EndComments")) PrintStr("%%DocumentNeededResources: ProcSet (FontSetInit)@");

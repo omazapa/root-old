@@ -109,6 +109,8 @@ namespace TMVA {
       // calculate the MVA value
       Double_t GetMvaValue( Double_t* err = 0, Double_t* errUpper = 0);
 
+      // get the actual forest size (might be less than fNTrees, the requested one, if boosting is stopped early
+      UInt_t   GetNTrees() const {return fForest.size();}
    private:
       Double_t GetMvaValue( Double_t* err, Double_t* errUpper, UInt_t useNTrees );
       Double_t PrivateGetMvaValue( const TMVA::Event *ev, Double_t* err=0, Double_t* errUpper=0, UInt_t useNTrees=0 );
@@ -121,7 +123,7 @@ namespace TMVA {
       const std::vector<Float_t>& GetRegressionValues();
 
       // apply the boost algorithm to a tree in the collection
-      Double_t Boost( std::vector<const TMVA::Event*>&, DecisionTree *dt, Int_t iTree, UInt_t cls = 0);
+      Double_t Boost( std::vector<const TMVA::Event*>&, DecisionTree *dt, UInt_t cls = 0);
 
       // ranking of input variables
       const Ranking* CreateRanking();
@@ -138,6 +140,7 @@ namespace TMVA {
       void SetNodePurityLimit(Double_t l){fNodePurityLimit = l;} 
       void SetShrinkage(Double_t s){fShrinkage = s;}
       void SetUseNvars(Int_t n){fUseNvars = n;}
+      void SetBaggedSampleFraction(Double_t f){fBaggedSampleFraction = f;}
 
 
       // get the forest
@@ -181,7 +184,7 @@ namespace TMVA {
       Double_t AdaCost( std::vector<const TMVA::Event*>&, DecisionTree *dt );
 
       // boosting as a random re-weighting
-      Double_t Bagging( std::vector<const TMVA::Event*>&, Int_t iTree );
+      Double_t Bagging( );
 
       // boosting special for regression
       Double_t RegBoost( std::vector<const TMVA::Event*>&, DecisionTree *dt );
@@ -198,12 +201,14 @@ namespace TMVA {
       void UpdateTargets( std::vector<const TMVA::Event*>&, UInt_t cls = 0);
       void UpdateTargetsRegression( std::vector<const TMVA::Event*>&,Bool_t first=kFALSE);
       Double_t GetGradBoostMVA(const TMVA::Event *e, UInt_t nTrees);
-      void GetRandomSubSample();
+      void     GetBaggedSubSample(std::vector<const TMVA::Event*>&);
       Double_t GetWeightedQuantile(std::vector<std::pair<Double_t, Double_t> > vec, const Double_t quantile, const Double_t SumOfWeights = 0.0);
 
       std::vector<const TMVA::Event*>       fEventSample;     // the training events
       std::vector<const TMVA::Event*>       fValidationSample;// the Validation events
       std::vector<const TMVA::Event*>       fSubSample;       // subsample for bagged grad boost
+      std::vector<const TMVA::Event*>      *fTrainSample;     // pointer to sample actually used in training (fEventSample or fSubSample) for example
+
       Int_t                           fNTrees;          // number of decision trees requested
       std::vector<DecisionTree*>      fForest;          // the collection of decision trees
       std::vector<double>             fBoostWeights;    // the weights applied in the individual boosts
@@ -213,6 +218,7 @@ namespace TMVA {
       TString                         fAdaBoostR2Loss;  // loss type used in AdaBoostR2 (Linear,Quadratic or Exponential)
       Double_t                        fTransitionPoint; // break-down point for gradient regression
       Double_t                        fShrinkage;       // learning rate for gradient boost;
+      Bool_t                          fBaggedBoost;     // turn bagging in combination with boost on/off
       Bool_t                          fBaggedGradBoost; // turn bagging in combination with grad boost on/off
       Double_t                        fSumOfWeights;    // sum of all event weights
       std::map< const TMVA::Event*, std::pair<Double_t, Double_t> >       fWeightedResiduals;  // weighted regression residuals

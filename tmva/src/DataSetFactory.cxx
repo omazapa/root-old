@@ -141,7 +141,8 @@ TMVA::DataSet* TMVA::DataSetFactory::CreateDataSet( TMVA::DataSetInfo& dsi,
          dsi.PrintCorrelationMatrix( className );
       }
       Log() << kINFO << " " << Endl;
-   }
+   } 
+
    return ds;
 }
 
@@ -1353,6 +1354,15 @@ TMVA::DataSetFactory::MixEvents( DataSetInfo& dsi,
    ds->SetEventCollection(trainingEventVector, Types::kTraining );
    Log() << kINFO << "Create internal testing tree" << Endl;
    ds->SetEventCollection(testingEventVector,  Types::kTesting  );
+
+   
+   if (ds->GetNTrainingEvents() < 1){ 
+      Log() << kFATAL << "Dataset " << std::string(dsi.GetName()) << " does not have any training events, I better stop here and let you fix that one first " << Endl;
+   }
+   
+   if (ds->GetNTestEvents() < 1) {
+      Log() << kERROR << "Dataset " << std::string(dsi.GetName()) << " does not have any testing events, guess that will cause problems later..but for now, I continue " << Endl;
+   }
 
 
    return ds;

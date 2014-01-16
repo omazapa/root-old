@@ -103,7 +103,13 @@ void THnBase::Init(const char* name, const char* title,
       TAxis* reqaxis = (TAxis*)axis->Clone();
       if (!keepTargetAxis && axis->TestBit(TAxis::kAxisRange)) {
          Int_t binFirst = axis->GetFirst();
+	 // The lowest egde of the underflow is meaningless.
+	 if (binFirst == 0)
+	   binFirst = 1;
          Int_t binLast = axis->GetLast();
+	 // The overflow edge is implicit.
+	 if (binLast > axis->GetNbins())
+	   binLast = axis->GetNbins();
          Int_t nBins = binLast - binFirst + 1;
          if (axis->GetXbins()->GetSize()) {
             // non-uniform bins:
@@ -521,7 +527,10 @@ TObject* THnBase::ProjectionAny(Int_t ndim, const Int_t* dim,
       for (Int_t d = 0; d < ndim; ++d) {
          bins[d] = iter.GetCoord(dim[d]);
          if (!keepTargetAxis && GetAxis(dim[d])->TestBit(TAxis::kAxisRange)) {
-            bins[d] -= GetAxis(dim[d])->GetFirst() - 1;
+            Int_t binOffset = GetAxis(dim[d])->GetFirst();
+            // Don't subtract even more if underflow is alreday included:
+            if (binOffset > 0) --binOffset;
+            bins[d] -= binOffset;
          }
       }
 

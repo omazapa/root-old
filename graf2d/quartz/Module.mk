@@ -3,6 +3,11 @@
 #
 # Author: Olivier Couet, 24/01/2012
 
+QUARTZNDEBUG := -DNDEBUG
+ifeq ($(ROOTBUILD),debug)
+   QUARTZNDEBUG :=
+endif
+
 MODNAME      := quartz
 MODDIR       := $(ROOT_SRCDIR)/graf2d/$(MODNAME)
 MODDIRS      := $(MODDIR)/src
@@ -72,3 +77,5 @@ distclean-$(MODNAME): clean-$(MODNAME)
 		   $(QUARTZMAP)
 
 distclean::     distclean-$(MODNAME)
+
+$(QUARTZOBJCPPO): CXXFLAGS += $(QUARTZNDEBUG)

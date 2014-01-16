@@ -101,42 +101,6 @@ Double_t TMath::Log2(Double_t x)
 }
 
 //______________________________________________________________________________
-Int_t TMath::Nint(Float_t x)
-{
-   // Round to nearest integer. Rounds half integers to the nearest
-   // even integer.
-
-   int i;
-   if (x >= 0) {
-      i = int(x + 0.5);
-      if (x + 0.5 == Float_t(i) && i & 1) i--;
-   } else {
-      i = int(x - 0.5);
-      if (x - 0.5 == Float_t(i) && i & 1) i++;
-
-   }
-   return i;
-}
-
-//______________________________________________________________________________
-Int_t TMath::Nint(Double_t x)
-{
-   // Round to nearest integer. Rounds half integers to the nearest
-   // even integer.
-
-   int i;
-   if (x >= 0) {
-      i = int(x + 0.5);
-      if (x + 0.5 == Double_t(i) && i & 1) i--;
-   } else {
-      i = int(x - 0.5);
-      if (x - 0.5 == Double_t(i) && i & 1) i++;
-
-   }
-   return i;
-}
-
-//______________________________________________________________________________
 Double_t TMath::DiLog(Double_t x)
 {
    // The DiLogarithm function
@@ -1233,14 +1197,16 @@ void TMath::Quantiles(Int_t n, Int_t nprob, Double_t *x, Double_t *quantiles, Do
             nppm = n*prob[i]; // use m = 0
 
          j = TMath::FloorNint(nppm);
+
+         // LM : fix for numerical problems if nppm is actually equal to j, but results different for numerical error
          // g in the paper is nppm -j  
-         if (type == 1) 
-            gamma = (nppm > j) ? 1 : 0; 
-         else if (type == 2) 
-            gamma = (nppm > j) ? 1 : 0.5; 
-         else if (type == 3) 
-            // gamma = 0 for g=0 and j even
-            gamma = (nppm == j && TMath::Even(j) ) ? 0 : 1;
+         if (type == 1)
+            gamma = ( (nppm -j) > j*TMath::Limits<Double_t>::Epsilon() ) ? 1 : 0;
+         else if (type == 2)
+            gamma = ( (nppm -j) > j*TMath::Limits<Double_t>::Epsilon() ) ? 1 : 0.5;
+         else if (type == 3)
+            // gamma = 0 for g=0 and j even 
+            gamma = ( TMath::Abs(nppm -j) <= j*TMath::Limits<Double_t>::Epsilon()   && TMath::Even(j) ) ? 0 : 1;
 
       }
       else { 

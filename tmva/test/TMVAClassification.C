@@ -40,7 +40,6 @@
 #include "TSystem.h"
 #include "TROOT.h"
 
-#include "TMVAGui.C"
 
 #if not defined(__CINT__) || defined(__MAKECINT__)
 // needs to be included when makecint runs (ACLIC)
@@ -68,6 +67,15 @@ void TMVAClassification( TString myMethodList = "" )
    //---------------------------------------------------------------
    // This loads the library
    TMVA::Tools::Instance();
+
+   // to get access to the GUI and all tmva macros
+    TString tmva_dir(TString(gRootDir) + "/tmva");
+    if(gSystem->Getenv("TMVASYS"))
+       tmva_dir = TString(gSystem->Getenv("TMVASYS"));
+    gROOT->SetMacroPath(tmva_dir + "/test/:" + gROOT->GetMacroPath() );
+    gROOT->ProcessLine(".L TMVAGui.C");
+
+
 
    // Default MVA methods to be trained + tested
    std::map<std::string,int> Use;
@@ -428,11 +436,11 @@ void TMVAClassification( TString myMethodList = "" )
    // Boosted Decision Trees
    if (Use["BDTG"]) // Gradient Boost
       factory->BookMethod( TMVA::Types::kBDT, "BDTG",
-                           "!H:!V:NTrees=1000:MinNodeSize=2.5%:BoostType=Grad:Shrinkage=0.10:UseBaggedGrad:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2" );
+                           "!H:!V:NTrees=1000:MinNodeSize=2.5%:BoostType=Grad:Shrinkage=0.10:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=2" );
 
    if (Use["BDT"])  // Adaptive Boost
       factory->BookMethod( TMVA::Types::kBDT, "BDT",
-                           "!H:!V:NTrees=850:MinNodeSize=2.5%:MaxDepth=3:BoostType=AdaBoost:AdaBoostBeta=0.5:SeparationType=GiniIndex:nCuts=20" );
+                           "!H:!V:NTrees=850:MinNodeSize=2.5%:MaxDepth=3:BoostType=AdaBoost:AdaBoostBeta=0.5:UseBaggedBoost:BaggedSampleFraction=0.5:SeparationType=GiniIndex:nCuts=20" );
 
    if (Use["BDTB"]) // Bagging
       factory->BookMethod( TMVA::Types::kBDT, "BDTB",

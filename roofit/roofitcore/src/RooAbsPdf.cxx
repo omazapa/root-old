@@ -1261,6 +1261,10 @@ RooFitResult* RooAbsPdf::fitTo(RooAbsData& data, const RooLinkedList& cmdList)
 	} else {
 	  // replace C by its inverse
 	  decomp.Invert(matC); 
+	  // the class lies about the matrix being symmetric, so fill in the
+	  // part above the diagonal
+	  for (int i = 0; i < matC.GetNrows(); ++i)
+	      for (int j = 0; j < i; ++j) matC(j, i) = matC(i, j);
 	  matC.Similarity(matV);
 	  // C now contiains V C^-1 V
 	  // Propagate corrected errors to parameters objects
@@ -1376,43 +1380,26 @@ RooFitResult* RooAbsPdf::fitTo(RooAbsData& data, const RooLinkedList& cmdList)
 	}
 	
 	// Apply correction matrix
-	const TMatrixDSym& V = rw->covarianceMatrix() ;
-	TMatrixDSym  C = rw2->covarianceMatrix() ;
-	
-	// Invert C
-	Double_t det(0) ;
-	C.Invert(&det) ;
-	if (det==0) {
+	const TMatrixDSym& matV = rw->covarianceMatrix();
+	TMatrixDSym matC = rw2->covarianceMatrix();
+	using ROOT::Math::CholeskyDecompGenDim;
+	CholeskyDecompGenDim<Double_t> decomp(matC.GetNrows(), matC);
+	if (!decomp) {
 	  coutE(Fitting) << "RooAbsPdf::fitTo(" << GetName() 
 			 << ") ERROR: Cannot apply sum-of-weights correction to covariance matrix: correction matrix calculated with weight-squared is singular" <<endl ;
 	} else {
-	  
-	  // Calculate corrected covariance matrix = V C-1 V
-	  TMatrixD VCV(V,TMatrixD::kMult,TMatrixD(C,TMatrixD::kMult,V)) ; 
-	  
-	  // Make matrix explicitly symmetric
-	  Int_t n = VCV.GetNrows() ;
-	  TMatrixDSym VCVsym(n) ;
-	  for (Int_t i=0 ; i<n ; i++) {
-	    for (Int_t j=i ; j<n ; j++) {
-	      if (i==j) {
-		VCVsym(i,j) = VCV(i,j) ;
-	      }
-	      if (i!=j) {
-		Double_t deltaRel = (VCV(i,j)-VCV(j,i))/sqrt(VCV(i,i)*VCV(j,j)) ;
-		if (fabs(deltaRel)>1e-3) {
-		  coutW(Fitting) << "RooAbsPdf::fitTo(" << GetName() << ") WARNING: Corrected covariance matrix is not (completely) symmetric: V[" << i << "," << j << "] = " 
-				 << VCV(i,j) << " V[" << j << "," << i << "] = " << VCV(j,i) << " explicitly restoring symmetry by inserting average value" << endl ;
-		}
-		VCVsym(i,j) = (VCV(i,j)+VCV(j,i))/2 ;
-	      }
-	    }
-	  }
-	  
+	  // replace C by its inverse
+	  decomp.Invert(matC); 
+	  // the class lies about the matrix being symmetric, so fill in the
+	  // part above the diagonal
+	  for (int i = 0; i < matC.GetNrows(); ++i)
+	      for (int j = 0; j < i; ++j) matC(j, i) = matC(i, j);
+	  matC.Similarity(matV);
+	  // C now contiains V C^-1 V
 	  // Propagate corrected errors to parameters objects
-	  m.applyCovarianceMatrix(VCVsym) ;
+	  m.applyCovarianceMatrix(matC);
 	}
-	
+
 	delete rw ;
 	delete rw2 ;
       }
@@ -1460,7 +1447,7 @@ RooFitResult* RooAbsPdf::chi2FitTo(RooDataHist& data, const RooLinkedList& cmdLi
 
   // Pull arguments to be passed to chi2 construction from list
   RooLinkedList fitCmdList(cmdList) ;
-  RooLinkedList chi2CmdList = pc.filterCmdList(fitCmdList,"Range,RangeWithName,NumCPU,Optimize,ProjectedObservables,AddCoefRange,SplitRange,DataError") ;
+  RooLinkedList chi2CmdList = pc.filterCmdList(fitCmdList,"Range,RangeWithName,NumCPU,Optimize,ProjectedObservables,AddCoefRange,SplitRange,DataError,Extended") ;
 
   RooAbsReal* chi2 = createChi2(data,chi2CmdList) ;
   RooFitResult* ret = chi2FitDriver(*chi2,fitCmdList) ;
@@ -2695,80 +2682,6 @@ RooPlot* RooAbsPdf::plotOn(RooPlot* frame, RooLinkedList& cmdList) const
 
   return ret ;
 }
-
-
-
-//_____________________________________________________________________________
-void RooAbsPdf::plotOnCompSelect(RooArgSet* selNodes) const
-{
-  // Helper function for plotting of composite p.d.fs. Given
-  // a set of selected components that should be plotted,
-  // find all nodes that (in)directly depend on these selected
-  // nodes. Mark all directly and indirecty selected nodes
-  // as 'selected' using the selectComp() method
-
-  // Get complete set of tree branch nodes
-  RooArgSet branchNodeSet ;
-  branchNodeServerList(&branchNodeSet) ;
-
-  // Discard any non-PDF nodes
-  TIterator* iter = branchNodeSet.createIterator() ;
-  RooAbsArg* arg ;
-  while((arg=(RooAbsArg*)iter->Next())) {
-    if (!dynamic_cast<RooAbsReal*>(arg)) {
-      branchNodeSet.remove(*arg) ;
-    }
-  }
-
-  // If no set is specified, restored all selection bits to kTRUE
-  if (!selNodes) {
-    // Reset PDF selection bits to kTRUE
-    iter->Reset() ;
-    while((arg=(RooAbsArg*)iter->Next())) {
-      ((RooAbsReal*)arg)->selectComp(kTRUE) ;
-    }
-    delete iter ;
-    return ;
-  }
-
-
-  // Add all nodes below selected nodes
-  iter->Reset() ;
-  TIterator* sIter = selNodes->createIterator() ;
-  RooArgSet tmp ;
-  while((arg=(RooAbsArg*)iter->Next())) {
-    sIter->Reset() ;
-    RooAbsArg* selNode ;
-    while((selNode=(RooAbsArg*)sIter->Next())) {
-      if (selNode->dependsOn(*arg)) {
-	tmp.add(*arg,kTRUE) ;
-      }      
-    }      
-  }
-  delete sIter ;
-
-  // Add all nodes that depend on selected nodes
-  iter->Reset() ;
-  while((arg=(RooAbsArg*)iter->Next())) {
-    if (arg->dependsOn(*selNodes)) {
-      tmp.add(*arg,kTRUE) ;
-    }
-  }
-
-  tmp.remove(*selNodes,kTRUE) ;
-  tmp.remove(*this) ;
-  selNodes->add(tmp) ;
-  coutI(Plotting) << "RooAbsPdf::plotOn(" << GetName() << ") indirectly selected PDF components: " << tmp << endl ;
-
-  // Set PDF selection bits according to selNodes
-  iter->Reset() ;
-  while((arg=(RooAbsArg*)iter->Next())) {
-    Bool_t select = selNodes->find(arg->GetName()) ? kTRUE : kFALSE ;
-    ((RooAbsReal*)arg)->selectComp(select) ;
-  }
-  
-  delete iter ;
-} 
 
 
 

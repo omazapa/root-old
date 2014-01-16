@@ -1009,7 +1009,7 @@ void TDocOutput::CreateModuleIndex()
 
       std::set<std::string>& deps = libinfo->GetDependencies();
       for (std::set<std::string>::iterator iDep = deps.begin();
-           iDep != deps.end(); ++iDep) {
+           iDep != deps.end(); ) {
          Bool_t already_indirect = kFALSE;
          for (std::set<std::string>::const_iterator iDep2 = deps.begin();
               !already_indirect && iDep2 != deps.end(); ++iDep2) {
@@ -1022,8 +1022,11 @@ void TDocOutput::CreateModuleIndex()
          }
          if (already_indirect) {
             std::set<std::string>::iterator iRemove = iDep;
-            --iDep; // otherwise we cannot do the for loop's ++iDep
-            deps.erase(*iRemove);
+            // Advance the iterator before erasing the element which invalidates the iterator.
+            ++iDep;
+            deps.erase(iRemove);
+         } else {
+            ++iDep;
          }
       } // for library dependencies of module in library
    } // for libaries

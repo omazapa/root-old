@@ -77,6 +77,10 @@ EXTRA_RAUTHFLAGS += -DOPENSSL_NO_TLSEXT
 EXTRA_RAUTHLIBS  += WSock32.lib Ws2_32.lib
 endif
 
+ifneq (,$(filter $(ARCH),win32gcc win64gcc))
+EXTRA_RAUTHLIBS  += -lz
+endif
+
 # used in the main Makefile
 ALLHDRS      += $(patsubst $(MODDIRI)/%.h,include/%.h,$(RAUTHH)) \
                 include/DaemonUtils.h

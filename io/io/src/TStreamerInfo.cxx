@@ -2087,6 +2087,12 @@ namespace {
       TString fName;
       TString fClassName;
       TString fComment;
+      Int_t   fDataType;
+
+      void SetDataType(Int_t datatype) {
+         fDataType = datatype;
+      }
+
       void SetName(const char *name) {
          fName = name;
       }
@@ -2118,7 +2124,26 @@ namespace {
        */
       Bool_t operator!=(const TMemberInfo &other) {
          if (fName != other.fName) return kTRUE;
-         if (fClassName != other.fClassName) {
+         if (fDataType < TStreamerInfo::kObject) {
+            // For simple type, let compare the data type
+            if (fDataType != other.fDataType) {
+               if ( (fDataType == 4 && other.fDataType == 16) 
+                    || (fDataType == 16 && other.fDataType == 4) ) {
+                  // long and 'long long' have the same  file format
+               } else if ( (fDataType == 14 && other.fDataType == 17) 
+                           || (fDataType == 17 && other.fDataType == 14) ) {
+                  // unsigned long and 'unsigned long long' have the same  file format
+               } else if ( (fDataType == 3 && other.fDataType == 6)
+                          ||(fDataType == 6 && other.fDataType == 3) ){
+                  // Int_t and kCounter.  As the switch from Int_t (3) to
+                  // kCounter (6) might be triggered by a derived class using
+                  // the field as an array size, the class itself has no
+                  // control on what the field type really use.
+               } else {
+                  return kTRUE;
+               }
+            } 
+         } else if (fClassName != other.fClassName) {
             if ( (fClassName == "long" && (other.fClassName == "long long" || other.fClassName == "Long64_t"))
                   || ( (fClassName == "long long" || fClassName == "Long64_t") && other.fClassName == "long") ) {
                // This is okay both have the same on file format.
@@ -2348,6 +2373,7 @@ Bool_t TStreamerInfo::CompareContent(TClass *cl, TVirtualStreamerInfo *info, Boo
          local.SetName( el->GetName() );
          local.SetClassName( el->GetTypeName() );
          local.SetComment( el->GetTitle() );
+         local.SetDataType( el->GetType() );
       }
       if (cl) {
          TDataMember *tdm = (TDataMember*)membernext();
@@ -2356,8 +2382,20 @@ Bool_t TStreamerInfo::CompareContent(TClass *cl, TVirtualStreamerInfo *info, Boo
          }
          if (tdm) {
             other.SetName( tdm->GetName() );
-            other.SetClassName( tdm->GetFullTypeName() );
+            other.SetClassName( tdm->GetTrueTypeName() );
             other.SetComment( tdm->GetTitle() );
+            if (tdm->GetDataType()) {
+               // Need to update the type for arrays.
+               if (tdm->IsaPointer()) {
+                  other.SetDataType( tdm->GetDataType()->GetType() + TVirtualStreamerInfo::kOffsetP);
+               } else {
+                  if (tdm->GetArrayDim()) {
+                     other.SetDataType( tdm->GetDataType()->GetType() + TVirtualStreamerInfo::kOffsetL);
+                  } else {
+                     other.SetDataType( tdm->GetDataType()->GetType() );
+                  }
+               }
+            }
          } else if (el==0) {
             done = kTRUE;
             break;
@@ -2371,6 +2409,7 @@ Bool_t TStreamerInfo::CompareContent(TClass *cl, TVirtualStreamerInfo *info, Boo
             other.SetName( infoel->GetName() );
             other.SetClassName( infoel->GetTypeName() );
             other.SetComment( infoel->GetTitle() );
+            other.SetDataType( infoel->GetType() );
          } else if (el==0) {
             done = kTRUE;
             break;

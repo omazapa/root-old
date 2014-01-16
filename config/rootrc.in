@@ -54,7 +54,7 @@ Root.TMemStat:            0
 Root.TMemStat.buffersize: 100000
 Root.TMemStat.maxcalls:   5000000
 #Root.TMemStat.system:    gnubuiltin
-Root.TMemStat.system:      
+Root.TMemStat.system:
 
 # Activate memory statistics (size and cnt is used to trap allocation of
 # blocks of a certain size after cnt times).
@@ -505,7 +505,7 @@ RSA.KeyType:  1
 # supported by the underlying TFile implementation. Default is yes.
 #TFile.AsyncReading:     no
 
-# Control the usage of asynchronous prefetching capabilities irrespective 
+# Control the usage of asynchronous prefetching capabilities irrespective
 # of the TFile implementation. By default it is disabled.
 #TFile.AsyncPrefetching:   no
 
@@ -632,7 +632,92 @@ XNet.ParStreamsPerPhyConn: 0
 #                         wait request can be before the client declares an error.
 # XNet.TransactionTimeout: 28800
 
+# The following env vars are handled by TNetXNGFile (new xrootd client interface)
+# and related classes (module netxng, libNetxNG.so).
+
+# Use the old xrootd client (libNetx) instead of the new (libNetxNG)
+
+XNet.UseOldClient: @useoldnetx@
+
+# NetXNG.ConnectionWindow     - A time window for the connection establishment. A
+#                               connection failure is declared if the connection
+#                               is not established within the time window. If a
+#                               connection failure happens earlier then another
+#                               connection attempt will only be made at the
+#                               beginning of the next window.
+# NetXNG.ConnectionRetry      - Number of connection attempts that should be
+#                               made (number of available connection windows)
+#                               before declaring a permanent failure.
+# NetXNG.RequestTimeout       - Default value for the time after which an error
+#                               is declared if it was impossible to get a
+#                               response to a request.
+# NetXNG.SubStreamsPerChannel - Number of streams per session.
+# NetXNG.TimeoutResolution    - Resolution for the timeout events. Ie. timeout
+#                               events will be processed only every
+#                               XRD_TIMEOUTRESOLUTION seconds.
+# NetXNG.StreamErrorWindow    - Time after which the permanent failure flags are
+#                               cleared out and a new connection may be
+#                               attempted if needed.
+# NetXNG.RunForkHandler       - Determines whether the fork handlers should be
+#                               enabled, making the API fork safe.
+# NetXNG.RedirectLimit        - Maximum number of allowed redirections.
+# NetXNG.WorkerThreads        - Number of threads processing user callbacks.
+# NetXNG.CPChunkSize          - Size of a single data chunk handled by xrdcopy.
+# NetXNG.CPParallelChunks     - Maximum number of asynchronous requests being
+#                               processed by the xrdcopy command at any given
+#                               time.
+# NetXNG.PollerPreference     - A comma separated list of poller implementations
+#                               in order of preference. The default is:
+#                               libevent,built-in.
+# NetXNG.ClientMonitor        - Path to the client monitor library.
+# NetXNG.ClientMonitorParam   - Additional optional parameters that will be
+#                               passed to the monitoring object on initialization.
+
 # Example of custom setting for the Rint application (root.exe).
 # This overrides the default specified above for a generic application.
 # Color 5 is yellow.
 Rint.Canvas.HighLightColor:      5
+
+
+# Parameters that influence the behavior of TDavixFile/TDavixSystem. These
+# classes give a comprehensive client side support for HTTP and WebDAV,
+# with all the goodies (session caching, flexible authentication, support
+# for different dialects like S3, and others)
+
+# Use old TWebFile as long as Davix is experimental
+# Davix.UseOldClient: @useoldwebfile@
+Davix.UseOldClient: yes
+
+# Verbosity level of the external Davix library
+# Davix.Debug: 0
+
+# Path to the X.509 user proxy
+# Davix.GSI.UserProxy: /my/path/my_proxy
+
+# Paths to the X.509 user certificate and key, in PEM format
+# Davix.GSI.UserCert: /my/path/my_cert
+# Davix.GSI.UserKey: /my/path/my_key
+
+# Path to the directory containing the CAs
+# Davix.GSI.CAdir: /etc/grid-security/certificates
+
+# Enable/disable the Check on the peer's certificate
+# Davix.GSI.CACheck: y
+
+# Sets the HTTP client in Grid mode, to talk to Grid HTTP SEs
+# without having to set additional parameters
+# Grid mode enable the following action:
+# - Auto-detect and use the available voms proxy certificate
+# - Add the standard grid security CAs as valid CAs
+# - Use the grid specific extensions if needed.
+# Davix.GSI.GridMode: y
+
+# Sets the Amazon S3 authentication parameters
+# Davix.S3.SecretKey: secret
+# Davix.S3.AccessKey: token
+
+# NOTE: The authentication of TDavixFile/TDavixSystem can be influenced
+# through some well known environment variables:
+# X509_USER_CERT, X509_USER_KEY, X509_USER_PROXY
+# They have the usual meaning for the X509 Grid things. The gEnv vars
+# have higher priority over the these envvars.

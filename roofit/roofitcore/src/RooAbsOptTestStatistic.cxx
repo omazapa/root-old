@@ -170,7 +170,6 @@ RooAbsOptTestStatistic::RooAbsOptTestStatistic(const RooAbsOptTestStatistic& oth
 void RooAbsOptTestStatistic::initSlave(RooAbsReal& real, RooAbsData& indata, const RooArgSet& projDeps, const char* rangeName, 
 				       const char* addCoefRangeName) 
 {
-  
   RooArgSet obs(*indata.get()) ;
   obs.remove(projDeps,kTRUE,kTRUE) ;
 
@@ -185,6 +184,10 @@ void RooAbsOptTestStatistic::initSlave(RooAbsReal& real, RooAbsData& indata, con
 
   // Attach FUNC to data set  
   _funcObsSet = _funcClone->getObservables(indata) ;
+
+  if (_funcClone->getAttribute("BinnedLikelihood")) {
+    _funcClone->setAttribute("BinnedLikelihoodActive") ;
+  }
 
   // Reattach FUNC to original parameters  
   RooArgSet* origParams = (RooArgSet*) real.getParameters(indata) ;
@@ -704,8 +707,8 @@ void RooAbsOptTestStatistic::optimizeConstantTerms(Bool_t activate, Bool_t apply
 //     _funcClone->Print("t") ;
 
 
-    // Cache constant nodes with dataset 
-    _dataClone->cacheArgs(this,_cachedNodes,_normSet) ;  
+    // Cache constant nodes with dataset - also cache entries corresponding to zero-weights in data when using BinnedLikelihood
+    _dataClone->cacheArgs(this,_cachedNodes,_normSet,!_funcClone->getAttribute("BinnedLikelihood")) ;  
 
 //     cout << "ROATS::oCT(" << GetName() << ") funcClone structure dump AFTER cacheArgs" << endl ;
 //     _funcClone->Print("t") ;
@@ -729,6 +732,11 @@ void RooAbsOptTestStatistic::optimizeConstantTerms(Bool_t activate, Bool_t apply
       } else {
 	coutI(Minimization) << " A total of " << constNodes->getSize() << " expressions have been identified as constant and will be precalculated and cached." << endl ;
       }
+//       RooFIter i = constNodes->fwdIterator() ;
+//       RooAbsArg* cnode ;
+//       while((cnode=i.next())) {
+// 	cout << cnode->IsA()->GetName() << "::" << cnode->GetName() << endl ;
+//       }      
     }
     if (actualTrackNodes.getSize()>0) {
       if (actualTrackNodes.getSize()<20) {

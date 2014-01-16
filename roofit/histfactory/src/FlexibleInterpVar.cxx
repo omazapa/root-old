@@ -28,6 +28,8 @@ END_HTML
 #include "RooRealVar.h"
 #include "RooArgList.h"
 #include "RooMsgService.h"
+#include "RooTrace.h"
+
 #include "TMath.h"
 
 #include "RooStats/HistFactory/FlexibleInterpVar.h"
@@ -47,13 +49,14 @@ FlexibleInterpVar::FlexibleInterpVar()
   _nominal = 0;
   _interpBoundary=1.;
   _logInit = kFALSE ;
+  TRACE_CREATE
 }
 
 
 //_____________________________________________________________________________
 FlexibleInterpVar::FlexibleInterpVar(const char* name, const char* title, 
 		       const RooArgList& paramList, 
-		       double nominal, vector<double> low, vector<double> high) :
+		       Double_t nominal, vector<double> low, vector<double> high) :
   RooAbsReal(name, title),
   _paramList("paramList","List of paramficients",this),
   _nominal(nominal), _low(low), _high(high), _interpBoundary(1.)
@@ -75,8 +78,53 @@ FlexibleInterpVar::FlexibleInterpVar(const char* name, const char* title,
     _interpCode.push_back(0); // default code
   }
   delete paramIter ;
+  TRACE_CREATE
 
 }
+
+//_____________________________________________________________________________
+FlexibleInterpVar::FlexibleInterpVar(const char* name, const char* title, 
+		       const RooArgList& paramList, 
+		       double nominal, const RooArgList& low, const RooArgList& high) :
+  RooAbsReal(name, title),
+  _paramList("paramList","List of paramficients",this),
+  _nominal(nominal), _interpBoundary(1.)
+{
+
+  RooFIter lowIter = low.fwdIterator() ;
+  RooAbsReal* val ; 
+  while ((val = (RooAbsReal*) lowIter.next())) {
+    _low.push_back(val->getVal()) ;
+  }
+
+  RooFIter highIter = high.fwdIterator() ;
+  while ((val = (RooAbsReal*) highIter.next())) {
+    _high.push_back(val->getVal()) ;
+  }
+  
+  
+  _logInit = kFALSE ;
+  _paramIter = _paramList.createIterator() ;
+
+
+  TIterator* paramIter = paramList.createIterator() ;
+  RooAbsArg* param ;
+  while((param = (RooAbsArg*)paramIter->Next())) {
+    if (!dynamic_cast<RooAbsReal*>(param)) {
+      coutE(InputArguments) << "FlexibleInterpVar::ctor(" << GetName() << ") ERROR: paramficient " << param->GetName() 
+			    << " is not of type RooAbsReal" << endl ;
+      assert(0) ;
+    }
+    _paramList.add(*param) ;
+    _interpCode.push_back(0); // default code
+  }
+  delete paramIter ;
+  TRACE_CREATE
+
+}
+
+
+
 
 //_____________________________________________________________________________
 FlexibleInterpVar::FlexibleInterpVar(const char* name, const char* title, 
@@ -103,6 +151,7 @@ FlexibleInterpVar::FlexibleInterpVar(const char* name, const char* title,
     _paramList.add(*param) ;
   }
   delete paramIter ;
+  TRACE_CREATE
 
 }
 
@@ -114,6 +163,7 @@ FlexibleInterpVar::FlexibleInterpVar(const char* name, const char* title) :
   // Constructor of flat polynomial function
   _logInit = kFALSE ;
   _paramIter = _paramList.createIterator() ;
+  TRACE_CREATE
 }
 
 //_____________________________________________________________________________
@@ -126,6 +176,7 @@ FlexibleInterpVar::FlexibleInterpVar(const FlexibleInterpVar& other, const char*
   // Copy constructor
   _logInit = kFALSE ;
   _paramIter = _paramList.createIterator() ;
+  TRACE_CREATE
   
 }
 
@@ -135,6 +186,7 @@ FlexibleInterpVar::~FlexibleInterpVar()
 {
   // Destructor
   delete _paramIter ;
+  TRACE_DESTROY
 }
 
 
@@ -163,6 +215,47 @@ void FlexibleInterpVar::setAllInterpCodes(int code){
   // GHL: Adding suggestion by Swagato:
   setValueDirty();
 
+}
+
+//_____________________________________________________________________________
+void FlexibleInterpVar::setNominal(Double_t newNominal){
+
+  coutW(InputArguments) << "FlexibleInterpVar::setNominal : nominal is now " << newNominal << endl ;
+  _nominal = newNominal;
+
+  setValueDirty();
+}
+
+//_____________________________________________________________________________
+void FlexibleInterpVar::setLow(RooAbsReal& param, Double_t newLow){
+
+  int index = _paramList.index(&param);
+  if(index<0){
+      coutE(InputArguments) << "FlexibleInterpVar::setLow ERROR:  " << param.GetName() 
+			    << " is not in list" << endl ;
+  } else {
+      coutW(InputArguments) << "FlexibleInterpVar::setLow :  " << param.GetName() 
+			    << " is now " << newLow << endl ;
+    _low.at(index) = newLow;
+  }
+
+  setValueDirty();
+}
+
+//_____________________________________________________________________________
+void FlexibleInterpVar::setHigh(RooAbsReal& param, Double_t newHigh){
+
+  int index = _paramList.index(&param);
+  if(index<0){
+      coutE(InputArguments) << "FlexibleInterpVar::setHigh ERROR:  " << param.GetName() 
+			    << " is not in list" << endl ;
+  } else {
+      coutW(InputArguments) << "FlexibleInterpVar::setHigh :  " << param.GetName() 
+			    << " is now " << newHigh << endl ;
+    _high.at(index) = newHigh;
+  }
+
+  setValueDirty();
 }
 
 //_____________________________________________________________________________
@@ -286,7 +379,7 @@ Double_t FlexibleInterpVar::evaluate() const
 	double pow_up_log   = _high[i] <= 0.0 ? 0.0 : pow_up*_logHi[i] ;
 	double pow_down_log = _low[i] <= 0.0 ? 0.0 : -pow_down*_logLo[i] ;
 	double pow_up_log2  = _high[i] <= 0.0 ? 0.0 : pow_up_log*_logHi[i] ;
-	double pow_down_log2= _low[i] <= 0.0 ? 0.0 : pow_down_log*_logLo[i] ;
+	double pow_down_log2= _low[i] <= 0.0 ? 0.0 : -pow_down_log*_logLo[i] ;
 	/*
 	double pow_up       = pow(_high[i]/_nominal, x0);
 	double pow_down     = pow(_low[i]/_nominal,  x0);

@@ -28,6 +28,10 @@ namespace HistFactory{
     FlexibleInterpVar() ;
     FlexibleInterpVar(const char *name, const char *title,
 		      const RooArgList& _paramList, 
+		      Double_t nominal, const RooArgList& low, const RooArgList& high);
+
+    FlexibleInterpVar(const char *name, const char *title,
+		      const RooArgList& _paramList, 
 		      double nominal, std::vector<double> low, std::vector<double> high);
 
     FlexibleInterpVar(const char *name, const char *title,
@@ -40,6 +44,9 @@ namespace HistFactory{
     void setInterpCode(RooAbsReal& param, int code);
     void setAllInterpCodes(int code);
     void setGlobalBoundary(double boundary) {_interpBoundary = boundary;}
+    void setNominal(Double_t newNominal);
+    void setLow(RooAbsReal& param, Double_t newLow);
+    void setHigh(RooAbsReal& param, Double_t newHigh);
 
     void printAllInterpCodes();
 

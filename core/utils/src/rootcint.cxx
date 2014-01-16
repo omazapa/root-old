@@ -1626,7 +1626,7 @@ int IsSTLContainer(G__DataMemberInfo &m)
    // Is this an STL container?
 
    const char *s = m.Type()->TrueName();
-   if (!s) return kNotSTL;
+   if (!s) return TClassEdit::kNotSTL;
 
    string type(s);
    int k = TClassEdit::IsSTLCont(type.c_str(),1);
@@ -1642,7 +1642,7 @@ int IsSTLContainer(G__BaseClassInfo &m)
    // Is this an STL container?
 
    const char *s = m.Name();
-   if (!s) return kNotSTL;
+   if (!s) return TClassEdit::kNotSTL;
 
    string type(s);
    int k = TClassEdit::IsSTLCont(type.c_str(),1);
@@ -3766,6 +3766,19 @@ void WriteClassCode(G__ClassInfo &cl, bool force = false)
 }
 
 //______________________________________________________________________________
+void WriteRegisterModule()
+{
+   (*dictSrcOut) << "// Direct notice to TROOT of the dictionary's loading.\n";
+   (*dictSrcOut) << "namespace {\n";
+   (*dictSrcOut) << "   static struct DictInit {\n";
+   (*dictSrcOut) << "      DictInit() {\n";
+   (*dictSrcOut) << "         ROOT::RegisterModule();\n";
+   (*dictSrcOut) << "      }\n";
+   (*dictSrcOut) << "   } __TheDictionaryInitializer;\n";
+   (*dictSrcOut) << "}\n\n";
+}
+
+//______________________________________________________________________________
 void GenerateLinkdef(int *argc, char **argv, int iv)
 {
    FILE *fl = fopen(autold, "w");
@@ -5098,6 +5111,8 @@ int main(int argc, char **argv)
       rewind(fpld);
       AddConstructorType("TRootIOCtor");
       AddConstructorType("");
+
+      WriteRegisterModule();
 
       const char* shadowNSName="ROOT";
       if (dict_type != kDictTypeCint)

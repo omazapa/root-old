@@ -185,7 +185,8 @@ public:
    virtual void     Browse(TBrowser *b);
    virtual Double_t Chi2Test(const TH1* h2, Option_t *option = "UU", Double_t *res = 0) const;
    virtual Double_t Chi2TestX(const TH1* h2, Double_t &chi2, Int_t &ndf, Int_t &igood,Option_t *option = "UU",  Double_t *res = 0) const;
-
+   
+   virtual Double_t Chisquare(TF1 * f1, Option_t *option = "") const;
    virtual Double_t ComputeIntegral();
    virtual void     DirectoryAutoAdd(TDirectory *);
    virtual Int_t    DistancetoPrimitive(Int_t px, Int_t py);
@@ -243,7 +244,7 @@ public:
 
    virtual Int_t    GetBin(Int_t binx, Int_t biny=0, Int_t binz=0) const;
    virtual void     GetBinXYZ(Int_t binglobal, Int_t &binx, Int_t &biny, Int_t &binz) const;
-   virtual Double_t GetBinCenter(Int_t bin) const {return fXaxis.GetBinCenter(bin);}
+   virtual Double_t GetBinCenter(Int_t bin) const;
    virtual Double_t GetBinContent(Int_t bin) const;
    virtual Double_t GetBinContent(Int_t binx, Int_t biny) const;
    virtual Double_t GetBinContent(Int_t binx, Int_t biny, Int_t binz) const;
@@ -253,12 +254,12 @@ public:
    virtual Double_t GetBinErrorLow(Int_t bin) const;
    virtual Double_t GetBinErrorUp(Int_t bin) const;
    virtual EBinErrorOpt  GetBinErrorOption() const { return fBinStatErrOpt; }
-   virtual Double_t GetBinLowEdge(Int_t bin) const {return fXaxis.GetBinLowEdge(bin);}
-   virtual Double_t GetBinWidth(Int_t bin) const {return fXaxis.GetBinWidth(bin);}
+   virtual Double_t GetBinLowEdge(Int_t bin) const;
+   virtual Double_t GetBinWidth(Int_t bin) const;
    virtual Double_t GetBinWithContent(Double_t c, Int_t &binx, Int_t firstx=0, Int_t lastx=0,Double_t maxdiff=0) const;
    virtual Double_t GetCellContent(Int_t binx, Int_t biny) const;
    virtual Double_t GetCellError(Int_t binx, Int_t biny) const;
-   virtual void     GetCenter(Double_t *center) const {fXaxis.GetCenter(center);}
+   virtual void     GetCenter(Double_t *center) const;
    static  Bool_t   GetDefaultSumw2();
    TDirectory      *GetDirectory() const {return fDirectory;}
    virtual Double_t GetEntries() const;
@@ -266,7 +267,7 @@ public:
    virtual TF1     *GetFunction(const char *name) const;
    virtual Int_t    GetDimension() const { return fDimension; }
    virtual Double_t GetKurtosis(Int_t axis=1) const;
-   virtual void     GetLowEdge(Double_t *edge) const {fXaxis.GetLowEdge(edge);}
+   virtual void     GetLowEdge(Double_t *edge) const;
    virtual Double_t GetMaximum(Double_t maxval=FLT_MAX) const;
    virtual Int_t    GetMaximumBin() const;
    virtual Int_t    GetMaximumBin(Int_t &locmax, Int_t &locmay, Int_t &locmaz) const;

@@ -25,6 +25,7 @@
 // algorithms for analysis of multidimensional experimental nuclear data. Acta
 // Pysica Slovaca Vol. 54/ 4 (2004), pp. 385-400.
 
+#include <climits>
 
 #include "TROOT.h"
 #include "TClass.h"
@@ -177,6 +178,8 @@ TSpectrum2Painter::~TSpectrum2Painter()
       col = gROOT->GetColor(250+i);
       if (col) delete col;
    }
+   if (fEnvelope) delete [] fEnvelope;
+   if (fEnvelopeContour) delete [] fEnvelopeContour;
 }
 
 
@@ -483,7 +486,8 @@ void TSpectrum2Painter::ColorModel(unsigned ui, unsigned ui1, unsigned ui2,
       a     = fRainbow1Step;
       a     = ui*a;
       a     = ui1+a;
-      uinc1 = (Int_t)a;
+      if (a >= UINT_MAX) uinc1 = UINT_MAX;
+      else               uinc1 = (unsigned)a;
       upom  = uinc1%256;
       i     = (uinc1-upom)/256;
       if ((i%2)==0) uinc1 = upom;

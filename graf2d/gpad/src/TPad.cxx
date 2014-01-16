@@ -400,7 +400,7 @@ TLegend *TPad::BuildLegend(Double_t x1, Double_t y1, Double_t x2, Double_t y2,
    // primitives in a TPad. Only those deriving from TAttLine,
    // TAttMarker and TAttFill are added, excluding TPave and TFrame
    // derived classes. x1, y1, x2, y2 are the TLegend coordinates.
-   // title is the legend title. By default it is " ". The caller 
+   // title is the legend title. By default it is " ". The caller
    // program owns the returned TLegend.
    //
    // If the pad contains some TMultiGraph or THStack the individual
@@ -3194,8 +3194,10 @@ void TPad::PaintBox(Double_t x1, Double_t y1, Double_t x2, Double_t y2, Option_t
 
                GetPainter()->SetOpacity(style - 4000);
             }
-         } else {
+         } else if (style >= 1000 && style <= 1999) {
             GetPainter()->DrawBox(x1, y1, x2, y2, TVirtualPadPainter::kFilled);
+         } else {
+            GetPainter()->DrawBox(x1, y1, x2, y2, TVirtualPadPainter::kHollow);
          }
          if (option[0] == 'l') GetPainter()->DrawBox(x1, y1, x2, y2, TVirtualPadPainter::kHollow);
       } else {
@@ -4171,7 +4173,7 @@ static Bool_t ContainsTImage(TList *li)
 //______________________________________________________________________________
 void TPad::Print(const char *filenam, Option_t *option)
 {
-   // Save Pad contents in a file in one of various formats.
+   // Save Canvas contents in a file in one of various formats.
    //
    //   if option  =  0   - as "ps"
    //               "ps"  - Postscript file is produced (see special cases below)
@@ -4198,10 +4200,10 @@ void TPad::Print(const char *filenam, Option_t *option)
    //     filename = 0 - filename  is defined by the GetName and its
    //                    extension is defined with the option
    //
-   //   When Postscript output is selected (ps, eps), the pad is saved
-   //   to filename.ps or filename.eps. The aspect ratio of the pad is preserved
+   //   When Postscript output is selected (ps, eps), the canvas is saved
+   //   to filename.ps or filename.eps. The aspect ratio of the canvas is preserved
    //   on the Postscript file. When the "ps" option is selected, the Postscript
-   //   page will be landscape format if the pad is in landscape format, otherwise
+   //   page will be landscape format if the canvas is in landscape format, otherwise
    //   portrait format is selected.
    //   The physical size of the Postscript page is the one selected in the
    //   current style. This size can be modified via TStyle::SetPaperSize.
@@ -4267,7 +4269,7 @@ void TPad::Print(const char *filenam, Option_t *option)
    //
    // As before, the same macro is valid for PDF files.
    //
-   // It is possible to print a pad into an animated GIF file by specifying the
+   // It is possible to print a canvas into an animated GIF file by specifying the
    // file name as "myfile.gif+" or "myfile.gif+NN", where NN*10ms is delay
    // between the subimages' display. If NN is ommitted the delay between
    // subimages is zero. Each picture is added in the animation thanks to a loop
@@ -4281,9 +4283,16 @@ void TPad::Print(const char *filenam, Option_t *option)
    //    }// end loop
    //
    // The delay between each frame must be specified in each Print() statement.
+   // If the file "myfile.gif" already exists, the new frame are appended at
+   // the end of the file.
 
    TString psname, fs1, fs2;
    char *filename;
+   
+   if (!this->InheritsFrom(TCanvas::Class())) {
+      Error("Print", "is working for TCanvas, not for TPad");
+      return;
+   }
 
    // "[" and "]" are special characters for ExpandPathName. When they are at the end
    // of the file name (see help) they must be removed before doing ExpandPathName.
@@ -4456,7 +4465,7 @@ void TPad::Print(const char *filenam, Option_t *option)
 
       return;
    }
-   
+
    //==============Save pad/canvas as a TeX file================================
    if (strstr(opt,"tex")) {
       gVirtualPS = (TVirtualPS*)gROOT->GetListOfSpecials()->FindObject(psname);

@@ -25,6 +25,10 @@ XROOTDDIRL   := $(XRDLIBDIR)
 endif
 endif
 
+ifneq (,$(filter $(ARCH),win32gcc win64gcc))
+AUTHLIBS      += -lz
+endif
+
 ifeq ($(PLATFORM),win32)
 
 ##### XrdProofd plugin ####

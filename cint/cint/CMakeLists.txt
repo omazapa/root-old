@@ -28,7 +28,9 @@ elseif(ROOT_PLATFORM STREQUAL macosx)
   list(APPEND CINT_CXX_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/src/dict/libstrm.cxx )
 elseif(ROOT_PLATFORM STREQUAL win32)
   list(APPEND CINT_CXX_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/src/config/winnt.cxx)
-  if(VC_MAJOR EQUAL 16)
+  if(VC_MAJOR EQUAL 17)
+    list(APPEND CINT_CXX_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/src/dict/vc11strm.cxx)
+  elseif(VC_MAJOR EQUAL 16)
     list(APPEND CINT_CXX_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/src/dict/vc10strm.cxx)
   elseif(VC_MAJOR EQUAL 13 AND VC_MINOR EQUAL 10)
     list(APPEND CINT_CXX_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/src/dict/vc7strm.cxx)
@@ -88,7 +90,7 @@ add_custom_target(IOSENUM_H
    COMMAND cmake -E copy ${CMAKE_CURRENT_BINARY_DIR}/iosenum.h  ${HEADER_OUTPUT_PATH}/iosenum.h
    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/iosenum.h 
 )
-install(FILES ${HEADER_OUTPUT_PATH}/iosenum.h DESTINATION cint/cint/include)
+install(FILES ${HEADER_OUTPUT_PATH}/iosenum.h DESTINATION ${CMAKE_INSTALL_CINTINCDIR}/cint/include)
 
 set_target_properties(IOSENUM_H PROPERTIES FOLDER Builtins)
 #---special compile settings------------------------------------------------------------------------------
@@ -136,24 +138,24 @@ endif()
 ROOT_LINKER_LIBRARY(Cint loadfile.cxx LIBRARIES Cint_static ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
 
 #---Create the cint cint executable-------------------------------------------------------------------------
-ROOT_EXECUTABLE(cint.exe ${CMAKE_CURRENT_SOURCE_DIR}/main/cppmain.cxx LIBRARIES Cint)
+ROOT_EXECUTABLE(cint.exe ${CMAKE_CURRENT_SOURCE_DIR}/main/cppmain.cxx LIBRARIES Cint NOINSTALL)
 
 #---Create the temporary cint_tmp executable----------------------------------------------------------------
 ROOT_EXECUTABLE(cint_tmp ${CMAKE_CURRENT_SOURCE_DIR}/main/cppmain.cxx 
-                         ${CMAKE_CURRENT_BINARY_DIR}/loadfile_tmp.cxx LIBRARIES Cint_static ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
+                         ${CMAKE_CURRENT_BINARY_DIR}/loadfile_tmp.cxx LIBRARIES Cint_static ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS} NOINSTALL)
 
 #---Trick to avoid building all dictionaties when CINT is changed-------------------------------------------
 add_custom_target(CINTTARGET DEPENDS cint_tmp)
 
 #---Create the makecint executable--------------------------------------------------------------------------
-ROOT_EXECUTABLE(makecint ${CMAKE_SOURCE_DIR}/cint/tool/makecint.cxx LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
+ROOT_EXECUTABLE(makecint ${CMAKE_SOURCE_DIR}/cint/tool/makecint.cxx LIBRARIES ${CMAKE_THREAD_LIBS_INIT} NOINSTALL)
 
 #---Installation--------------------------------------------------------------------------------------------
 ROOT_INSTALL_HEADERS()
 if(NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_INSTALL_PREFIX)
-  install(DIRECTORY lib     DESTINATION cint/cint PATTERN ".dll" EXCLUDE PATTERN ".svn" EXCLUDE) 
-  install(DIRECTORY include DESTINATION cint/cint PATTERN ".dll" EXCLUDE PATTERN ".svn" EXCLUDE) 
-  install(DIRECTORY stl     DESTINATION cint/cint PATTERN ".dll" EXCLUDE PATTERN ".svn" EXCLUDE) 
+  install(DIRECTORY lib     DESTINATION ${CMAKE_INSTALL_CINTINCDIR}/cint PATTERN ".dll" EXCLUDE PATTERN ".svn" EXCLUDE)
+  install(DIRECTORY include DESTINATION ${CMAKE_INSTALL_CINTINCDIR}/cint PATTERN ".dll" EXCLUDE PATTERN ".svn" EXCLUDE)
+  install(DIRECTORY stl     DESTINATION ${CMAKE_INSTALL_CINTINCDIR}/cint PATTERN ".dll" EXCLUDE PATTERN ".svn" EXCLUDE)
 endif()
 
 

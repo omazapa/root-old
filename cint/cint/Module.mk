@@ -119,18 +119,22 @@ CINTS2       += $(MODDIRSD)/fakestrm.cxx
 endif
 ifeq ($(PLATFORM),win32)
 CINTS2       += $(MODDIRS)/config/winnt.cxx
-ifeq ($(VC_MAJOR),16)
-  CINTS2       += $(MODDIRSD)/vc10strm.cxx
+ifeq ($(VC_MAJOR),17)
+  CINTS2       += $(MODDIRSD)/vc11strm.cxx
 else
- ifeq ($(VC_MAJOR).$(VC_MINOR),13.10)
-    CINTS2       += $(MODDIRSD)/vc7strm.cxx
- else
-  ifeq ($(find $(VC_MAJOR),13 12 11 10 9 8 7 6 5 4 3 2 1),)
-    CINTS2       += $(MODDIRSD)/vc7strm.cxx
+  ifeq ($(VC_MAJOR),16)
+    CINTS2       += $(MODDIRSD)/vc10strm.cxx
   else
-    CINTS2       += $(MODDIRSD)/iccstrm.cxx
+   ifeq ($(VC_MAJOR).$(VC_MINOR),13.10)
+      CINTS2       += $(MODDIRSD)/vc7strm.cxx
+   else
+    ifeq ($(find $(VC_MAJOR),13 12 11 10 9 8 7 6 5 4 3 2 1),)
+      CINTS2       += $(MODDIRSD)/vc7strm.cxx
+    else
+      CINTS2       += $(MODDIRSD)/iccstrm.cxx
+    endif
+   endif
   endif
- endif
 endif
 endif
 ifeq ($(CXXCMD),icc)
@@ -156,6 +160,10 @@ endif
 ifneq ($(CLANG_MAJOR),)
 CINTS2       := $(filter-out $(MODDIRSD)/libstrm.%,$(CINTS2))
 CINTS2       += $(MODDIRSD)/gcc4strm.cxx
+endif
+ifeq ($(LIBCXX),yes)
+CINTS2       := $(filter-out $(MODDIRSD)/gcc4strm.%,$(CINTS2))
+CINTS2       += $(MODDIRSD)/libcxxstrm.cxx
 endif
 ifeq ($(CXXCMD),xlC)
 ifeq ($(PLATFORM),macosx)
@@ -203,7 +211,7 @@ endif
 endif
 
 # used in the main Makefile
-ALLHDRS     += $(CINTHT)
+ALLHDRS     += $(CINTHT) $(CINTINCLUDES)
 
 CINTSIZEFLAGS :=
 ifneq ($(CINTMAXSTRUCT),)
@@ -344,6 +352,10 @@ $(call stripsrc,$(CINTDIRS)/loadfile_tmp.o): $(CINTCONF) $(ORDER_) $(CINTINCLUDE
 $(call stripsrc,$(CINTDIRS)/loadfile_tmp.o): CINTCXXFLAGS += -UR__HAVE_CONFIG -DROOTBUILD
 $(call stripsrc,$(CINTDIRS)/loadfile_tmp.o) $(CINTO): OPT := $(filter-out -Wshadow,$(OPT))
 $(call stripsrc,$(CINTDIRS)/loadfile_tmp.o) $(CINTO): CXXFLAGS:=$(filter-out -Wshadow,$(CXXFLAGS))
+ifeq ($(MACOSX_TMPNAM_DEPRECATED),yes)
+$(call stripsrc,$(CINTDIRS)/loadfile_tmp.o) $(CINTO): CINTCXXFLAGS += -Wno-deprecated-declarations
+$(call stripsrc,$(CINTDIRS)/loadfile_tmp.o) $(CINTO): CINTCFLAGS += -Wno-deprecated-declarations
+endif
 
 $(call stripsrc,$(CINTDIRSD)/stdstrct.o):    CINTCXXFLAGS += -I$(CINTDIRL)/stdstrct
 

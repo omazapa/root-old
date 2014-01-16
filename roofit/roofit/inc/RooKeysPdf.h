@@ -32,6 +32,9 @@ public:
   RooKeysPdf(const char *name, const char *title,
              RooAbsReal& x, RooDataSet& data, Mirror mirror= NoMirror,
 	     Double_t rho=1);
+  RooKeysPdf(const char *name, const char *title,
+             RooAbsReal& x, RooRealVar& xdata, RooDataSet& data, Mirror mirror= NoMirror,
+	     Double_t rho=1);
   RooKeysPdf(const RooKeysPdf& other, const char* name=0);
   virtual TObject* clone(const char* newname) const {return new RooKeysPdf(*this,newname); }
   virtual ~RooKeysPdf();
@@ -50,9 +53,10 @@ protected:
   Double_t evaluate() const;
 
 private:
+  // how far you have to go out in a Gaussian until it is smaller than the
+  // machine precision
+  static const Double_t _nSigma; //!
   
-  Double_t evaluateFull(Double_t x) const;
-
   Int_t _nEvents;
   Double_t *_dataPts;  //[_nEvents]
   Double_t *_dataWgts; //[_nEvents]

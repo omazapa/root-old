@@ -42,6 +42,7 @@
 #include "RooRealIntegral.h"
 #include "RooMsgService.h"
 #include "RooNameReg.h"
+#include "RooTrace.h"
 #include <memory>
 #include <algorithm>
 
@@ -61,6 +62,7 @@ RooRealSumPdf::RooRealSumPdf()
   _coefIter  = _coefList.createIterator() ;
   _extended = kFALSE ;
   _doFloor = kFALSE ;
+  TRACE_CREATE
 }
 
 
@@ -78,6 +80,7 @@ RooRealSumPdf::RooRealSumPdf(const char *name, const char *title) :
   // Constructor with name and title
   _funcIter   = _funcList.createIterator() ;
   _coefIter  = _coefList.createIterator() ;
+  TRACE_CREATE
 }
 
 
@@ -104,6 +107,7 @@ RooRealSumPdf::RooRealSumPdf(const char *name, const char *title,
   _funcList.add(func1) ;  
   _funcList.add(func2) ;
   _coefList.add(coef1) ;
+  TRACE_CREATE
 
 }
 
@@ -167,6 +171,7 @@ RooRealSumPdf::RooRealSumPdf(const char *name, const char *title, const RooArgLi
   
   delete funcIter ;
   delete coefIter  ;
+  TRACE_CREATE
 }
 
 
@@ -186,6 +191,7 @@ RooRealSumPdf::RooRealSumPdf(const RooRealSumPdf& other, const char* name) :
 
   _funcIter  = _funcList.createIterator() ;
   _coefIter = _coefList.createIterator() ;
+  TRACE_CREATE
 }
 
 
@@ -196,6 +202,8 @@ RooRealSumPdf::~RooRealSumPdf()
   // Destructor
   delete _funcIter ;
   delete _coefIter ;
+
+  TRACE_DESTROY
 }
 
 
@@ -259,7 +267,7 @@ Double_t RooRealSumPdf::evaluate() const
   if (value<0 && (_doFloor || _doFloorGlobal)) {
     value = 0 ;
   }
-
+  
   return value ;
 }
 
@@ -394,8 +402,8 @@ Double_t RooRealSumPdf::analyticalIntegralWN(Int_t code, const RooArgSet* normSe
     Double_t coefVal = coef->getVal(normSet2) ;
     if (coefVal) {
       assert(func);
-      if (func->isSelectedComp()) {
-    assert(funcInt);
+      if (normSet2 ==0 || func->isSelectedComp()) {
+	assert(funcInt);
 	value += funcInt->getVal()*coefVal ;
       }
       lastCoef -= coef->getVal(normSet2) ;
@@ -405,7 +413,7 @@ Double_t RooRealSumPdf::analyticalIntegralWN(Int_t code, const RooArgSet* normSe
   if (!_haveLastCoef) {
     // Add last func with correct coefficient
     funcInt = (RooAbsReal*) funcIntIter.next() ;
-    if (func->isSelectedComp()) {
+    if (normSet2 ==0 || func->isSelectedComp()) {
       assert(funcInt);
       value += funcInt->getVal()*lastCoef ;
     }
@@ -450,7 +458,6 @@ Double_t RooRealSumPdf::analyticalIntegralWN(Int_t code, const RooArgSet* normSe
 //_____________________________________________________________________________
 Double_t RooRealSumPdf::expectedEvents(const RooArgSet* nset) const
 {
-  //  return getNorm(nset) ;
   Double_t n = getNorm(nset) ;  
   if (n<0) {
     logEvalError("Expected number of events is negative") ;

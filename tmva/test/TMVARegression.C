@@ -36,7 +36,6 @@
 #include "TSystem.h"
 #include "TROOT.h"
 
-#include "TMVARegGui.C"
 
 #if not defined(__CINT__) || defined(__MAKECINT__)
 #include "TMVA/Tools.h"
@@ -59,6 +58,14 @@ void TMVARegression( TString myMethodList = "" )
    //---------------------------------------------------------------
    // This loads the library
    TMVA::Tools::Instance();
+
+   // to get access to the GUI and all tmva macros
+   TString tmva_dir(TString(gRootDir) + "/tmva");
+   if(gSystem->Getenv("TMVASYS"))
+      tmva_dir = TString(gSystem->Getenv("TMVASYS"));
+   gROOT->SetMacroPath(tmva_dir + "/test/:" + gROOT->GetMacroPath() );
+   gROOT->ProcessLine(".L TMVARegGui.C");
+
 
    // Default MVA methods to be trained + tested
    std::map<std::string,int> Use;
@@ -255,7 +262,7 @@ void TMVARegression( TString myMethodList = "" )
 
    if (Use["BDTG"])
      factory->BookMethod( TMVA::Types::kBDT, "BDTG",
-                           "!H:!V:NTrees=2000::BoostType=Grad:Shrinkage=0.1:UseBaggedGrad:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:MaxDepth=4" );
+                           "!H:!V:NTrees=2000::BoostType=Grad:Shrinkage=0.1:UseBaggedBoost:BaggedSampleFraction=0.5:nCuts=20:MaxDepth=3:MaxDepth=4" );
    // --------------------------------------------------------------------------------------------------
 
    // ---- Now you can tell the factory to train, test, and evaluate the MVAs

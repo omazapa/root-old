@@ -51,11 +51,13 @@ options="                    \
    enable_builtin_zlib       \
    enable_builtin_lzma       \
    enable_cxx11              \
+   enable_libcxx             \
    enable_castor             \
    enable_chirp              \
    enable_cintex             \
    enable_cling              \
    enable_cocoa              \
+   enable_davix              \
    enable_dcache             \
    enable_explicitlink       \
    enable_fink               \
@@ -140,6 +142,7 @@ done
 for c in $options ; do eval ${c}_explicit="" ; done
 
 enable_cxx11=no
+enable_libcxx=no
 enable_cling=no
 enable_cocoa=no
 enable_afs=no
@@ -227,6 +230,7 @@ MINUIT2          \
 TABLE            \
 XMLDIR           \
 ROOTDICTTYPE     \
+DAVIX            \
 "
 configenvvars=
 for c in $envvars ; do
@@ -355,7 +359,7 @@ check_libpic() {
 
 #_____________________________________________________________________
 check_libcompat() {
-    # This function will try to find out if a library [$1] contains 
+    # This function will try to find out if a library [$1] contains
     # compatible 64 bit or 32 bit code matching the selected architecture.
     # Currently only MacOS X supports universal libs.
     # The result of the check is stored in is_libcompat, 1 if true,
@@ -398,6 +402,78 @@ check_libcompat() {
     else
         is_libnotcompat=1
         logmsg " is a not-compatible library"
+    fi
+}
+
+#_____________________________________________________________________
+check_libcxxcompat() {
+    # This function will try to find out if a library [$1] is linked
+    # against a compatible C++ run-time library (either libstdc++ or libc++).
+    # Currently only MacOS X and Linux support libc++ and libstdc++.
+    # The result of the check is stored in is_libcxxcompat, 1 if true,
+    # 0 otherwise, which should be immediately copied, since the variable
+    # will be overwritten at next invocation of this function.
+    # To avoid this check, in case std types are not used in the public
+    # API of the library, set skipchecklibcxxcompat="yes".
+
+    is_libcxxcompat=1
+    ret=0
+
+    # Assert that we got enough arguments
+    if test $# -ne 1 ; then
+        echo "check_libcxxcompat: not 1 argument"
+        return 1
+    fi
+
+    # Can we skip the check in case library has no std C++ in public API
+    if test "x$skipchecklibcxxcompat" = "xyes"; then
+        skipchecklibcxxcompat=""
+        logmsg "check_libcxxcompat: skipping check for $1"
+        return
+    fi
+
+    # Save arguments in logical names
+    chklibcxxcompat=$1
+    logmsg "Checking if $chklibcxxcompat is linked against compatible C++ run-time"
+
+    if test "x$enable_libcxx" = "xyes"; then
+        case $arch in
+        macosx*)
+            logmsg " otool -L $chklibcxxcompat | grep libstdc++"
+            if otool -L $chklibcxxcompat | grep 'libstdc++' > /dev/null 2>& 1 ; then
+                ret=1
+            fi
+            ;;
+        linux*)
+            logmsg " ldd $chklibcxxcompat | grep libstdc++"
+            if ldd $chklibcxxcompat | grep 'libstdc++' > /dev/null 2>& 1 ; then
+                ret=1
+            fi
+            ;;
+        esac
+    else
+        case $arch in
+        macosx*)
+            logmsg " otool -L $chklibcxxcompat | grep libc++"
+            if otool -L $chklibcxxcompat | grep 'libc++' > /dev/null 2>& 1 ; then
+                ret=1
+            fi
+            ;;
+        linux*)
+            logmsg " ldd $chklibcxxcompat | grep libc++"
+            if ldd $chklibcxxcompat | grep 'libc++' > /dev/null 2>& 1 ; then
+                ret=1
+            fi
+            ;;
+        esac
+    fi
+
+    logmsg " result: $ret"
+    if test $ret -eq 1 ; then
+        is_libcxxcompat=0
+        logmsg " is linked against not-compatible C++ run-time library"
+    else
+        logmsg " is linked against compatible C++ run-time library"
     fi
 }
 
@@ -596,6 +672,12 @@ check_library() {
                                     break 4
                                 fi
                             fi
+                            if test "x$checklibcxxcompat" = "xyes" ; then
+                                check_libcxxcompat $n
+                                if test $is_libcxxcompat -eq 0 ; then
+                                    break 4
+                                fi
+                            fi
                             found_dir=$l
                             found_lib=$j
                             if test "x$arch" = "xlinux"; then
@@ -653,14 +735,14 @@ check_library() {
 
         if (test "x$found_lib" = "x$flib" && test "x$shared" = "xno") || \
            test "x$maclib" = "xyes" ; then
-                found_raw_lib=${found_lib}
+            found_raw_lib=${found_lib}
             found_lib=${found_dir}/${found_lib}
             found_raw_dir=${found_dir}
             found_dir=""
         else
             found_raw_lib=${found_lib}
             if test ! "x$shared" = "xstaticonly" ; then
-              found_lib=`echo $found_lib | sed 's|^lib\(.*\)\..*|-l\1|'`
+                found_lib=`echo $found_lib | sed 's|^lib\(.*\)\..*|-l\1|'`
             fi
             found_raw_dir=${found_dir}
             if test ! "x$shared" = "xstaticonly" ; then
@@ -1501,12 +1583,14 @@ enable/disable options, prefix with either --enable- or --disable-
   builtin-pcre       Built included libpcre, or use system libpcre
   builtin-zlib       Built included libz, or use system libz
   builtin-lzma       Built included liblzma, or use system liblzma
-  c++11              Build using C++11 compatible mode, requires gcc > 4.7.x or clang
+  cxx11              Build using C++11 compatible mode, requires gcc > 4.7.x or clang
+  libcxx             Build using libc++, required by clang cxx11 option (MacOS X only, for the time being)
   castor             CASTOR support, requires libshift from CASTOR >= 1.5.2
   chirp              Chirp filesystem support, requires cctools >= 3.2.2
   cintex             Build the libCintex Reflex interface library
   cling              Use cling as interpreter backend (experimental!), needs --with-llvm-config
   cocoa              Use native Cocoa/Quartz graphics backend (MacOS X only)
+  davix              DavIx library for HTTP/WEBDAV access
   dcache             dCache support, requires libdcap from DESY
   explicitlink       Explicitly link with all dependent libraries
   fink               Use libraries from an extra MacOS X package manager (Fink, MacPorts, ...) (default: enabled)
@@ -1532,7 +1616,7 @@ enable/disable options, prefix with either --enable- or --disable-
   oracle             Oracle support, requires libocci
   pgsql              PostgreSQL support, requires libpq
   pythia6            Pythia6 EG support, requires libPythia6
-  pythia8            Pythia8 EG support, requires libPythia8
+  pythia8            Pythia8 EG support, requires libPythia8 >= 8180
   python             Python ROOT bindings, requires python >= 2.2
   qt                 Qt graphics backend, requires libqt >= 4.x
   qtgsi              GSI's Qt integration, requires libqt >= 3
@@ -1584,6 +1668,8 @@ with options, prefix with --with-, enables corresponding support
   chirp-incdir       Chirp support, location of chirp_reli.h
   chirp-libdir       Chirp support, location of libchirp_client
   cppunit            Cppunit testing, directory of the cppunit installation
+  davix-incdir       DavIx support, location of davix.hpp
+  davix-libdir       DavIx support, location of libdavix
   dcap-incdir        dCache support, location of dcap.h
   dcap-libdir        dCache support, location of libdcap
   dicttype           dictionary type: "cint" (default), "reflex", or "gccxml"
@@ -1782,13 +1868,15 @@ solaris64CC5)
 macosx*)
    logmsg "Will check for compatible libraries"
    checklibcompat="yes"
+   logmsg "Will check for compatible C++ run-time libraries"
+   checklibcxxcompat="yes"
    if test "x$macosxvers" = "x"; then
       # get most recent SDK version
       macosxminor=`sw_vers | sed -n 's/ProductVersion://p' | cut -d . -f 2`
       macosxvers=10.$macosxminor
-      # make available to conftest.mk scripts
-      export MACOSXVERS=$macosxvers
    fi
+   # make available to conftest.mk scripts
+   export MACOSXVERS=$macosxvers
    ;;
 ios*)
    logmsg "Will check iOS SDK libraries"
@@ -1797,8 +1885,15 @@ ios*)
       # get most recent SDK version
       iosvers=`xcodebuild -showsdks | sed -n '/iphoneos/s/.*iOS //p' | sed 's/ .*//'|awk 'END{print}'`
    fi
+   if [ `echo $iosvers | cut -d . -f 1` -ge 7 ]; then
+      ios7=yes
+   fi
    xcodepath=`/usr/bin/xcode-select -print-path`
-   iossdk=$xcodepath/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS$iosvers.sdk
+   if test "x$arch" = "xios"; then
+      iossdk=$xcodepath/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS$iosvers.sdk
+   else
+      iossdk=$xcodepath/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator$iosvers.sdk
+   fi
    result "$iossdk"
    if [ ! -d $iossdk ]; then
        result "`basename $0`: no iOS SDK found at $iossdk"
@@ -1806,6 +1901,9 @@ ios*)
        result "or make sure the desired SDK version is installed"
        exit 1
    fi
+   # make available to conftest.mk scripts
+   export IOSSDK=$iossdk
+   export IOSVERS=$iosvers
    enable_cintex="no"
    enable_reflex="no"
    enable_genvector="no"
@@ -1853,6 +1951,9 @@ if test "x$platform" = "xmacosx" ; then
    if [ `sw_vers | sed -n 's/ProductVersion://p' | cut -d . -f 2` -ge 8 ]; then
       macosx108=yes
    fi
+   if [ `sw_vers | sed -n 's/ProductVersion://p' | cut -d . -f 2` -ge 9 ]; then
+      macosx109=yes
+   fi
 fi
 
 if test "x$platform" = "xlinux" ; then
@@ -1866,7 +1967,7 @@ if test "x$platform" = "xlinux" ; then
        fi
        if lsb_release -d | grep -i 'mint' > /dev/null 2>& 1; then
           linuxdist="multiarch"
-       fi 
+       fi
     fi
 
     debmultiarch=
@@ -1945,6 +2046,8 @@ if test $# -gt 0 ; then
       --with-cint-maxtypedef=*) cintmaxtypedef=$optarg;;
       --with-cint-longline=*)  cintlongline=$optarg  ;;
       --with-cppunit=*)        cppunit=$optarg       ;;
+      --with-davix-incdir=*)   davixincdir=$optarg   ; enable_davix="yes"   ;;
+      --with-davix-libdir=*)   davixlibdir=$optarg   ; enable_davix="yes"   ;;
       --with-dcap-incdir=*)    dcapincdir=$optarg    ; enable_dcache="yes"  ;;
       --with-dcap-libdir=*)    dcaplibdir=$optarg    ; enable_dcache="yes"  ;;
       --with-dicttype=*)       dicttype=$optarg      ;;
@@ -2367,9 +2470,44 @@ if test "x$enable_cxx11" = "xyes"; then
     if test $cxxopt_result -eq 0 ; then
         enable_cxx11="no"
 	result "no"
+        result "`basename $0`: c++11 mode is requested but the current compiler does not support it."
+        exit 1
     else
 	usecxx11="define"
+        # on OS X libcxx is required for C++11 support with clang
+        # so turn the option on when using clang
+        if test "x$platform" = "xmacosx" && echo $altcxx | grep 'clang++' > /dev/null 2>&1; then
+            enable_libcxx="yes"
+        fi
 	result "yes"
+    fi
+fi
+
+######################################################################
+#
+### echo %%% libc++ - compile and link using libc++
+#
+# needs gcc > 4.7.x or clang
+
+# OSX 10.9 only has libc++ with clang so make sure this option is turned on
+if test "x$macosx109" = "xyes" && echo $altcxx | grep 'clang++' > /dev/null 2>&1; then
+    enable_libcxx="yes"
+fi
+# iOS 7.0 only has libc++ with clang so make sure this option is turned on
+if test "x$ios7" = "xyes" && echo $altcxx | grep 'clang++' > /dev/null 2>&1; then
+    enable_libcxx="yes"
+fi
+
+uselibcxx="undef"
+if test "x$enable_libcxx" = "xyes" ; then
+    message "Checking whether libc++ is supported"
+    check_cxxopt -stdlib=libc++
+    if test $cxxopt_result -eq 0 ; then
+        enable_libcxx="no"
+        result "no"
+    else
+        uselibcxx="define"
+        result "yes"
     fi
 fi
 
@@ -2829,6 +2967,7 @@ if test ! "x$enable_opengl" = "xno" && test ! "x$platform" = "xwin32" ; then
 	opengllib="-dylib_file /usr/X11R6/lib/libGL.dylib:/usr/X11R6/lib/libGL.dylib -lGL"
     fi
 
+    skipchecklibcxxcompat="yes"
     check_library "libGLU libMesaGLU" "$enable_shared" \
         "$keep" $opengllibdirs
     openglulib=$found_lib
@@ -3068,10 +3207,13 @@ if test ! "x$enable_oracle" = "xno"; then
     check_library "libocci oraocci10" "$enable_shared" "$keeplibdir" \
        $ORACLE ${ORACLE:+$ORACLE/lib} $ORACLELIBDIR \
        /usr/local/lib /usr/lib /usr/lib/oracle/*/client/lib
-    oraclelib="$oraclelib $found_lib"
+    if test "x$found_lib" = "x"; then
+	oraclelib=""
+    elif test ! "x$oraclelib" = "x"; then
+        oraclelib="$oraclelib $found_lib"
+    fi
 
-    # space in "x " is intentional
-    if test "x$oracleincdir" = "x" || test "x$oraclelib" = "x "; then
+    if test "x$oracleincdir" = "x" || test "x$oraclelib" = "x"; then
         enable_oracle="no"
     fi
 fi
@@ -3872,11 +4014,11 @@ check_explicit "$enable_pythia6" "$enable_pythia6_explicit" \
 #
 # (See http://root.cern.ch and Lund)
 #
-# Check for libpythia8
+# Check for libpythia8 >= 8180
 #
 if test ! "x$enable_pythia8" = "xno" ; then
     # Check for PYTHIA8 include and library
-    check_header "Pythia.h" "$pythia8incdir" \
+    check_header "Pythia8/Pythia.h" "$pythia8incdir" \
         $PYTHIA8 ${PYTHIA8:+$PYTHIA8/include} \
         /opt/pythia8/include /usr/local/include /usr/include /usr/include/pythia
     pythia8incdir=$found_dir
@@ -3932,6 +4074,43 @@ if test ! "x$enable_dcache" = "xno" ; then
 fi
 check_explicit "$enable_dcache" "$enable_dcache_explicit" \
      "Explicitly required dCache dependencies not fulfilled"
+
+######################################################################
+#
+### echo %%% DavIx Support - Third party libraries
+#
+useoldwebfile="yes"
+if test ! "x$enable_davix" = "xno" ; then
+    check_header "davix.hpp" "$davixincdir" \
+        $DAVIX ${DAVIX:+$DAVIX/include/davix} \
+        /usr/local/include/davix \
+        /usr/include/davix
+    davixincdir=$found_dir
+
+    check_library "libdavix" "$enable_shared" "$davixlibdir" \
+        $DAVIX ${DAVIX:+$DAVIX/lib} \
+        /usr/lib /usr/local
+    davixlib=$found_lib
+    davixlibdir=$found_dir
+
+    if test ! "x$davixlib" = "x" ; then
+        check_symbol davix_logger "$davixlib" "$davixlibdir"
+        if test  $found_symbol -eq 0 ; then
+            result "### Need davix_posix_stat in libdavix"
+            davixlib=
+            davixlibdir=
+            davixincdir=
+        fi
+    fi
+
+    if test "x$davixincdir" = "x" || test "x$davixlib" = "x"; then
+        enable_davix="no"
+    else
+        useoldwebfile="no"
+    fi
+fi
+check_explicit "$enable_davix" "$enable_davix_explicit" \
+     "Explicitly required DavIx dependencies not fulfilled"
 
 ######################################################################
 #
@@ -4563,7 +4742,7 @@ if test "x$enable_xrootd" = "xyes" ; then
    xrdcomm=""
    vercomm=""
    extraxrdflags=""
-   
+
    # Localize the version header; priority to specific inc and lib settings,
    # followed by global dir setting and standard paths
    xrdincone=""
@@ -4594,13 +4773,13 @@ if test "x$enable_xrootd" = "xyes" ; then
    if test ! "x$found_hdr" = "x" ; then
       xrdinc="$found_dir/$found_hdr"
       # Find out which path was the good one
-      if test "x$xrdinc" = "x$xrdincone" ; then 
+      if test "x$xrdinc" = "x$xrdincone" ; then
          xrdincdir="$found_dir"
          xrdlibdir="$xrdlibone"
-      elif test "x$xrdinc" = "x$xrdinctwoa" ; then 
+      elif test "x$xrdinc" = "x$xrdinctwoa" ; then
          xrdincdir="$xrdlibtwo/include/xrootd"
          xrdlibdir="$xrdlibtwo/lib"
-      elif test "x$xrdinc" = "x$xrdinctwob" ; then 
+      elif test "x$xrdinc" = "x$xrdinctwob" ; then
          xrdincdir="$xrdlibtwo/src"
          xrdlibdir="$xrdlibtwo/lib"
       else
@@ -4608,10 +4787,10 @@ if test "x$enable_xrootd" = "xyes" ; then
             rdir=`dirname $ll`
             xinca="$rdir/include/xrootd/XrdVersion.hh"
             xincb="$rdir/include/XrdVersion.hh"
-            if test "x$xrdinc" = "x$xinca" ; then 
+            if test "x$xrdinc" = "x$xinca" ; then
                xrdincdir="$rdir/include/xrootd"
                xrdlibdir="$ll"
-            elif test "x$xrdinc" = "x$xincb" ; then 
+            elif test "x$xrdinc" = "x$xincb" ; then
                xrdincdir="$rdir/include"
                xrdlibdir="$ll"
             fi
@@ -4697,7 +4876,7 @@ if test "x$enable_xrootd" = "xyes" ; then
    # Check libraries now
    hasxrdutils="no"
    libxrdoucbjr=""
-   # 
+   #
    # Release date of version 3.1.0 containing the new lib packaging
    decreftre=300000000
    decrefutils=300010000
@@ -4706,16 +4885,16 @@ if test "x$enable_xrootd" = "xyes" ; then
    fi
    decrefnetut=20100729
    if [ $decver -ge $decrefutils ] ; then
-      xrdlibs="libXrdMain libXrdUtils libXrdClient" 
+      xrdlibs="libXrdMain libXrdUtils libXrdClient"
       hasxrdutils="yes"
    elif [ $decver -ge $decrefnetut ] ; then
-      xrdlibs="libXrdNet libXrdNetUtil libXrdOuc libXrdSys libXrdClient libXrd" 
+      xrdlibs="libXrdNet libXrdNetUtil libXrdOuc libXrdSys libXrdClient libXrd"
    else
-      xrdlibs="libXrdNet libXrdOuc libXrdSys libXrdClient libXrd" 
+      xrdlibs="libXrdNet libXrdOuc libXrdSys libXrdClient libXrd"
    fi
    tmpxrdlibdir=""
    xrdlibext=""
-   for ll in $xrdlibs ; do 
+   for ll in $xrdlibs ; do
       #
       # Check if packaging has libXrdUtils or the old libXrdOuc, libXrdSys, ...
       check_library $ll "$enable_shared" "$xrdlibdir" "$xrdlibdir"
@@ -4762,6 +4941,18 @@ if test "x$enable_xrootd" = "xyes" ; then
          fi
       fi
    fi
+
+   #
+   # Build the new client interface (libNetxNG) only for xrootd >= 3.3.5
+   decrefng=300030005
+   buildnetxng="no"
+   useoldnetx="yes"
+   message "Checking whether new xrootd client (libNetxNG) should be build"
+   if [ $decver -ge $decrefng ] ; then
+      buildnetxng="yes"
+      useoldnetx="no"
+   fi
+   result $buildnetxng
 fi
 
 check_explicit "$enable_xrootd" "$enable_xrootd_explicit" \
@@ -6332,6 +6523,7 @@ if test "x$show_pkglist" = "xyes" ; then
     test "x$enable_castor"   = "xyes" && pl="$pl root-plugin-io-castor"
     test "x$enable_chirp"    = "xyes" && pl="$pl root-plugin-io-chirp"
     test "x$enable_dcache"   = "xyes" && pl="$pl root-plugin-io-dcache"
+    test "x$enable_davix"    = "xyes" && pl="$pl root-plugin-io-davix"
     test "x$enable_gfal"     = "xyes" && pl="$pl root-plugin-io-gfal"
     test "x$enable_hdfs"     = "xyes" && pl="$pl root-plugin-io-hdfs"
     test "x$enable_rfio"     = "xyes" && pl="$pl root-plugin-io-rfio"
@@ -6748,11 +6940,14 @@ sed -e "s|@aclocaldir@|$aclocaldir|"            \
     -e "s|@cintincdir@|$cintincdir|"            \
     -e "s|@cppunit@|$cppunit|"                  \
     -e "s|@datadir@|$datadir|"                  \
+    -e "s|@davixincdir@|$davixincdir|"          \
     -e "s|@dcapincdir@|$dcapincdir|"            \
     -e "s|@comerrlib@|$comerrlib|"              \
     -e "s|@comerrlibdir@|$comerrlibdir|"        \
     -e "s|@cryptolib@|$cryptolib|"              \
     -e "s|@cryptolibdir@|$cryptolibdir|"        \
+    -e "s|@davixlib@|$davixlib|"                \
+    -e "s|@davixlibdir@|$davixlibdir|"          \
     -e "s|@dcaplib@|$dcaplib|"                  \
     -e "s|@dcaplibdir@|$dcaplibdir|"            \
     -e "s|@dicttype@|$dicttype|"                \
@@ -6955,6 +7150,7 @@ sed -e "s|@srcdir@|$ac_srcdir|"                 \
     -e "s|@buildrfio@|$enable_rfio|"            \
     -e "s|@buildcastor@|$enable_castor|"        \
     -e "s|@builddcap@|$enable_dcache|"          \
+    -e "s|@builddavix@|$enable_davix|"          \
     -e "s|@buildfftw3@|$enable_fftw3|"          \
     -e "s|@buildgviz@|$enable_gviz|"            \
     -e "s|@buildgfal@|$enable_gfal|"            \
@@ -6976,7 +7172,9 @@ sed -e "s|@srcdir@|$ac_srcdir|"                 \
     -e "s|@afdsmgrdapmon@|$afdsmgrdapmon|"      \
     -e "s|@buildglite@|$enable_glite|"          \
     -e "s|@buildcocoa@|$enable_cocoa|"          \
+    -e "s|@buildnetxng@|$buildnetxng|"          \
     -e "s|@c++11@|$enable_cxx11|"               \
+    -e "s|@libc++@|$enable_libcxx|"             \
     < Makefile.tmp > $MAKEOUT
 rm -f Makefile.tmp
 
@@ -7030,6 +7228,7 @@ sed \
     -e "s|@hascling@|$hascling|"           \
     -e "s|@hascocoa@|$hascocoa|"           \
     -e "s|@usec++11@|$usecxx11|"           \
+    -e "s|@uselibc++@|$uselibcxx|"         \
     < RConfigure.tmp > RConfigure-out.tmp
 rm -f RConfigure.tmp
 
@@ -7171,6 +7370,8 @@ sed -e "s|@libdir@|$libdir|"               \
     -e "s|@iconpath@|$iconpath|"           \
     -e "s|@hasxrd@|$hasxrd|"               \
     -e "s|@hasnotxrd@|$hasnotxrd|"         \
+    -e "s|@useoldwebfile@|$useoldwebfile|" \
+    -e "s|@useoldnetx@|$useoldnetx|"       \
    < rootrc.tmp > $ROOTRCOUT
 rm -f rootrc.tmp
 result "done"

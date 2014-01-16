@@ -2,8 +2,8 @@
 #  CheckCompiler.cmake
 #---------------------------------------------------------------------------------------------------
 
-#---Enable FORTRAN (unfortunatelly is not nowt possible in all cases)-------------------------------
-if(NOT WIN32 AND NOT CMAKE_GENERATOR STREQUAL Xcode AND NOT CMAKE_GENERATOR STREQUAL Ninja)
+#---Enable FORTRAN (unfortunatelly is not not possible in all cases)-------------------------------
+if(fortran AND NOT WIN32 AND NOT CMAKE_GENERATOR STREQUAL Xcode AND NOT CMAKE_GENERATOR STREQUAL Ninja)
   #--Work-around for CMake issue 0009220
   if(DEFINED CMAKE_Fortran_COMPILER AND CMAKE_Fortran_COMPILER MATCHES "^$")
     set(CMAKE_Fortran_COMPILER CMAKE_Fortran_COMPILER-NOTFOUND)
@@ -74,8 +74,12 @@ elseif(WIN32)
 endif()
 
 if(c++11)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wno-deprecated-declaration")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wno-deprecated-declaration")
 endif()
+if(gnuinstall)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DR__HAVE_CONFIG")
+endif()
+
 
 #---Print the final compiler flags--------------------------------------------------------------------
 message(STATUS "ROOT Platform: ${ROOT_PLATFORM}")

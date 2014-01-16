@@ -19,6 +19,13 @@ ORDER_ := $(shell test $(MAKE_VERSION_MAJOR) -gt 3 || \
 
 include config/Makefile.config
 
+##### Prevent propagation of user flags to autoconf        #####
+##### configure  in bundled autotools projects since we    #####
+##### are trying to set all compiler flags ourself and     #####
+##### including them could lead to e.g. conflicting 32/64  #####
+##### bit build options.
+CONFIG_SITE =
+
 ##### Include compiler overrides specified via ./configure #####
 ##### However, if we are building packages or cleaning, we #####
 ##### don't include this file since it may screw up things #####
@@ -155,6 +162,9 @@ endif
 ifeq ($(BUILDDCAP),yes)
 MODULES      += io/dcache
 endif
+ifeq ($(BUILDDAVIX),yes)
+MODULES      += net/davix
+endif
 ifeq ($(BUILDGFAL),yes)
 MODULES      += io/gfal
 endif
@@ -261,6 +271,9 @@ MODULES      += misc/minicern hist/hbook
 endif
 ifeq ($(HASXRD),yes)
 MODULES      += net/netx
+ifeq ($(BUILDNETXNG),yes)
+MODULES      += net/netxng
+endif
 ifeq ($(BUILDALIEN),yes)
 MODULES      += net/alien
 endif
@@ -291,12 +304,12 @@ ifneq ($(findstring $(MAKECMDGOALS),distclean maintainer-clean),)
 MODULES      += core/unix core/winnt graf2d/x11 graf2d/x11ttf \
                 graf3d/gl graf3d/ftgl graf3d/glew io/rfio io/castor \
                 montecarlo/pythia6 montecarlo/pythia8 misc/table \
-                sql/mysql sql/pgsql sql/sqlite sql/sapdb net/srputils graf3d/x3d \
+                sql/mysql sql/pgsql sql/sqlite sql/sapdb net/srputils \
                 rootx net/rootd io/dcache io/chirp hist/hbook graf2d/asimage \
                 net/ldap net/krb5auth net/rpdutils net/globusauth \
                 bindings/pyroot bindings/ruby io/gfal misc/minicern \
-                graf2d/qt gui/qtroot gui/qtgsi net/netx net/alien \
-                proof/proofd proof/proofx proof/pq2 \
+                graf2d/qt gui/qtroot gui/qtgsi net/netx net/netxng net/alien \
+                proof/proofd proof/proofx proof/pq2 graf3d/x3d net/davix \
                 sql/oracle io/xmlparser math/mathmore cint/reflex cint/cintex \
                 tmva math/genetic io/hdfs graf2d/fitsio roofit/roofitcore \
                 roofit/roofit roofit/roostats roofit/histfactory \
@@ -1415,6 +1428,7 @@ showbuild:
 	@echo "OSTHREADLIB        = $(OSTHREADLIB)"
 	@echo "SHIFTLIB           = $(SHIFTLIB)"
 	@echo "DCAPLIB            = $(DCAPLIB)"
+	@echo "DAVIXLIB           = $(DAVIXLIB)"
 	@echo "GFALLIB            = $(GFALLIB)"
 	@echo "MYSQLINCDIR        = $(MYSQLINCDIR)"
 	@echo "ORACLEINCDIR       = $(ORACLEINCDIR)"

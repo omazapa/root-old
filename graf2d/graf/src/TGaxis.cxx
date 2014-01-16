@@ -34,6 +34,10 @@
 #include "TSystem.h"
 
 Int_t TGaxis::fgMaxDigits = 5;
+Float_t TGaxis::fXAxisExpXOffset = 0.; //Exponent X offset for the X axis
+Float_t TGaxis::fXAxisExpYOffset = 0.; //Exponent Y offset for the X axis
+Float_t TGaxis::fYAxisExpXOffset = 0.; //Exponent X offset for the Y axis
+Float_t TGaxis::fYAxisExpYOffset = 0.; //Exponent Y offset for the Y axis
 const Int_t kHori = BIT(9); //defined in TPad
 
 ClassImp(TGaxis)
@@ -1449,8 +1453,8 @@ L110:
                coded = &chcoded[0];
                if (if1 > 14) if1=14;
                if (if2 > 14) if2=14;
-               if (if2) snprintf(coded,8,"%%%d.%df",if1,if2);
-               else     snprintf(coded,8,"%%%d.%df",if1+1,1);
+               if (if2>0) snprintf(coded,8,"%%%d.%df",if1,if2);
+               else       snprintf(coded,8,"%%%d.%df",if1+1,1);
             }
 
 //*-*-              We draw labels
@@ -1631,6 +1635,14 @@ L110:
                textaxis->SetTextAlign(11);
                if (GetLabelFont()%10 < 2) // force TLatex mode in PaintLatex
                   textaxis->SetTextFont((Int_t)(GetLabelFont()/10)*10+2);
+               if (fAxis && !strcmp(fAxis->GetName(),"xaxis")) {
+                  xx = xx + fXAxisExpXOffset;
+                  yy = yy + fXAxisExpYOffset;
+               }
+               if (fAxis && !strcmp(fAxis->GetName(),"yaxis")) {
+                  xx = xx + fYAxisExpXOffset;
+                  yy = yy + fYAxisExpYOffset;
+               }
                textaxis->PaintLatex(gPad->GetX1() + xx*(gPad->GetX2() - gPad->GetX1()),
                            gPad->GetY1() + yy*(gPad->GetY2() - gPad->GetY1()),
                            0,
@@ -2195,6 +2207,28 @@ void TGaxis::SetTimeOffset(Double_t toffset, Option_t *option)
 
    // add GMT/local option
    if (opt.Contains("gmt")) fTimeFormat.Append(" GMT");
+}
+
+
+//______________________________________________________________________________
+void TGaxis::SetExponentOffset(Float_t xoff, Float_t yoff, Option_t *axis)
+{
+   // Static function to set X and Y offset of the axis 10^n notation.
+   // It is in % of the pad size. It can be negative.
+   // axis specifies which axis ("x","y"), default = "x"
+   // if axis="xz" set the two axes
+   
+   TString opt = axis;
+   opt.ToLower();
+
+   if (opt.Contains("x")) {
+      fXAxisExpXOffset = xoff;
+      fXAxisExpYOffset = yoff;
+   }
+   if (opt.Contains("y")) {
+      fYAxisExpXOffset = xoff;
+      fYAxisExpYOffset = yoff;
+   }
 }
 
 

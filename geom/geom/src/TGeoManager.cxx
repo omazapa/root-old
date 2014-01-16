@@ -842,8 +842,13 @@ TGeoNavigator *TGeoManager::GetCurrentNavigator() const
    TGeoNavigator *nav = TTHREAD_TLS_GET(TGeoNavigator*,tnav);
    if (nav) return nav;
    Long_t threadId = TThread::SelfId();
+
+   TThread::Lock();
    NavigatorsMap_t::const_iterator it = fNavigators.find(threadId);
-   if (it == fNavigators.end()) return 0;
+   bool notfound = (it == fNavigators.end());
+   TThread::UnLock();
+   if (notfound) return 0;
+
    TGeoNavigatorArray *array = it->second;
    nav = array->GetCurrentNavigator();
    TTHREAD_TLS_SET(TGeoNavigator*,tnav,nav);
@@ -914,6 +919,7 @@ void TGeoManager::RemoveNavigator(const TGeoNavigator *nav)
       if (arr) {
          if ((TGeoNavigator*)arr->Remove((TObject*)nav)) {
             delete nav;
+            if (fMultiThread) TThread::UnLock();
             return;
          }
       }   
@@ -983,10 +989,13 @@ Int_t TGeoManager::ThreadId()
    Int_t ttid = TTHREAD_TLS_GET(Int_t,tid);
    if (ttid > -1) return ttid;
    if (gGeoManager && !gGeoManager->IsMultiThread()) return 0;
-   TGeoManager::ThreadsMapIt_t it = fgThreadId->find(TThread::SelfId());
-   if (it != fgThreadId->end()) return it->second;
-   // Map needs to be updated.
    TThread::Lock();
+   TGeoManager::ThreadsMapIt_t it = fgThreadId->find(TThread::SelfId());
+   if (it != fgThreadId->end()) {
+      TThread::UnLock();
+      return it->second;
+   }
+   // Map needs to be updated.
    (*fgThreadId)[TThread::SelfId()] = fgNumThreads;
    TTHREAD_TLS_SET(Int_t,tid,fgNumThreads);
    fgNumThreads++;
@@ -1448,6 +1457,9 @@ void TGeoManager::CloseGeometry(Option_t *option)
       // Create a geometry navigator if not present
       if (!GetCurrentNavigator()) fCurrentNavigator = AddNavigator();
       nnavigators = GetListOfNavigators()->GetEntriesFast();
+      TIter next(fShapes);
+      TGeoShape *shape;
+      while ((shape = (TGeoShape*)next())) shape->AfterStreamer();
       Voxelize("ALL");
       CountLevels();
       for (Int_t i=0; i<nnavigators; i++) {
@@ -3162,6 +3174,7 @@ void TGeoManager::BuildDefaultMaterials()
 {
 // Now just a shortcut for GetElementTable.
    GetElementTable();
+   TGeoVolume::CreateDummyMedium();
 }
 
 //_____________________________________________________________________________
@@ -3355,9 +3368,7 @@ void TGeoManager::CheckGeometryFull(Int_t ntracks, Double_t vx, Double_t vy, Dou
 //_____________________________________________________________________________
 void TGeoManager::CheckGeometry(Option_t * /*option*/)
 {
-// Instanciate a TGeoChecker object and investigates the geometry according to
-// option. Not implemented yet.
-   // check shapes first
+   // Perform last checks on the geometry
    if (fgVerboseLevel>0) Info("CheckGeometry","Fixing runtime shapes...");
    TIter next(fShapes);
    TIter nextv(fVolumes);
@@ -3368,15 +3379,19 @@ void TGeoManager::CheckGeometry(Option_t * /*option*/)
       if (shape->IsRunTimeShape()) {
          has_runtime = kTRUE;
       }
+      if (fIsGeomReading) shape->AfterStreamer();
       if (shape->TestShapeBit(TGeoShape::kGeoPcon) || shape->TestShapeBit(TGeoShape::kGeoArb8))
          if (!shape->TestShapeBit(TGeoShape::kGeoClosedShape)) shape->ComputeBBox();
    }
    if (has_runtime) fTopNode->CheckShapes();
    else if (fgVerboseLevel>0) Info("CheckGeometry","...Nothing to fix");
    // Compute bounding  box for assemblies
+   TGeoMedium *dummy = TGeoVolume::DummyMedium();
    while ((vol = (TGeoVolume*)nextv())) {
       if (vol->IsAssembly()) vol->GetShape()->ComputeBBox();
-   }   
+      if (vol->GetMedium() == dummy)
+         Warning("CheckGeometry", "Volume \"%s\" has no medium: assigned dummy medium and material", vol->GetName());
+   }
 }
 
 //_____________________________________________________________________________

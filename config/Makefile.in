@@ -64,6 +64,7 @@ IOSVERS        := @iosvers@
 IOSSDK         := @iossdk@
 
 CXX11          := @c++11@
+LIBCXX         := @libc++@
 
 EXPLICITLINK   := @explicitlink@
 
@@ -147,6 +148,11 @@ CASTORCLILIB   := @castorlib@
 CASTORINCDIR   := $(filter-out /usr/include, @castorincdir@)
 CASTORCFLAGS   := @castorcflags@
 
+BUILDDAVIX      := @builddavix@
+DAVIXLIBDIR     := @davixlibdir@
+DAVIXCLILIB     := @davixlib@
+DAVIXINCDIR     := $(filter-out /usr/include, @davixincdir@)
+
 BUILDDCAP      := @builddcap@
 DCAPLIBDIR     := @dcaplibdir@
 DCAPLIB        := @dcaplib@
@@ -223,7 +229,7 @@ FPYTHIA6LIB      := @pythia6lib@
 FPYTHIA6CPPFLAGS := @pythia6cppflags@
 
 BUILDFPYTHIA8    := @buildpythia8@
-FPYTHIA8INCDIR   := @pythia8incdir@
+FPYTHIA8INCDIR   := $(filter-out /usr/include, @pythia8incdir@)
 FPYTHIA8LIBDIR   := @pythia8libdir@
 FPYTHIA8LIB      := @pythia8lib@
 
@@ -266,6 +272,7 @@ EXTRA_XRDFLAGS := @extraxrdflags@
 XRDVERSION     := @xrdversion@
 HASXRDUTILS    := @hasxrdutils@
 XRDINCPRIVATE  := @xrdincprivate@
+BUILDNETXNG    := @buildnetxng@
 
 SRPLIBDIR      := @srplibdir@
 SRPLIB         := @srplib@

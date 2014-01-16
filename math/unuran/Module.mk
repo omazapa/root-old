@@ -20,6 +20,17 @@ UNRDIRS      := $(call stripsrc,$(MODDIRS)/$(UNRVERS))
 UNURANETAG   := $(call stripsrc,$(UNURANDIRS)/headers.d)
 UNRCFG       := $(call stripsrc,$(UNURANDIRS)/$(UNRVERS)/config.h)
 
+ifneq ($(wildcard $(UNRDIRS)),)
+UNRS         := $(wildcard $(UNRDIRS)/src/utils/*.c) \
+                $(wildcard $(UNRDIRS)/src/methods/*.c) \
+                $(wildcard $(UNRDIRS)/src/specfunct/*.c) \
+                $(wildcard $(UNRDIRS)/src/distr/*.c) \
+                $(wildcard $(UNRDIRS)/src/distributions/*.c) \
+                $(wildcard $(UNRDIRS)/src/parser/*.c) \
+                $(wildcard $(UNRDIRS)/src/tests/*.c) \
+                $(wildcard $(UNRDIRS)/src/uniform/*.c) \
+                $(wildcard $(UNRDIRS)/src/urng/*.c)
+else
 UNRTARCONTENT:=$(subst $(UNRVERS),$(UNRDIRS),$(shell mkdir -p $(UNRDIR); cd $(UNRDIR); gunzip -c $(UNRSRCS) | tar tf -))
 UNRS         := $(filter %.c, \
                 $(filter $(UNRDIRS)/src/utils/%,$(UNRTARCONTENT)) \
@@ -31,6 +42,7 @@ UNRS         := $(filter %.c, \
                 $(filter $(UNRDIRS)/src/tests/%,$(UNRTARCONTENT)) \
                 $(filter $(UNRDIRS)/src/uniform/%,$(UNRTARCONTENT)) \
                 $(filter $(UNRDIRS)/src/urng/%,$(UNRTARCONTENT)))
+endif
 UNRO         := $(UNRS:.c=.o)
 
 ifeq ($(PLATFORM),win32)
@@ -97,24 +109,21 @@ $(UNRCFG):	$(UNURANETAG)
 			ACC="icc"; \
 		fi; \
 		if [ "$(ARCH)" = "sgicc64" ]; then \
-			ACC="gcc -mabi=64"; \
+			ACC="$$ACC -mabi=64"; \
 		fi; \
 		if [ "$(ARCH)" = "hpuxia64acc" ]; then \
-			ACC="cc +DD64 -Ae"; \
+			ACC="$$ACC +DD64 -Ae"; \
 		fi; \
 		if [ "$(ARCH)" = "linuxppc64gcc" ]; then \
-			ACC="gcc -m64 -fPIC"; \
+			ACC="$$ACC -m64 -fPIC"; \
 		fi; \
 		if [ "$(ARCH)" = "linuxx8664gcc" ]; then \
-			ACC="gcc"; \
 			ACFLAGS="-m64 -fPIC"; \
 		fi; \
 		if [ "$(ARCH)" = "linuxicc" ]; then \
-			ACC="icc"; \
 			ACFLAGS="-m32"; \
 		fi; \
 		if [ "$(ARCH)" = "linuxx8664icc" ]; then \
-			ACC="icc"; \
 			ACFLAGS="-m64"; \
 		fi; \
 		if [ "$(ARCH)" = "win32" ]; then \

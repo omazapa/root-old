@@ -37,6 +37,7 @@
 #include "RooCategory.h"
 #include "RooNameSet.h"
 #include "RooHistError.h"
+#include "RooTrace.h"
 
 #include <iomanip>
 #include <algorithm>
@@ -74,6 +75,7 @@ RooVectorDataStore::RooVectorDataStore() :
   _cache(0),
   _cacheOwner(0)
 {
+  TRACE_CREATE
 }
 
 
@@ -111,6 +113,7 @@ RooVectorDataStore::RooVectorDataStore(const char* name, const char* title, cons
   delete iter ;
   
   setAllBuffersNative() ;
+  TRACE_CREATE
 }
 
 
@@ -218,6 +221,7 @@ RooVectorDataStore::RooVectorDataStore(const RooVectorDataStore& other, const ch
   _firstReal = _realStoreList.size()>0 ? &_realStoreList.front() : 0 ;
   _firstRealF = _realfStoreList.size()>0 ? &_realfStoreList.front() : 0 ;
   _firstCat = _catStoreList.size()>0 ? &_catStoreList.front() : 0 ;
+  TRACE_CREATE
 }
 
 
@@ -262,6 +266,7 @@ RooVectorDataStore::RooVectorDataStore(const RooTreeDataStore& other, const RooA
     _varsww = other._varsww ;
     fill() ;
   }
+  TRACE_CREATE
   
 }
 
@@ -329,6 +334,7 @@ RooVectorDataStore::RooVectorDataStore(const RooVectorDataStore& other, const Ro
   _firstReal = _realStoreList.size()>0 ? &_realStoreList.front() : 0 ;
   _firstRealF = _realfStoreList.size()>0 ? &_realfStoreList.front() : 0 ;
   _firstCat = _catStoreList.size()>0 ? &_catStoreList.front() : 0 ;
+  TRACE_CREATE
 
 }
 
@@ -387,6 +393,7 @@ RooVectorDataStore::RooVectorDataStore(const char *name, const char *title, RooA
   loadValues(&tds,cloneVar,cutRange,nStart,nStop);
 
   delete cloneVar ;
+  TRACE_CREATE
 }
 
 
@@ -414,6 +421,7 @@ RooVectorDataStore::~RooVectorDataStore()
   }
 
   delete _cache ;
+  TRACE_DESTROY
 }
 
 
@@ -1076,7 +1084,7 @@ struct less_dep : public binary_function<RooAbsArg*, RooAbsArg*, bool> {
 };
 
 //_____________________________________________________________________________
-void RooVectorDataStore::cacheArgs(const RooAbsArg* owner, RooArgSet& newVarSet, const RooArgSet* nset) 
+void RooVectorDataStore::cacheArgs(const RooAbsArg* owner, RooArgSet& newVarSet, const RooArgSet* nset, Bool_t skipZeroWeights) 
 {
   // Cache given RooAbsArgs with this tree: The tree is
   // given direct write access of the args internal cache
@@ -1203,7 +1211,7 @@ void RooVectorDataStore::cacheArgs(const RooAbsArg* owner, RooArgSet& newVarSet,
   newCache->reserve(numEntries());
   for (int i=0 ; i<numEntries() ; i++) {
     getNative(i) ;
-    if (weight()!=0) {    
+    if (weight()!=0 || !skipZeroWeights) {    
       cIter->Reset() ;
       vector<RooArgSet*>::iterator niter = nsetList.begin() ;
       while((cloneArg=(RooAbsArg*)cIter->Next())) {
@@ -1260,7 +1268,7 @@ void RooVectorDataStore::cacheArgs(const RooAbsArg* owner, RooArgSet& newVarSet,
 
 typedef RooVectorDataStore::RealVector* pRealVector ;
 //_____________________________________________________________________________
-void RooVectorDataStore::recalculateCache( const RooArgSet *projectedArgs, Int_t firstEvent, Int_t lastEvent, Int_t stepSize) 
+void RooVectorDataStore::recalculateCache( const RooArgSet *projectedArgs, Int_t firstEvent, Int_t lastEvent, Int_t stepSize, Bool_t skipZeroWeights) 
 {
   if (!_cache) return ;
 
@@ -1300,7 +1308,7 @@ void RooVectorDataStore::recalculateCache( const RooArgSet *projectedArgs, Int_t
   for (int i=firstEvent ; i<lastEvent ; i+=stepSize) {
     get(i) ;    
     Bool_t zeroWeight = (weight()==0) ;
-    if (!zeroWeight) {
+    if (!zeroWeight || !skipZeroWeights) {
       for (int j=0 ; j<ntv ; j++) {
 	tv[j]->_nativeReal->_valueDirty=kTRUE ;
 	tv[j]->_nativeReal->getValV(tv[j]->_nset ? tv[j]->_nset : usedNset) ;

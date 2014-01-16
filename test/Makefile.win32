@@ -47,6 +47,13 @@ ExeSuf        = .exe
 DllSuf        = dll
 OutPutOpt     = -out:
 
+## VS2012 (VC11): configure subsystem version
+## See: https://blogs.msdn.com/b/vcblog/archive/2012/10/08/10357555.aspx
+## (APPVER used in win32.mak to set subsystem version)
+!if ([nmake /? 2>&1 | findstr /c:"Version 11\." > nul ] == 0)
+APPVER        = 5.01
+!endif
+
 # Win32 system with Microsoft Visual C/C++
 !include <win32.mak>
 CC            = $(cc)
@@ -74,7 +81,9 @@ LDOPT         = -debug
 MT_EXE        = mt -nologo -manifest $@.manifest -outputresource:$@;1
 MT_DLL        = mt -nologo -manifest $@.manifest -outputresource:$@;2
 EXTRAFLAGS    = -D_CRT_SECURE_NO_DEPRECATE
-!else if ([nmake /? 2>&1 | findstr /c:"Version 10\." > nul ] == 0)
+!else if ([nmake /? 2>&1 | findstr /c:"Version 10\." > nul ] == 0) || \
+         ([nmake /? 2>&1 | findstr /c:"Version 11\." > nul ] == 0) || \
+         ([nmake /? 2>&1 | findstr /c:"Version 12\." > nul ] == 0)
 EXTRAFLAGS    = -D_CRT_SECURE_NO_DEPRECATE
 !else
 MT_EXE        = 

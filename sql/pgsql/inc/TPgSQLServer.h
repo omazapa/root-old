@@ -16,6 +16,9 @@
 #include "TSQLServer.h"
 #endif
 
+#include <map>
+#include <string>
+
 #if !defined(__CINT__)
 #include <libpq-fe.h>
 #else
@@ -29,7 +32,7 @@ class TPgSQLServer : public TSQLServer {
 private:
    PGconn  *fPgSQL;    // connection to PgSQL server
    TString  fSrvInfo;  // Server info
-
+   std::map<Int_t,std::string> fOidTypNameMap; // Map of oid to typname, used in GetTableInfo()
 public:
    TPgSQLServer(const char *db, const char *uid, const char *pw);
    ~TPgSQLServer();
@@ -42,6 +45,7 @@ public:
    TSQLResult    *GetDataBases(const char *wild = 0);
    TSQLResult    *GetTables(const char *dbname, const char *wild = 0);
    TSQLResult    *GetColumns(const char *dbname, const char *table, const char *wild = 0);
+   TSQLTableInfo *GetTableInfo(const char* tablename);
    Int_t          CreateDataBase(const char *dbname);
    Int_t          DropDataBase(const char *dbname);
    Int_t          Reload();

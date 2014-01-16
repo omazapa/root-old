@@ -39,6 +39,7 @@
 #include "RooAbsReal.h"
 #include "RooArgSet.h"
 #include "RooArgList.h"
+#include "RooBinning.h"
 #include "RooPlot.h"
 #include "RooCurve.h"
 #include "RooRealVar.h"
@@ -69,6 +70,9 @@
 #include "RooCmdConfig.h"
 #include "RooXYChi2Var.h"
 #include "RooMinuit.h"
+#ifndef __ROOFIT_NOROOMINIMIZER
+#include "RooMinimizer.h"
+#endif
 #include "RooChi2Var.h"
 #include "RooFitResult.h"
 #include "RooMoment.h"
@@ -1025,8 +1029,6 @@ TH1 *RooAbsReal::fillHistogram(TH1 *hist, const RooArgList &plotVars,
 
   delete pciter ;
   
-
-
   // Call checkObservables
   RooArgSet allDeps(plotClones) ;
   if (projectedVars) {
@@ -1040,6 +1042,7 @@ TH1 *RooAbsReal::fillHistogram(TH1 *hist, const RooArgList &plotVars,
   // Create a standalone projection object to use for calculating bin contents
   RooArgSet *cloneSet = 0;
   const RooAbsReal *projected= createPlotProjection(plotClones,projectedVars,cloneSet,0,condObs);
+
   cxcoutD(Plotting) << "RooAbsReal::fillHistogram(" << GetName() << ") plot projection object is " << projected->GetName() << endl ;
 
   // Prepare to loop over the histogram bins
@@ -1278,11 +1281,13 @@ TH1 *RooAbsReal::createHistogram(const char *name, const RooAbsRealLValue& xvar,
   // name -- Name of the ROOT histogram
   // xvar -- Observable to be mapped on x axis of ROOT histogram
   //
+  // IntrinsicBinning()                           -- Apply binning defined by function or pdf (as advertised via binBoundaries() method)
   // Binning(const char* name)                    -- Apply binning with given name to x axis of histogram
   // Binning(RooAbsBinning& binning)              -- Apply specified binning to x axis of histogram
   // Binning(int nbins, [double lo, double hi])   -- Apply specified binning to x axis of histogram
   // ConditionalObservables(const RooArgSet& set) -- Do not normalized PDF over following observables when projecting PDF into histogram
   // Scaling(Bool_t)                              -- Apply density-correction scaling (multiply by bin volume), default is kTRUE
+  // Extended(Bool_t)                             -- Plot event yield instead of probability density (for extended pdfs only)
   //
   // YVar(const RooAbsRealLValue& var,...)    -- Observable to be mapped on y axis of ROOT histogram
   // ZVar(const RooAbsRealLValue& var,...)    -- Observable to be mapped on z axis of ROOT histogram
@@ -1312,9 +1317,18 @@ TH1* RooAbsReal::createHistogram(const char *name, const RooAbsRealLValue& xvar,
   // Define configuration for this method
   RooCmdConfig pc(Form("RooAbsReal::createHistogram(%s)",GetName())) ;
   pc.defineInt("scaling","Scaling",0,1) ;
+  pc.defineInt("intBinning","IntrinsicBinning",0,2) ;
+  pc.defineInt("extended","Extended",0,2) ;
+
+  pc.defineObject("compSet","SelectCompSet",0) ;
+  pc.defineString("compSpec","SelectCompSpec",0) ;
   pc.defineSet("projObs","ProjectedObservables",0,0) ;
   pc.defineObject("yvar","YVar",0,0) ;
   pc.defineObject("zvar","ZVar",0,0) ;  
+  pc.defineMutex("SelectCompSet","SelectCompSpec") ;
+  pc.defineMutex("IntrinsicBinning","Binning") ;
+  pc.defineMutex("IntrinsicBinning","BinningName") ;
+  pc.defineMutex("IntrinsicBinning","BinningSpec") ;
   pc.allowUndefined() ;
 
   // Process & check varargs 
@@ -1337,15 +1351,190 @@ TH1* RooAbsReal::createHistogram(const char *name, const RooAbsRealLValue& xvar,
   RooArgSet* intObs = 0 ;
 
   Bool_t doScaling = pc.getInt("scaling") ;
+  Int_t doIntBinning = pc.getInt("intBinning") ;
+  Int_t doExtended = pc.getInt("extended") ;
+
+  // If doExtended is two, selection is automatic, set to 1 of pdf is extended, to zero otherwise
+  const RooAbsPdf* pdfSelf = dynamic_cast<const RooAbsPdf*>(this) ;
+  if (!pdfSelf && doExtended>0) {
+    coutW(InputArguments) << "RooAbsReal::createHistogram(" << GetName() << ") WARNING extended mode requested for a non-pdf object, ignored" << endl ;
+    doExtended=0 ;
+  }
+  if (pdfSelf && doExtended==1 && pdfSelf->extendMode()==RooAbsPdf::CanNotBeExtended) {
+    coutW(InputArguments) << "RooAbsReal::createHistogram(" << GetName() << ") WARNING extended mode requested for a non-extendable pdf, ignored" << endl ;
+    doExtended=0 ;
+  }
+  if (pdfSelf && doExtended==2) {
+    doExtended = pdfSelf->extendMode()==RooAbsPdf::CanNotBeExtended ? 0 : 1 ; 
+  }
+  
+  const char* compSpec = pc.getString("compSpec") ;
+  const RooArgSet* compSet = (const RooArgSet*) pc.getObject("compSet") ;
+  Bool_t haveCompSel = ( (compSpec && strlen(compSpec)>0) || compSet) ;
+
+  RooBinning* intBinning(0) ;
+  if (doIntBinning>0) {
+    // Given RooAbsPdf* pdf and RooRealVar* obs
+    list<Double_t>* bl = binBoundaries((RooRealVar&)xvar,xvar.getMin(),xvar.getMax()) ;
+    if (!bl) {
+      // Only emit warning when intrinsic binning is explicitly requested 
+      if (doIntBinning==1) {
+	coutW(InputArguments) << "RooAbsReal::createHistogram(" << GetName() 
+			      << ") WARNING, intrinsic model binning requested for histogram, but model does not define bin boundaries, reverting to default binning"<< endl ;
+      }
+    } else {
+      if (doIntBinning==2) {
+	coutI(InputArguments) << "RooAbsReal::createHistogram(" << GetName() 
+			      << ") INFO: Model has intrinsic binning definition, selecting that binning for the histogram"<< endl ;
+      }
+      Double_t* ba = new Double_t[bl->size()] ; int i=0 ;
+      for (list<double>::iterator it=bl->begin() ; it!=bl->end() ; ++it) { ba[i++] = *it ; }
+      intBinning = new RooBinning(bl->size()-1,ba) ;
+      delete[] ba ;
+    }    
+  }
 
   RooLinkedList argListCreate(argList) ;
-  pc.stripCmdList(argListCreate,"Scaling,ProjectedObservables") ;
+  pc.stripCmdList(argListCreate,"Scaling,ProjectedObservables,IntrinsicBinning,SelectCompSet,SelectCompSpec,Extended") ;
 
-  TH1* histo = xvar.createHistogram(name,argListCreate) ;
-  fillHistogram(histo,vars,1.0,intObs,doScaling,projObs,kFALSE) ;
+  TH1* histo(0) ;
+  if (intBinning) {
+    RooCmdArg tmp = RooFit::Binning(*intBinning) ;
+    argListCreate.Add(&tmp) ;
+    histo = xvar.createHistogram(name,argListCreate) ;
+    delete intBinning ;
+  } else {
+    histo = xvar.createHistogram(name,argListCreate) ;
+  }
+
+  // Do component selection here
+  if (haveCompSel) {
+
+    // Get complete set of tree branch nodes
+    RooArgSet branchNodeSet ;
+    branchNodeServerList(&branchNodeSet) ;
+    
+    // Discard any non-RooAbsReal nodes
+    TIterator* iter = branchNodeSet.createIterator() ;
+    RooAbsArg* arg ;
+    while((arg=(RooAbsArg*)iter->Next())) {
+      if (!dynamic_cast<RooAbsReal*>(arg)) {
+	branchNodeSet.remove(*arg) ;
+      }
+    }
+    delete iter ;
+
+    RooArgSet* dirSelNodes ;
+    if (compSet) {
+      dirSelNodes = (RooArgSet*) branchNodeSet.selectCommon(*compSet) ;
+    } else {
+      dirSelNodes = (RooArgSet*) branchNodeSet.selectByName(compSpec) ;
+    }
+    if (dirSelNodes->getSize()>0) {
+      coutI(Plotting) << "RooAbsPdf::createHistogram(" << GetName() << ") directly selected PDF components: " << *dirSelNodes << endl ;
+      
+      // Do indirect selection and activate both
+      plotOnCompSelect(dirSelNodes) ;
+    } else {
+      if (compSet) {
+	coutE(Plotting) << "RooAbsPdf::createHistogram(" << GetName() << ") ERROR: component selection set " << *compSet << " does not match any components of p.d.f." << endl ;
+      } else {
+	coutE(Plotting) << "RooAbsPdf::createHistogram(" << GetName() << ") ERROR: component selection expression '" << compSpec << "' does not select any components of p.d.f." << endl ;
+      }
+      return 0 ;
+    }  
+    delete dirSelNodes ;
+  }
+  
+  Double_t scaleFactor(1.0) ;
+  if (doExtended) {
+    scaleFactor = pdfSelf->expectedEvents(vars) ;
+    doScaling=kFALSE ;
+  }
+  
+  fillHistogram(histo,vars,scaleFactor,intObs,doScaling,projObs,kFALSE) ;
+
+  // Deactivate component selection
+  if (haveCompSel) {
+      plotOnCompSelect(0) ;
+  }
+
 
   return histo ;
 }
+
+
+//_____________________________________________________________________________
+void RooAbsReal::plotOnCompSelect(RooArgSet* selNodes) const
+{
+  // Helper function for plotting of composite p.d.fs. Given
+  // a set of selected components that should be plotted,
+  // find all nodes that (in)directly depend on these selected
+  // nodes. Mark all directly and indirecty selected nodes
+  // as 'selected' using the selectComp() method
+
+  // Get complete set of tree branch nodes
+  RooArgSet branchNodeSet ;
+  branchNodeServerList(&branchNodeSet) ;
+
+  // Discard any non-PDF nodes
+  TIterator* iter = branchNodeSet.createIterator() ;
+  RooAbsArg* arg ;
+  while((arg=(RooAbsArg*)iter->Next())) {
+    if (!dynamic_cast<RooAbsReal*>(arg)) {
+      branchNodeSet.remove(*arg) ;
+    }
+  }
+
+  // If no set is specified, restored all selection bits to kTRUE
+  if (!selNodes) {
+    // Reset PDF selection bits to kTRUE
+    iter->Reset() ;
+    while((arg=(RooAbsArg*)iter->Next())) {
+      ((RooAbsReal*)arg)->selectComp(kTRUE) ;
+    }
+    delete iter ;
+    return ;
+  }
+
+
+  // Add all nodes below selected nodes
+  iter->Reset() ;
+  TIterator* sIter = selNodes->createIterator() ;
+  RooArgSet tmp ;
+  while((arg=(RooAbsArg*)iter->Next())) {
+    sIter->Reset() ;
+    RooAbsArg* selNode ;
+    while((selNode=(RooAbsArg*)sIter->Next())) {
+      if (selNode->dependsOn(*arg)) {
+	tmp.add(*arg,kTRUE) ;
+      }      
+    }      
+  }
+  delete sIter ;
+
+  // Add all nodes that depend on selected nodes
+  iter->Reset() ;
+  while((arg=(RooAbsArg*)iter->Next())) {
+    if (arg->dependsOn(*selNodes)) {
+      tmp.add(*arg,kTRUE) ;
+    }
+  }
+
+  tmp.remove(*selNodes,kTRUE) ;
+  tmp.remove(*this) ;
+  selNodes->add(tmp) ;
+  coutI(Plotting) << "RooAbsPdf::plotOn(" << GetName() << ") indirectly selected PDF components: " << tmp << endl ;
+
+  // Set PDF selection bits according to selNodes
+  iter->Reset() ;
+  while((arg=(RooAbsArg*)iter->Next())) {
+    Bool_t select = selNodes->find(arg->GetName()) ? kTRUE : kFALSE ;
+    ((RooAbsReal*)arg)->selectComp(select) ;
+  }
+  
+  delete iter ;
+} 
 
 
 
@@ -4283,6 +4472,8 @@ RooFitResult* RooAbsReal::chi2FitDriver(RooAbsReal& fcn, RooLinkedList& cmdList)
   pc.defineInt("ext","Extended",0,2) ;
   pc.defineInt("numee","PrintEvalErrors",0,10) ;
   pc.defineInt("doWarn","Warnings",0,1) ;
+  pc.defineString("mintype","Minimizer",0,"OldMinuit") ;
+  pc.defineString("minalg","Minimizer",1,"minuit") ;
   pc.defineObject("minosSet","Minos",0,0) ;
 
   pc.defineMutex("FitOptions","Verbose") ;
@@ -4301,6 +4492,12 @@ RooFitResult* RooAbsReal::chi2FitDriver(RooAbsReal& fcn, RooLinkedList& cmdList)
 
   // Decode command line arguments
   const char* fitOpt = pc.getString("fitOpt",0,kTRUE) ;
+#ifdef __ROOFIT_NOROOMINIMIZER
+  const char* minType =0 ;
+#else
+  const char* minType = pc.getString("mintype","OldMinuit") ;
+  const char* minAlg = pc.getString("minalg","minuit") ;
+#endif
   Int_t optConst = pc.getInt("optConst") ;
   Int_t verbose  = pc.getInt("verbose") ;
   Int_t doSave   = pc.getInt("doSave") ;
@@ -4314,77 +4511,154 @@ RooFitResult* RooAbsReal::chi2FitDriver(RooAbsReal& fcn, RooLinkedList& cmdList)
   Int_t doWarn   = pc.getInt("doWarn") ;
   const RooArgSet* minosSet = static_cast<RooArgSet*>(pc.getObject("minosSet")) ;
 
-  // Instantiate MINUIT
-  RooMinuit m(fcn) ;
-
-  if (doWarn==0) {
-    m.setNoWarn() ;
-  }
-  
-  m.setPrintEvalErrors(numee) ;
-  if (plevel!=1) {
-    m.setPrintLevel(plevel) ;
-  }
-
-  if (optConst) {
-    // Activate constant term optimization
-    m.optimizeConst(1) ;
-  }
-
   RooFitResult *ret = 0 ;
 
-  if (fitOpt) {
+#ifdef __ROOFIT_NOROOMINIMIZER
+  if (true) {
+#else
+  if ("OldMinuit" == string(minType)) {
+#endif
+    // Instantiate MINUIT
+    RooMinuit m(fcn) ;
 
-    // Play fit options as historically defined
-    ret = m.fit(fitOpt) ;
-    
-  } else {
-
-    if (verbose) {
-      // Activate verbose options
-      m.setVerbose(1) ;
-    }
-    if (doTimer) {
-      // Activate timer options
-      m.setProfile(1) ;
-    }
-    
-    if (strat!=1) {
-      // Modify fit strategy
-      m.setStrategy(strat) ;
+    if (doWarn==0) {
+      m.setNoWarn() ;
     }
 
-    if (initHesse) {
-      // Initialize errors with hesse
-      m.hesse() ;
+    m.setPrintEvalErrors(numee) ;
+    if (plevel!=1) {
+      m.setPrintLevel(plevel) ;
     }
 
-    // Minimize using migrad
-    m.migrad() ;
-
-    if (hesse) {
-      // Evaluate errors with Hesse
-      m.hesse() ;
+    if (optConst) {
+      // Activate constant term optimization
+      m.optimizeConst(optConst);
     }
 
-    if (minos) {
-      // Evaluate errs with Minos
-      if (minosSet) {
-	m.minos(*minosSet) ;
-      } else {
-	m.minos() ;
+    if (fitOpt) {
+
+      // Play fit options as historically defined
+      ret = m.fit(fitOpt) ;
+
+    } else {
+
+      if (verbose) {
+	// Activate verbose options
+	m.setVerbose(1) ;
       }
+      if (doTimer) {
+	// Activate timer options
+	m.setProfile(1) ;
+      }
+
+      if (strat!=1) {
+	// Modify fit strategy
+	m.setStrategy(strat) ;
+      }
+
+      if (initHesse) {
+	// Initialize errors with hesse
+	m.hesse() ;
+      }
+
+      // Minimize using migrad
+      m.migrad() ;
+
+      if (hesse) {
+	// Evaluate errors with Hesse
+	m.hesse() ;
+      }
+
+      if (minos) {
+	// Evaluate errs with Minos
+	if (minosSet) {
+	  m.minos(*minosSet) ;
+	} else {
+	  m.minos() ;
+	}
+      }
+
+      // Optionally return fit result
+      if (doSave) {
+	string name = Form("fitresult_%s",fcn.GetName()) ;
+	string title = Form("Result of fit of %s ",GetName()) ;
+	ret = m.save(name.c_str(),title.c_str()) ;
+      } 
+
+    }
+  } else {
+#ifndef __ROOFIT_NOROOMINIMIZER
+    // Instantiate MINUIT
+    RooMinimizer m(fcn) ;
+    m.setMinimizerType(minType);
+
+    if (doWarn==0) {
+      // m.setNoWarn() ; WVE FIX THIS
     }
 
-    // Optionally return fit result
-    if (doSave) {
-      string name = Form("fitresult_%s",fcn.GetName()) ;
-      string title = Form("Result of fit of %s ",GetName()) ;
-      ret = m.save(name.c_str(),title.c_str()) ;
-    } 
+    m.setPrintEvalErrors(numee) ;
+    if (plevel!=1) {
+      m.setPrintLevel(plevel) ;
+    }
 
+    if (optConst) {
+      // Activate constant term optimization
+      m.optimizeConst(optConst);
+    }
+
+    if (fitOpt) {
+
+      // Play fit options as historically defined
+      ret = m.fit(fitOpt) ;
+
+    } else {
+
+      if (verbose) {
+	// Activate verbose options
+	m.setVerbose(1) ;
+      }
+      if (doTimer) {
+	// Activate timer options
+	m.setProfile(1) ;
+      }
+
+      if (strat!=1) {
+	// Modify fit strategy
+	m.setStrategy(strat) ;
+      }
+
+      if (initHesse) {
+	// Initialize errors with hesse
+	m.hesse() ;
+      }
+
+      // Minimize using migrad
+      m.minimize(minType, minAlg) ;
+
+      if (hesse) {
+	// Evaluate errors with Hesse
+	m.hesse() ;
+      }
+
+      if (minos) {
+	// Evaluate errs with Minos
+	if (minosSet) {
+	  m.minos(*minosSet) ;
+	} else {
+	  m.minos() ;
+	}
+      }
+
+      // Optionally return fit result
+      if (doSave) {
+	string name = Form("fitresult_%s",fcn.GetName()) ;
+	string title = Form("Result of fit of %s ",GetName()) ;
+	ret = m.save(name.c_str(),title.c_str()) ;
+      } 
+    }
+#endif
   }
-  
+
   // Cleanup
   return ret ;
 

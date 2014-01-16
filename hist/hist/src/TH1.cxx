@@ -535,6 +535,7 @@ extern void H1LeastSquareLinearFit(Int_t ndata, Double_t &a0, Double_t &a1, Int_
 extern void H1LeastSquareSeqnd(Int_t n, Double_t *a, Int_t idim, Int_t &ifail, Int_t k, Double_t *b);
 
 // Internal exceptions for the CheckConsistency method
+class DifferentDimension: public std::exception {};
 class DifferentNumberOfBins: public std::exception {};
 class DifferentAxisLimits: public std::exception {};
 class DifferentBinLimits: public std::exception {};
@@ -1463,13 +1464,21 @@ bool TH1::CheckConsistency(const TH1* h1, const TH1* h2)
    // Check histogram compatibility
    if (h1 == h2) return true;
 
+   if (h1->GetDimension() != h2->GetDimension() ) { 
+      throw DifferentDimension();
+      return false;
+   }
+   Int_t dim = h1->GetDimension(); 
+ 
    // returns kTRUE if number of bins and bin limits are identical
    Int_t nbinsx = h1->GetNbinsX();
    Int_t nbinsy = h1->GetNbinsY();
    Int_t nbinsz = h1->GetNbinsZ();
 
    // Check whether the histograms have the same number of bins.
-   if (nbinsx != h2->GetNbinsX() || nbinsy != h2->GetNbinsY() || nbinsz != h2->GetNbinsZ()) {
+   if (nbinsx != h2->GetNbinsX() || 
+       (dim > 1 && nbinsy != h2->GetNbinsY())  || 
+       (dim > 2 && nbinsz != h2->GetNbinsZ()) ) {
       throw DifferentNumberOfBins();
       return false;
    }
@@ -1478,20 +1487,20 @@ bool TH1::CheckConsistency(const TH1* h1, const TH1* h2)
 
    // check axis limits
    ret &= CheckAxisLimits(h1->GetXaxis(), h2->GetXaxis());
-   ret &= CheckAxisLimits(h1->GetYaxis(), h2->GetYaxis());
-   ret &= CheckAxisLimits(h1->GetZaxis(), h2->GetZaxis());
+   if (dim > 1) ret &= CheckAxisLimits(h1->GetYaxis(), h2->GetYaxis());
+   if (dim > 2) ret &= CheckAxisLimits(h1->GetZaxis(), h2->GetZaxis());
 
    // check bin limits
    ret &= CheckBinLimits(h1->GetXaxis(), h2->GetXaxis());
-   ret &= CheckBinLimits(h1->GetYaxis(), h2->GetYaxis());
-   ret &= CheckBinLimits(h1->GetZaxis(), h2->GetZaxis());
+   if (dim > 1) ret &= CheckBinLimits(h1->GetYaxis(), h2->GetYaxis());
+   if (dim > 2) ret &= CheckBinLimits(h1->GetZaxis(), h2->GetZaxis());
 
    // check labels if histograms are both not empty
    if ( (h1->fTsumw != 0 || h1->GetEntries() != 0) &&
         (h2->fTsumw != 0 || h2->GetEntries() != 0) ) {
       ret &= CheckBinLabels(h1->GetXaxis(), h2->GetXaxis());
-      ret &= CheckBinLabels(h1->GetYaxis(), h2->GetYaxis());
-      ret &= CheckBinLabels(h1->GetZaxis(), h2->GetZaxis());
+      if (dim > 1) ret &= CheckBinLabels(h1->GetYaxis(), h2->GetYaxis());
+      if (dim > 2) ret &= CheckBinLabels(h1->GetZaxis(), h2->GetZaxis());
    }
 
    return ret;
@@ -2308,7 +2317,25 @@ Double_t TH1::Chi2TestX(const TH1* h2,  Double_t &chi2, Int_t &ndf, Int_t &igood
    }
    return 0;
 }
+//______________________________________________________________________________
+Double_t TH1::Chisquare(TF1 * func, Option_t *option) const
+{
+   // Compute and return the chisquare of this histogram with respect to a function
+   // The chisquare is computed by weighting each histogram point by the bin error
+   // By default the full range of the histogram is used. 
+   // Use option "R" for restricting the chisquare calculation to the given range of the function
 
+   if (!func) { 
+      Error("Chisquare","Function pointer is Null - return -1");
+      return -1;
+   }
+
+   TString opt(option); opt.ToUpper(); 
+   bool useRange = opt.Contains("R");
+   
+   return ROOT::Fit::Chisquare(*this, *func, useRange);
+
+}
 //______________________________________________________________________________
 Double_t TH1::ComputeIntegral()
 {
@@ -2858,9 +2885,7 @@ TH1 *TH1::DrawNormalized(Option_t *option, Double_t norm) const
 //  of histograms in the current directory in memory.
 //  It is the user's responsability to delete this histogram.
 //  The kCanDelete bit is set for the returned object. If a pad containing
-//  this copy is cleared, the histogram will be automatically deleted.
-//  See also remark about calling Sumw2 before scaling a histogram to get
-//  a correct computation of the error bars.
+//  this copy is cleared, the histogram will be automatically deleted
 //
 //     See Draw for the list of options
 //
@@ -2875,10 +2900,17 @@ TH1 *TH1::DrawNormalized(Option_t *option, Double_t norm) const
    TH1::AddDirectory(kFALSE);
    TH1 *h = (TH1*)Clone();
    h->SetBit(kCanDelete);
+   // in case of drawing with error options - scale correctly the error
+   TString opt(option); opt.ToUpper(); 
+   if (fSumw2.fN == 0) { 
+      h->Sumw2();
+      // do not use in this case the "Error option " for drawing which is enabled by default since the normalized histogram has now errors
+      if (opt.IsNull() || opt == "SAME") opt += "HIST";
+   }
    h->Scale(norm/sum);
    if (TMath::Abs(fMaximum+1111) > 1e-3) h->SetMaximum(fMaximum*norm/sum);
    if (TMath::Abs(fMinimum+1111) > 1e-3) h->SetMinimum(fMinimum*norm/sum);
-   h->Draw(option);
+   h->Draw(opt);
    TH1::AddDirectory(addStatus);
    return h;
 }
@@ -3663,7 +3695,7 @@ TFitResultPtr TH1::Fit(TF1 *f1 ,Option_t *option ,Option_t *goption, Double_t xx
 //     =====================
 //     The status of the fit can be obtained converting the TFitResultPtr to an integer
 //     independently if the fit option "S" is used or not:
-//     TFitResultPtr r = h=>Fit(myFunc,opt);
+//     TFitResultPtr r = h->Fit(myFunc,opt);
 //     Int_t fitStatus = r;
 //
 //     The fitStatus is 0 if the fit is OK (i.e no error occurred).
@@ -6165,6 +6197,11 @@ void  TH1::SmoothArray(Int_t nn, Double_t *xx, Int_t ntimes)
    // based on algorithm 353QH twice presented by J. Friedman
    // in Proc.of the 1974 CERN School of Computing, Norway, 11-24 August, 1974.
 
+   if (nn < 3 ) { 
+      if (gROOT) gROOT->Error("SmoothArray","Need at least 3 points for smoothing: n = %d",nn);
+      return; 
+   }
+
    Int_t ii, jj, ik, jk, kk, nn2;
    Double_t hh[6] = {0,0,0,0,0,0};
    Double_t *yy = new Double_t[nn];
@@ -6335,10 +6372,15 @@ void  TH1::Smooth(Int_t ntimes, Option_t *option)
       Error("Smooth","Smooth only supported for 1-d histograms");
       return;
    }
+   Int_t nbins = fXaxis.GetNbins();
+   if (nbins < 3) { 
+      Error("Smooth","Smooth only supported for histograms with >= 3 bins. Nbins = %d",nbins);
+      return;
+   }
+
    // delete buffer if it is there since it will become invalid
    if (fBuffer) BufferEmpty(1);
 
-   Int_t nbins = fXaxis.GetNbins();
    Int_t firstbin = 1, lastbin = nbins;
    TString opt = option;
    opt.ToLower();
@@ -6683,6 +6725,7 @@ void TH1::SavePrimitive(ostream &out, Option_t *option /*= ""*/)
       histName += hcounter;
    }
    const char *hname = histName.Data();
+   if (!strlen(hname)) hname = "unnamed";
 
    TString t(GetTitle());
    t.ReplaceAll("\\","\\\\");
@@ -7329,7 +7372,11 @@ Double_t TH1::DoIntegral(Int_t binx1, Int_t binx2, Int_t biny1, Int_t biny2, Int
 Double_t TH1::KolmogorovTest(const TH1 *h2, Option_t *option) const
 {
    //  Statistical test of compatibility in shape between
-   //  THIS histogram and h2, using Kolmogorov test.
+   //  this histogram and h2, using Kolmogorov test.
+   //  Note that the KolmogorovTest (KS) test should in theory be used only for unbinned data
+   //  and not for binned data as in the case of the histogram (see NOTE 3 below). 
+   //  So, before using this method blindly, read the NOTE 3. 
+   //
    //
    //     Default: Ignore under- and overflow bins in comparison
    //
@@ -7391,6 +7438,10 @@ Double_t TH1::KolmogorovTest(const TH1 *h2, Option_t *option) const
    //  slightly too big. That is, setting an acceptance criterion of (PROB>0.05
    //  will assure that at most 5% of truly compatible histograms are rejected,
    //  and usually somewhat less."
+   //
+   //  Note also that for GoF test of unbinned data ROOT provides also the class
+   //  ROOT::Math::GoFTest. The class has also method for doing one sample tests
+   //  (i.e. comparing the data with a given distribution). 
 
    TString opt = option;
    opt.ToUpper();
@@ -8138,11 +8189,11 @@ void TH1::Sumw2(Bool_t flag)
       return;
    }
 
-      if (fSumw2.fN == fNcells) {
-         if (!fgDefaultSumw2 )
-            Warning("Sumw2","Sum of squares of weights structure already created");
-         return;
-      }
+   if (fSumw2.fN == fNcells) {
+      if (!fgDefaultSumw2 )
+         Warning("Sumw2","Sum of squares of weights structure already created");
+      return;
+   }
 
    fSumw2.Set(fNcells);
 
@@ -8295,6 +8346,66 @@ Double_t TH1::GetCellError(Int_t binx, Int_t biny) const
 
    Int_t bin = GetBin(binx,biny);
    return GetBinError(bin);
+}
+
+//L.M. These following getters are useless and should be probably deprecated
+//______________________________________________________________________________
+Double_t TH1::GetBinCenter(Int_t bin) const 
+{
+   // return bin center for 1D historam
+   // Better to use h1.GetXaxis().GetBinCenter(bin)
+   
+   if (fDimension == 1) return  fXaxis.GetBinCenter(bin);
+   Error("GetBinCenter","Invalid method for a %d-d histogram - return a NaN",fDimension);
+   return TMath::QuietNaN();
+}
+
+//______________________________________________________________________________
+Double_t TH1::GetBinLowEdge(Int_t bin) const 
+{
+   // return bin lower edge for 1D historam
+   // Better to use h1.GetXaxis().GetBinLowEdge(bin)
+   
+   if (fDimension == 1) return  fXaxis.GetBinLowEdge(bin);
+   Error("GetBinLowEdge","Invalid method for a %d-d histogram - return a NaN",fDimension);
+   return TMath::QuietNaN();
+}
+
+//______________________________________________________________________________
+Double_t TH1::GetBinWidth(Int_t bin) const 
+{
+   // return bin width for 1D historam
+   // Better to use h1.GetXaxis().GetBinWidth(bin)
+   
+   if (fDimension == 1) return  fXaxis.GetBinWidth(bin);
+   Error("GetBinWidth","Invalid method for a %d-d histogram - return a NaN",fDimension);
+   return TMath::QuietNaN();
+}
+
+//______________________________________________________________________________
+void TH1::GetCenter(Double_t *center) const 
+{
+   // Fill array with center of bins for 1D histogram
+   // Better to use h1.GetXaxis().GetCenter(center)
+   
+   if (fDimension == 1) {
+      fXaxis.GetCenter(center);
+      return;
+   }
+   Error("GetCenter","Invalid method for a %d-d histogram ",fDimension);
+}
+
+//______________________________________________________________________________
+void TH1::GetLowEdge(Double_t *edge) const 
+{
+   // Fill array with low edge of bins for 1D histogram
+   // Better to use h1.GetXaxis().GetLowEdge(edge)
+   
+   if (fDimension == 1) {
+      fXaxis.GetLowEdge(edge);
+      return;
+   }
+   Error("GetLowEdge","Invalid method for a %d-d histogram ",fDimension);
 }
 
 //______________________________________________________________________________

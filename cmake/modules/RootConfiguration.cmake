@@ -24,24 +24,46 @@ set(winrtdebug ${value${winrtdebug}})
 set(exceptions ${value${exceptions}})
 set(explicitlink ${value${explicitlink}})
 
-set(prefix "$(ROOTSYS)")
-set(bindir "$(ROOTSYS)/bin")
-set(libdir "$(ROOTSYS)/lib")
-set(incdir "$(ROOTSYS)/include")
-set(mandir "$(ROOTSYS)/man/man1")
-set(etcdir "$(ROOTSYS)/etc")
-set(plugindir ${etcdir}/plugins)
-set(datadir "$(ROOTSYS)")
-set(elispdir "$(ROOTSYS)/build/misc")
-set(ttffontdir "$(ROOTSYS)/fonts")
-set(macrodir "$(ROOTSYS)/macros")
-set(srcdir "$(ROOTSYS)/src")
-set(iconpath ${datadir}/icons)
-set(cintincdir "$(ROOTSYS)/cint")
-set(docdir "$(ROOTSYS)")
-set(testdir "$(ROOTSYS)/test")
-set(tutdir "$(ROOTSYS)/tutorials")
-set(aclocaldir "$(ROOTSYS)/build/misc")
+if(gnuinstall)
+  set(prefix ${CMAKE_INSTALL_PREFIX})
+  set(etcdir ${CMAKE_INSTALL_FULL_SYSCONFDIR})
+  set(bindir ${CMAKE_INSTALL_FULL_BINDIR})
+  set(libdir ${CMAKE_INSTALL_FULL_LIBDIR})
+  set(incdir ${CMAKE_INSTALL_FULL_INCLUDEDIR})
+  set(mandir ${CMAKE_INSTALL_FULL_MANDIR})
+  set(plugindir ${CMAKE_INSTALL_FULL_SYSCONFDIR}/plugins)
+  set(datadir ${CMAKE_INSTALL_FULL_DATADIR})
+  set(elispdir ${CMAKE_INSTALL_FULL_ELISPDIR})
+  set(ttffontdir ${CMAKE_INSTALL_FULL_FONTDIR})
+  set(macrodir ${CMAKE_INSTALL_FULL_MACRODIR})
+  set(srcdir ${CMAKE_INSTALL_FULL_SRCDIR})
+  set(iconpath ${CMAKE_INSTALL_FULL_ICONDIR})
+  set(cintincdir ${CMAKE_INSTALL_FULL_CINTINCDIR})
+  set(docdir ${CMAKE_INSTALL_FULL_DOCDIR})
+  set(testdir ${CMAKE_INSTALL_FULL_TESTDIR})
+  set(tutdir ${CMAKE_INSTALL_FULL_TUTDIR})
+  set(aclocaldir ${CMAKE_INSTALL_FULL_ACLOCALDIR})
+else()
+  set(prefix $(ROOTSYS))
+  set(etcdir ${prefix}/${CMAKE_INSTALL_SYSCONFDIR})
+  set(bindir ${prefix}/${CMAKE_INSTALL_BINDIR})
+  set(libdir ${prefix}/${CMAKE_INSTALL_LIBDIR})
+  set(incdir ${prefix}/${CMAKE_INSTALL_INCLUDEDIR})
+  set(mandir ${prefix}/${CMAKE_INSTALL_MANDIR})
+  set(plugindir ${prefix}/${CMAKE_INSTALL_SYSCONFDIR}/plugins)
+  set(datadir ${prefix}/${CMAKE_INSTALL_DATADIR})
+  set(elispdir ${prefix}/${CMAKE_INSTALL_ELISPDIR})
+  set(ttffontdir ${prefix}/${CMAKE_INSTALL_FONTDIR})
+  set(macrodir ${prefix}/${CMAKE_INSTALL_MACRODIR})
+  set(srcdir ${prefix}/${CMAKE_INSTALL_SRCDIR})
+  set(iconpath ${prefix}/${CMAKE_INSTALL_ICONDIR})
+  set(cintincdir ${prefix}/${CMAKE_INSTALL_CINTINCDIR})
+  set(docdir ${prefix}/${CMAKE_INSTALL_DOCDIR})
+  set(testdir ${prefix}/${CMAKE_INSTALL_TESTDIR})
+  set(tutdir ${prefix}/${CMAKE_INSTALL_TUTDIR})
+  set(aclocaldir ${prefix}/${CMAKE_INSTALL_ACLOCALDIR})
+endif()
+
 set(LibSuffix ${SOEXT})
 
 set(buildx11 ${value${x11}})
@@ -124,12 +146,18 @@ set(castorlib ${CASTOR_LIBRARY})
 set(castorincdir ${CASTOR_INCLUDE_DIR})
 set(castorcflags)
 
+
+set(builddavix ${value${davix}})
+set(davixlibdir ${DAVIX_LIBRARY_DIR})
+set(davixlib ${DAVIX_LIBRARY})
+set(davixincdir ${DAVIX_INCLUDE_DIR})
+
 set(builddcap ${value${dcap}})
 set(dcaplibdir ${DCAP_LIBRARY_DIR})
 set(dcaplib ${DCAP_LIBRARY})
 set(dcapincdir ${DCAP_INCLUDE_DIR})
 
-set(buildftgl ${value${ftgl}})
+set(buildftgl ${value${builtin_ftgl}})
 set(ftgllibdir ${FTGL_LIBRARY_DIR})
 set(ftgllibs ${FTGL_LIBRARIES})
 set(ftglincdir ${FTGL_INCLUDE_DIR})
@@ -331,9 +359,12 @@ set(hascling ${has${cling}})
 set(haslzmacompression ${has${lzma}})
 set(hascocoa ${has${cocoa}})
 set(usec++11 ${has${c++11}})
+set(uselibc++ ${has${libcxx}})
+
 
 #---root-config----------------------------------------------------------------------------------------------
 ROOT_SHOW_OPTIONS(features)
+string(REPLACE "c++11" "cxx11" features ${features}) # change the name of the c++11 feature needed for root-config.in
 set(configfeatures ${features})
 set(configargs ${ROOT_CONFIGARGS})
 set(configoptions ${ROOT_CONFIGARGS})
@@ -352,11 +383,11 @@ set(pythonvers ${PYTHON_VERSION})
 include(WriteConfigCint)
 WRITE_CONFIG_CINT( ${CMAKE_CURRENT_BINARY_DIR}/tmp/configcint.h)
 execute_process(COMMAND cmake -E copy_if_different ${CMAKE_CURRENT_BINARY_DIR}/tmp/configcint.h ${HEADER_OUTPUT_PATH}/configcint.h)
-#install(FILES ${HEADER_OUTPUT_PATH}/configcint.h DESTINATION include)
+#install(FILES ${HEADER_OUTPUT_PATH}/configcint.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 #---RConfigure.h---------------------------------------------------------------------------------------------
 configure_file(${PROJECT_SOURCE_DIR}/config/RConfigure.in include/RConfigure.h)
-install(FILES ${CMAKE_BINARY_DIR}/include/RConfigure.h DESTINATION include)
+install(FILES ${CMAKE_BINARY_DIR}/include/RConfigure.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 #---Configure and install various files----------------------------------------------------------------------
 execute_Process(COMMAND hostname OUTPUT_VARIABLE BuildNodeInfo OUTPUT_STRIP_TRAILING_WHITESPACE )
@@ -389,10 +420,19 @@ set(ROOT_INCLUDE_DIR_SETUP "
 # ROOT configured for use from the build tree - absolute paths are used.
 set(ROOT_INCLUDE_DIRS ${buildtree_include_dirs})
 ")
+set(ROOT_LIBRARY_DIR_SETUP "
+# ROOT configured for use from the build tree - absolute paths are used.
+set(ROOT_LIBRARY_DIR ${CMAKE_BINARY_DIR}/lib)
+")
+set(ROOT_BINARY_DIR_SETUP "
+# ROOT configured for use from the build tree - absolute paths are used.
+set(ROOT_BINARY_DIR ${CMAKE_BINARY_DIR}/bin)
+")
 set(ROOT_MODULE_PATH_SETUP "
 # ROOT configured for use CMake modules from source tree
 set(CMAKE_MODULE_PATH \${CMAKE_MODULE_PATH} ${CMAKE_MODULE_PATH})
 ")
+
 get_property(exported_targets GLOBAL PROPERTY ROOT_EXPORTED_TARGETS)
 export(TARGETS ${exported_targets} FILE ${PROJECT_BINARY_DIR}/ROOTConfig-targets.cmake)
 configure_file(${CMAKE_SOURCE_DIR}/cmake/scripts/ROOTConfig.cmake.in
@@ -403,6 +443,14 @@ set(ROOT_INCLUDE_DIR_SETUP "
 # ROOT configured for the install with relative paths, so use these
 get_filename_component(ROOT_INCLUDE_DIRS \"\${_thisdir}/../include\" ABSOLUTE)
 ")
+set(ROOT_LIBRARY_DIR_SETUP "
+# ROOT configured for the install with relative paths, so use these
+get_filename_component(ROOT_LIBRARY_DIR \"\${_thisdir}/../lib\" ABSOLUTE)
+")
+set(ROOT_BINARY_DIR_SETUP "
+# ROOT configured for the install with relative paths, so use these
+get_filename_component(ROOT_BINARY_DIR \"\${_thisdir}/../bin\" ABSOLUTE)
+")
 set(ROOT_MODULE_PATH_SETUP "
 # ROOT configured for use CMake modules from installation tree
 set(CMAKE_MODULE_PATH \${CMAKE_MODULE_PATH}  \${_thisdir}/modules)
@@ -411,17 +459,19 @@ configure_file(${CMAKE_SOURCE_DIR}/cmake/scripts/ROOTConfig.cmake.in
                ${CMAKE_BINARY_DIR}/installtree/ROOTConfig.cmake @ONLY)
 install(FILES ${CMAKE_BINARY_DIR}/ROOTConfig-version.cmake
               ${CMAKE_BINARY_DIR}/ROOTUseFile.cmake
-              ${CMAKE_BINARY_DIR}/installtree/ROOTConfig.cmake DESTINATION cmake)
-install(EXPORT ${CMAKE_PROJECT_NAME}Exports FILE ROOTConfig-targets.cmake DESTINATION cmake)               
+              ${CMAKE_BINARY_DIR}/installtree/ROOTConfig.cmake DESTINATION ${CMAKE_INSTALL_CMAKEDIR})
+install(EXPORT ${CMAKE_PROJECT_NAME}Exports FILE ROOTConfig-targets.cmake DESTINATION ${CMAKE_INSTALL_CMAKEDIR})
 
 
 #---Especial definitions for root-config et al.--------------------------------------------------------------
-set(prefix $ROOTSYS)
-set(bindir $ROOTSYS/bin)
-set(libdir $ROOTSYS/lib)
-set(incdir $ROOTSYS/include)
-set(etcdir $ROOTSYS/etc)
-set(mandir $ROOTSYS/man/man1)
+if(prefix STREQUAL "$(ROOTSYS)")
+  set(prefix $ROOTSYS)
+  set(bindir $ROOTSYS/bin)
+  set(libdir $ROOTSYS/lib)
+  set(incdir $ROOTSYS/include)
+  set(etcdir $ROOTSYS/etc)
+  set(mandir $ROOTSYS/man/man1)
+endif()
 configure_file(${CMAKE_SOURCE_DIR}/config/root-config.in ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/root-config @ONLY)
 configure_file(${CMAKE_SOURCE_DIR}/config/memprobe.in ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/memprobe @ONLY)
 configure_file(${CMAKE_SOURCE_DIR}/config/thisroot.sh ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/thisroot.sh @ONLY)
@@ -432,6 +482,7 @@ configure_file(${CMAKE_SOURCE_DIR}/config/genreflex.in ${CMAKE_RUNTIME_OUTPUT_DI
 configure_file(${CMAKE_SOURCE_DIR}/config/genreflex-rootcint.in ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/genreflex-rootcint @ONLY)
 configure_file(${CMAKE_SOURCE_DIR}/config/proofserv.in ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/proofserv @ONLY)
 configure_file(${CMAKE_SOURCE_DIR}/config/roots.in ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/roots @ONLY)
+configure_file(${CMAKE_SOURCE_DIR}/config/root-help.el.in root-help.el @ONLY)
 
 if(WIN32)
   set(thisrootbat ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/thisroot.bat)
@@ -453,20 +504,17 @@ install(FILES ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/genreflex
               PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ 
                           GROUP_EXECUTE GROUP_READ 
                           WORLD_EXECUTE WORLD_READ 
-              DESTINATION bin)
+              DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 install(FILES ${CMAKE_BINARY_DIR}/include/RConfigOptions.h
               ${CMAKE_BINARY_DIR}/include/compiledata.h 
-              DESTINATION include)
+              DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 install(FILES ${CMAKE_BINARY_DIR}/etc/root.mimes 
               ${CMAKE_BINARY_DIR}/etc/system.rootrc
-              DESTINATION etc)
-
-install(FILES ${CMAKE_BINARY_DIR}/config/Makefile.comp
-              ${CMAKE_BINARY_DIR}/config/Makefile.config
-              DESTINATION config)
-
+              DESTINATION ${CMAKE_INSTALL_SYSCONFDIR})
+              
+install(FILES ${CMAKE_BINARY_DIR}/root-help.el DESTINATION ${CMAKE_INSTALL_ELISPDIR})
 
 endfunction()
 RootConfigure()

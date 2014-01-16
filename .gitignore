@@ -189,9 +189,6 @@ cint/cint/src/loadfile_tmp.cxx
 /main/src/roots.sh
 /main/src/proofserv.sh
 
-# /math/genetic/
-/math/genetic/
-
 # /math/genetic/test/
 /math/genetic/test/testGAMinimizer
 /math/genetic/test/GAMinTutorial
@@ -434,6 +431,12 @@ cint/cint/src/loadfile_tmp.cxx
 /test/RootShower/RootShower
 /test/RootShower/RootShowerDict.cxx
 /test/RootShower/RootShowerDict.h
+
+# /test/ios/
+/test/ios/RootBrowser/RootBrowser.xcodeproj/xcuserdata
+/test/ios/RootBrowser/RootBrowser.xcodeproj/project.xcworkspace
+/test/ios/Tutorials/Tutorials.xcodeproj/xcuserdata
+/test/ios/Tutorials/Tutorials.xcodeproj/project.xcworkspace
 
 # /tutorials/
 /tutorials/hsimple.root
