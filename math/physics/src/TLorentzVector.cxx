@@ -99,7 +99,7 @@ v=(x,y,z,e=Sqrt(x*x+y*y+z*z+m*m))</TT>
 Vector components in noncartesian coordinate systems</H3>
 There are a couple of memberfunctions to get and set the <TT>TVector3</TT>
 part of the parameters in
-<BR><B>sherical</B> coordinate systems:
+<BR><B>spherical</B> coordinate systems:
 
 <P><TT>&nbsp; Double_t m, theta, cost, phi, pp, pp2, ppv2, pp2v2;</TT>
 <BR><TT>&nbsp; m = v.Rho();</TT>
@@ -111,7 +111,7 @@ part of the parameters in
 <BR><TT>&nbsp; v.SetTheta(TMath::Pi()*.3);</TT>
 <BR><TT>&nbsp; v.SetPhi(TMath::Pi());</TT>
 
-<P>or get infoormation about the r-coordinate in <B>cylindrical</B> systems:
+<P>or get information about the r-coordinate in <B>cylindrical</B> systems:
 
 <P><TT>&nbsp; Double_t pp, pp2, ppv2, pp2v2;</TT>
 <BR><TT>&nbsp; pp = v.Perp();&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// get transvers component</TT>
@@ -243,6 +243,9 @@ v *= l;&nbsp; // Attention v = l*v</TT>
 
 ClassImp(TLorentzVector)
 
+TLorentzVector::TLorentzVector()
+               : fP(), fE(0.0) {}
+
 TLorentzVector::TLorentzVector(Double_t x, Double_t y, Double_t z, Double_t t)
                : fP(x,y,z), fE(t) {}
 
@@ -296,9 +299,9 @@ void TLorentzVector::Boost(Double_t bx, Double_t by, Double_t bz)
 {
    //Boost this Lorentz vector
    Double_t b2 = bx*bx + by*by + bz*bz;
-   register Double_t gamma = 1.0 / TMath::Sqrt(1.0 - b2);
-   register Double_t bp = bx*X() + by*Y() + bz*Z();
-   register Double_t gamma2 = b2 > 0 ? (gamma - 1.0)/b2 : 0.0;
+   Double_t gamma = 1.0 / TMath::Sqrt(1.0 - b2);
+   Double_t bp = bx*X() + by*Y() + bz*Z();
+   Double_t gamma2 = b2 > 0 ? (gamma - 1.0)/b2 : 0.0;
 
    SetX(X() + gamma2*bp*bx + gamma*bx*T());
    SetY(Y() + gamma2*bp*by + gamma*by*T());

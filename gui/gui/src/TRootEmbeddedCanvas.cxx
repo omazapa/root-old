@@ -119,6 +119,8 @@ TRootEmbeddedCanvas::TRootEmbeddedCanvas(const char *name, const TGWindow *p,
          TString x = "win32";
          if (gVirtualX->InheritsFrom("TGX11"))
             x = "x11";
+         else if (gVirtualX->InheritsFrom("TGCocoa"))
+            x = "osx";
 
          TPluginHandler *ph = gROOT->GetPluginManager()->FindHandler("TGLManager", x);
 
@@ -268,6 +270,9 @@ Bool_t TRootEmbeddedCanvas::HandleContainerKey(Event_t *event)
 {
    // Handle keyboard events in the canvas container.
 
+   static EGEventType previous_event = kOtherEvent;
+   static UInt_t previous_keysym = 0;
+
    if (!fCanvas) return kTRUE;
 
    if (event->fType == kGKeyPress) {
@@ -275,12 +280,90 @@ Bool_t TRootEmbeddedCanvas::HandleContainerKey(Event_t *event)
       UInt_t keysym;
       char str[2];
       gVirtualX->LookupString(event, str, sizeof(str), keysym);
+
+      if (str[0] == kESC){   // ESC sets the escape flag
+         gROOT->SetEscape();
+         fCanvas->HandleInput(kButton1Up, 0, 0);
+         fCanvas->HandleInput(kMouseMotion, 0, 0);
+         gPad->Modified();
+         return kTRUE;
+      }
       if (str[0] == 3)   // ctrl-c sets the interrupt flag
          gROOT->SetInterrupt();
-      fCanvas->HandleInput(kKeyPress, str[0], keysym);
-   } else if (event->fType == kKeyRelease)
-      fButton = 0;
 
+      // handle arrow keys
+      if (keysym > 0x1011 && keysym < 0x1016) {
+         Window_t dum1, dum2, wid;
+         UInt_t mask = 0;
+         Int_t mx, my, tx, ty;
+         wid = gVirtualX->GetDefaultRootWindow();
+         gVirtualX->QueryPointer(wid, dum1, dum2, mx, my, mx, my, mask);
+         gVirtualX->TranslateCoordinates(gClient->GetDefaultRoot()->GetId(),
+                                         fCanvasContainer->GetId(),
+                                         mx, my, tx, ty, dum1);
+         fCanvas->HandleInput(kArrowKeyPress, tx, ty);
+         // handle case where we got consecutive same keypressed events coming
+         // from auto-repeat on Windows (as it fires only successive keydown events)
+         if ((previous_keysym == keysym) && (previous_event == kGKeyPress)) {
+            switch (keysym) {
+               case 0x1012: // left
+                  gVirtualX->Warp(--mx, my, wid); --tx;
+                  break;
+               case 0x1013: // up
+                  gVirtualX->Warp(mx, --my, wid); --ty;
+                  break;
+               case 0x1014: // right
+                  gVirtualX->Warp(++mx, my, wid); ++tx;
+                  break;
+               case 0x1015: // down
+                  gVirtualX->Warp(mx, ++my, wid); ++ty;
+                  break;
+               default:
+                  break;
+            }
+            fCanvas->HandleInput(kArrowKeyRelease, tx, ty);
+         }
+         previous_keysym = keysym;
+      }
+      else {
+         fCanvas->HandleInput(kKeyPress, str[0], keysym);
+      }
+   } else if (event->fType == kKeyRelease) {
+      UInt_t keysym;
+      char str[2];
+      gVirtualX->LookupString(event, str, sizeof(str), keysym);
+
+      if (keysym > 0x1011 && keysym < 0x1016) {
+         Window_t dum1, dum2, wid;
+         UInt_t mask = 0;
+         Int_t mx, my, tx, ty;
+         wid = gVirtualX->GetDefaultRootWindow();
+         gVirtualX->QueryPointer(wid, dum1, dum2, mx, my, mx, my, mask);
+         switch (keysym) {
+            case 0x1012: // left
+               gVirtualX->Warp(--mx, my, wid);
+               break;
+            case 0x1013: // up
+               gVirtualX->Warp(mx, --my, wid);
+               break;
+            case 0x1014: // right
+               gVirtualX->Warp(++mx, my, wid);
+               break;
+            case 0x1015: // down
+               gVirtualX->Warp(mx, ++my, wid);
+               break;
+            default:
+               break;
+         }
+         gVirtualX->TranslateCoordinates(gClient->GetDefaultRoot()->GetId(),
+                                         fCanvasContainer->GetId(),
+                                         mx, my, tx, ty, dum1);
+         fCanvas->HandleInput(kArrowKeyRelease, tx, ty);
+         previous_keysym = keysym;
+      }
+      fButton = 0;
+   }
+   previous_event = event->fType;
    return kTRUE;
 }
 

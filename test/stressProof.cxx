@@ -64,6 +64,7 @@
 // *   Test 26 : Handling output via file ......................... OK *   * //
 // *   Test 27 : Simple: selector by object ....................... OK *   * //
 // *   Test 28 : H1 dataset: selector by object ................... OK *   * //
+// *   Test 29 : Chain with TTree in subdirs ...................... OK *   * //
 // *  * All registered tests have been passed  :-)                     *   * //
 // *  ******************************************************************   * //
 // *                                                                       * //
@@ -96,6 +97,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <fstream>
 #ifdef WIN32
 #include <io.h>
 #endif
@@ -132,7 +134,7 @@
 
 #include "proof/getProof.C"
 
-#define PT_NUMTEST 28
+#define PT_NUMTEST 29
 
 static const char *urldef = "proof://localhost:40000";
 static TString gtutdir;
@@ -203,7 +205,8 @@ int stressProof(const char *url = 0,
                 const char *h1src = 0, const char *eventsrc = 0,
                 Bool_t dryrun = kFALSE, Bool_t showcpu = kFALSE,
                 Bool_t clearcache = kFALSE, Bool_t useprogress = kTRUE,
-                const char *tutdir = 0, Bool_t cleanlog = kFALSE, Bool_t keeplog = kTRUE);
+                const char *tutdir = 0, Bool_t cleanlog = kFALSE,
+                Bool_t keeplog = kTRUE, Bool_t catlog = kFALSE);
 
 //_____________________________batch only_____________________
 #ifndef __CINT__
@@ -241,12 +244,15 @@ int main(int argc,const char *argv[])
       printf("                 The log file path can be also passed via the env STRESSPROOF_LOGFILE.\n");
       printf("                 In case of failure, the log files of the nodes (master and workers) are saved into\n");
       printf("                 a file called <logfile>.nodes .\n");
-      printf("   -c,-cleanlog  Delete the logfile specified via '-l' in case of a successful run; by default\n");
+      printf("   -c,-cleanlog  delete the logfile specified via '-l' in case of a successful run; by default\n");
       printf("                 the file specified by '-l' is kept in all cases (default log files are deleted\n");
       printf("                 on success); adding this switch allows to keep a user-defined log file only\n");
       printf("                 in case of error.\n");
-      printf("   -k,-keeplog   Keep all logfiles, including the ones fro the PROOF nodes (in one single file).\n");
+      printf("   -k,-keeplog   keep all logfiles, including the ones from the PROOF nodes (in one single file)\n");
       printf("                 The paths are printed on the screen.\n");
+      printf("   -catlog       prints all the logfiles (also the ones from PROOF nodes) on stdout; useful for\n");
+      printf("                 presenting a single aggregated output for automatic tests. If specified in\n");
+      printf("                 conjunction with -cleanlog it will only print the logfiles in case of errors\n");
       printf("   -dyn          run the test in dynamicStartup mode\n");
       printf("   -ds           force the dataset test if skipped by default\n");
       printf("   -t tests      run only tests in the comma-separated list and those from which they\n");
@@ -289,6 +295,7 @@ int main(int argc,const char *argv[])
    Bool_t useprogress = kTRUE;
    Bool_t cleanlog = kFALSE;
    Bool_t keeplog = kFALSE;
+   Bool_t catlog = kFALSE;
    const char *logfile = 0;
    const char *h1src = 0;
    const char *eventsrc = 0;
@@ -323,11 +330,14 @@ int main(int argc,const char *argv[])
             logfile = argv[i+1];
             i += 2;
          }
-      } else if (!strncmp(argv[i],"-c",2) || !strncmp(argv[i],"-cleanlog",11)) {
+      } else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "-cleanlog")) {
          cleanlog = kTRUE;
          i++;
-      } else if (!strncmp(argv[i],"-k",2) || !strncmp(argv[i],"-keeplog",10)) {
+      } else if (!strcmp(argv[i], "-k") || !strcmp(argv[i], "-keeplog")) {
          keeplog = kTRUE;
+         i++;
+      } else if (!strcmp(argv[i], "-catlog")) {
+         catlog = kTRUE;
          i++;
       } else if (!strncmp(argv[i],"-v",2)) {
          // For backward compatibility
@@ -404,7 +414,8 @@ int main(int argc,const char *argv[])
    }
 
    int rc = stressProof(url, tests, nWrks, verbose, logfile, gDynamicStartup, gSkipDataSetTest,
-                        h1src, eventsrc, dryrun, showcpu, clearcache, useprogress, tutdir, cleanlog, keeplog);
+                        h1src, eventsrc, dryrun, showcpu, clearcache, useprogress, tutdir, cleanlog,
+                        keeplog, catlog);
 
    gSystem->Exit(rc);
 }
@@ -609,7 +620,8 @@ Double_t ProofTest::gRefReal[PT_NUMTEST] = {
    0.259239,   // #25: TTree friends, same file
    6.868858,   // #26: Simple generation: merge-via-file
    6.362017,   // #27: Simple random number generation by TSelector object
-   5.519631    // #28: H1: by-object processing
+   5.519631,   // #28: H1: by-object processing
+   7.452465    // #29: Chain with TTree in subdirs
 };
 
 //
@@ -740,6 +752,7 @@ Int_t PT_EventRange(void *, RunTimes &);
 Int_t PT_POFNtuple(void *, RunTimes &);
 Int_t PT_POFDataset(void *, RunTimes &);
 Int_t PT_Friends(void *, RunTimes &);
+Int_t PT_TreeSubDirs(void *, RunTimes &);
 Int_t PT_SimpleByObj(void *, RunTimes &);
 Int_t PT_H1ChainByObj(void *, RunTimes &);
 Int_t PT_AssertTutorialDir(const char *tutdir);
@@ -795,7 +808,7 @@ int stressProof(const char *url, const char *tests, Int_t nwrks,
                 const char *verbose, const char *logfile, Bool_t dyn, Bool_t skipds,
                 const char *h1src, const char *eventsrc,
                 Bool_t dryrun, Bool_t showcpu, Bool_t clearcache, Bool_t useprogress,
-                const char *tutdir, Bool_t cleanlog, Bool_t keeplog)
+                const char *tutdir, Bool_t cleanlog, Bool_t keeplog, Bool_t catlog)
 {
    printf("******************************************************************\n");
    printf("*  Starting  P R O O F - S T R E S S  suite                      *\n");
@@ -1056,6 +1069,8 @@ int stressProof(const char *url, const char *tests, Int_t nwrks,
    testList->Add(new ProofTest("Simple: selector by object", 27, &PT_SimpleByObj, 0, "1", "ProofSimple", kTRUE));
    // H1 analysis over HTTP by TSeletor object
    testList->Add(new ProofTest("H1 chain: selector by object", 28, &PT_H1ChainByObj, 0, "1", "h1analysis", kTRUE));
+   // Test TPacketizerFile and TTree friends in separate files
+   testList->Add(new ProofTest("Chain with TTree in subdirs", 29, &PT_TreeSubDirs, 0, "1", "ProofFriends,ProofAux", kTRUE));
    // The selectors
    if (PT_AssertTutorialDir(gTutDir) != 0) {
       printf("*  Some of the tutorial files are missing! Stop\n");
@@ -1267,6 +1282,43 @@ int stressProof(const char *url, const char *tests, Int_t nwrks,
       }         
       printf("******************************************************************\n");
       printf(" Main log file kept at %s (Proof logs in %s)\n", glogfile.Data(), logfiles.Data());
+      if (catlog) {
+
+         // Display all logfiles directly on this terminal. Useful for getting
+         // test results without accessing the test machine (i.e. with CDash)
+         const size_t readbuf_size = 500;
+         char readbuf[readbuf_size];
+
+         printf("******************************************************************\n");
+         printf("Content of the main log file: %s\n", glogfile.Data());
+         printf("******************************************************************\n");
+         std::ifstream glogfile_is( glogfile.Data() );
+         if (!glogfile_is) {
+            printf("Cannot open %s", glogfile.Data());
+         }
+         else {
+            while ( glogfile_is.good() ) {
+               glogfile_is.getline(readbuf, readbuf_size);
+               std::cout << readbuf << std::endl;
+            }
+            glogfile_is.close();
+         }
+
+         printf("******************************************************************\n");
+         printf("Content of the PROOF servers log files: %s\n", logfiles.Data());
+         printf("******************************************************************\n");
+         std::ifstream logfiles_is( logfiles.Data() );
+         if (!logfiles_is) {
+            printf("Cannot open %s", logfiles.Data());
+         }
+         else {
+            while ( logfiles_is.good() ) {
+               logfiles_is.getline(readbuf, readbuf_size);
+               std::cout << readbuf << std::endl;
+            }
+            logfiles_is.close();
+         }
+      }
    } else {
       // Remove log file if not passed by the user
       gSystem->Unlink(glogfile);
@@ -2060,7 +2112,7 @@ Int_t PT_CheckDataset(TQueryResult *qr, Long64_t nevt)
 }
 
 //_____________________________________________________________________________
-Int_t PT_CheckFriends(TQueryResult *qr, Long64_t nevt)
+Int_t PT_CheckFriends(TQueryResult *qr, Long64_t nevt, bool withfriends)
 {
    // Check the result of the ProofFriends analysis
 
@@ -2087,6 +2139,7 @@ Int_t PT_CheckFriends(TQueryResult *qr, Long64_t nevt)
 
    TString emsg;
    // Check the histogram entries and mean values
+   Int_t nchk = (withfriends) ? 4 : 2;
    Int_t rchs = 0;
    const char *hnam[4] = { "histo1", "histo2", "histo3", "histo4" };
    const char *hcls[4] = { "TH2F", "TH1F", "TH1F", "TH2F" };
@@ -2094,7 +2147,7 @@ Int_t PT_CheckFriends(TQueryResult *qr, Long64_t nevt)
    TObject *o = 0;
    Double_t ent = -1;
    Double_t prec = 1. / TMath::Sqrt(nevt);
-   for (Int_t i = 0; i < 4; i++) {
+   for (Int_t i = 0; i < nchk; i++) {
       if (!(o = out->FindObject(hnam[i]))) {
          emsg.Form("object '%s' not found", hnam[i]);
          rchs = -1;
@@ -2143,22 +2196,24 @@ Int_t PT_Open(void *args, RunTimes &tt)
 
    // Temp dir for PROOF tutorials
    PutPoint();
-   TString tmpdir(gSystem->TempDirectory()), us;
 #if defined(R__MACOSX) 
    // Force '/tmp' under macosx, to avoid problems with lengths and symlinks
-   tmpdir = "/tmp";
+   TString tmpdir("/tmp"), uspid;
+#else
+   TString tmpdir(gSystem->TempDirectory()), uspid;
 #endif
    UserGroup_t *ug = gSystem->GetUserInfo(gSystem->GetUid());
-   if (!tmpdir.EndsWith(us.Data())) {
-      if (ug) {
-         us.Form("/%s", ug->fUser.Data());
-         tmpdir += us;
-         delete ug;
-      } else {
-         printf("\n >>> Test failure: could not get user info");
-         return -1;
-      }
+   if (!ug) {
+      printf("\n >>> Test failure: could not get user info");
+      return -1;      
    }
+   if (!tmpdir.EndsWith(ug->fUser.Data())) {
+      uspid.Form("/%s/%d", ug->fUser.Data(), gSystem->GetPid());
+      delete ug;
+   } else {
+      uspid.Form("/%d", gSystem->GetPid());
+   }
+   tmpdir += uspid;
 #if !defined(R__MACOSX) 
    gtutdir.Form("%s/.proof-tutorial", tmpdir.Data());
 #else
@@ -4219,7 +4274,127 @@ Int_t PT_Friends(void *sf, RunTimes &tt)
 
    // Check the results
    PutPoint();
-   return PT_CheckFriends(gProof->GetQueryResult(), nevt * nwrk);
+   return PT_CheckFriends(gProof->GetQueryResult(), nevt * nwrk, 1);
+}
+
+//_____________________________________________________________________________
+Int_t PT_TreeSubDirs(void *sf, RunTimes &tt)
+{
+   // Test processing of TTree in subdirectories
+
+   // Checking arguments
+   PutPoint();
+   if (!gProof) {
+      printf("\n >>> Test failure: no PROOF session found\n");
+      return -1;
+   }
+
+   // Not supported in dynamic mode
+   if (gDynamicStartup) {
+      return 1;
+   }
+   PutPoint();
+
+   // File generation: we use TPacketizerFile in here to create two files per node
+   TList *wrks = gProof->GetListOfSlaveInfos();
+   if (!wrks) {
+      printf("\n >>> Test failure: could not get the list of information about the workers\n");
+      return -1;
+   }
+   
+   // Create the map
+   TString fntree;
+   TMap *files = new TMap;
+   files->SetName("PROOF_FilesToProcess");
+   TIter nxwi(wrks);
+   TSlaveInfo *wi = 0;
+   while ((wi = (TSlaveInfo *) nxwi())) {
+      fntree.Form("tree_%s.root", wi->GetOrdinal());
+      THashList *wrklist = (THashList *) files->GetValue(wi->GetName());
+      if (!wrklist) {
+         wrklist = new THashList;
+         wrklist->SetName(wi->GetName());
+         files->Add(new TObjString(wi->GetName()), wrklist);
+      }
+      wrklist->Add(new TObjString(fntree));
+   }
+   Int_t nwrk = wrks->GetSize();
+
+   // Generate the files
+   gProof->AddInput(files);
+   gProof->SetParameter("ProofAux_Action", "GenerateTrees:dir1/dir2/dir3");
+
+   // File generation: define the number of events per worker
+   Long64_t nevt = 1000;
+   gProof->SetParameter("ProofAux_NEvents", (Long64_t)nevt);
+   // Special Packetizer
+   gProof->SetParameter("PROOF_Packetizer", "TPacketizerFile");
+   // Now process
+   gProof->Process(gAuxSel.Data(), 1);
+   // Remove the packetizer specifications
+   gProof->DeleteParameters("PROOF_Packetizer");
+
+   // Check that we got some output
+   if (!gProof->GetOutputList()) {
+      printf("\n >>> Test failure: output list not found!\n");
+      return -1;
+   }
+
+   // Create the TChain objects
+   TChain *dset = new TChain("dir1/dir2/dir3/Tmain");
+   // Fill them with the information found in the output list
+   Bool_t foundMain = kFALSE;
+   TIter nxo(gProof->GetOutputList());
+   TObject *o = 0;
+   TObjString *os = 0;
+   while ((o = nxo())) {
+      TList *l = dynamic_cast<TList *> (o);
+      if (l && !strncmp(l->GetName(), "MainList-", 9)) {
+         foundMain = kTRUE;
+         TIter nxf(l);
+         while ((os = (TObjString *) nxf()))
+            dset->Add(os->GetName());
+      }
+   }
+   dset->SetProof();
+   
+   // If we did not found the main or the friend meta info we fail
+   if (!foundMain) {
+      printf("\n >>> Test failure: 'main' meta info missing!\n");
+      return -1;
+   }
+
+   // We do not plot the ntuple (we are in batch mode)
+   gProof->SetParameter("PROOF_DONT_PLOT", "yes");
+
+   // We do use friends
+   gProof->SetParameter("PROOF_NO_FRIENDS", "yes");
+
+   // Clear the list of query results
+   if (gProof->GetQueryResults()) gProof->GetQueryResults()->Clear();
+
+   // Process
+   PutPoint();
+   {  SwitchProgressGuard spg;
+      gTimer.Start();
+      dset->Process(gFriendsSel.Data());
+      gTimer.Stop();
+   }
+
+   // Remove any setting
+   gProof->DeleteParameters("PROOF_DONT_PLOT");
+   gProof->GetInputList()->Remove(files);
+   files->SetOwner(kTRUE);
+   SafeDelete(files);
+   // Clear the files created by this run
+   gProof->ClearData(TProof::kUnregistered | TProof::kForceClear);
+
+   // The runtimes
+   PT_GetLastProofTimes(tt);
+
+   // Check the results
+   PutPoint();
+   return PT_CheckFriends(gProof->GetQueryResult(), nevt * nwrk, 0);
 }
 
 //_____________________________________________________________________________

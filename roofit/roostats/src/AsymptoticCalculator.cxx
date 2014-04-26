@@ -536,7 +536,7 @@ HypoTestResult* AsymptoticCalculator::GetHypoTest() const {
    if (verbose > 0) 
       oocoutP((TObject*)0,Eval) << "\t ASIMOV data qmu_A = " << qmu_A << " condNLL = " << condNLL_A << " uncond " << fNLLAsimov << std::endl;
 
-   if (qmu_A < 0 || TMath::IsNaN(fNLLAsimov) ) {
+   if (qmu_A < -tol || TMath::IsNaN(fNLLAsimov) ) {
 
       if (qmu_A < 0) 
          oocoutW((TObject*)0,Minimization) << "AsymptoticCalculator:  Found a negative value of the qmu Asimov- retry to do the unconditional fit " 
@@ -565,7 +565,7 @@ HypoTestResult* AsymptoticCalculator::GetHypoTest() const {
       }
    }
 
-   if (qmu_A < 0) {       
+   if (qmu_A < - tol) {       
       oocoutE((TObject*)0,Minimization) << "AsymptoticCalculator:  qmu_A is still < 0  for mu = " 
                                         <<  muTest->getVal() << " return a dummy result "  
                                         << std::endl;         
@@ -630,6 +630,10 @@ HypoTestResult* AsymptoticCalculator::GetHypoTest() const {
       }
    }
 
+   // fix for negative qmu values due to numerical errors
+   if (qmu < 0 && qmu > -tol) qmu = 0; 
+   if (qmu_A < 0 && qmu_A > -tol) qmu_A = 0; 
+
    // asymptotic formula for pnull and from  paper Eur.Phys.J C 2011  71:1554
    // we have 4 different cases: 
    //          t(mu), t_tilde(mu) for the 2-sided 
@@ -667,7 +671,7 @@ HypoTestResult* AsymptoticCalculator::GetHypoTest() const {
    if (useQTilde ) { 
       if (fOneSided) { 
          // for bounded one-sided (q_mu_tilde: equations 64,65)
-         if ( qmu > qmu_A) { 
+         if ( qmu > qmu_A && (qmu_A > 0 || qmu > tol) ) { // to avoid case 0/0
             if (verbose > 2) oocoutI((TObject*)0,Eval) << "Using qmu_tilde (qmu is greater than qmu_A)" << endl;
             pnull = ROOT::Math::normal_cdf_c( (qmu + qmu_A)/(2 * sqrtqmu_A), 1.);
             palt = ROOT::Math::normal_cdf_c( (qmu - qmu_A)/(2 * sqrtqmu_A), 1.);
@@ -676,7 +680,7 @@ HypoTestResult* AsymptoticCalculator::GetHypoTest() const {
       else {  
          // for 2 sided bounded test statistic  (N.B there is no one sided discovery qtilde)
          // t_mu_tilde: equations 43,44 in asymptotic paper
-         if ( qmu >  qmu_A) { 
+         if ( qmu >  qmu_A  && (qmu_A > 0 || qmu > tol)  ) { 
             if (verbose > 2) oocoutI((TObject*)0,Eval) << "Using tmu_tilde (qmu is greater than qmu_A)" << endl;
             pnull = ROOT::Math::normal_cdf_c(sqrtqmu,1.) + 
                     ROOT::Math::normal_cdf_c( (qmu + qmu_A)/(2 * sqrtqmu_A), 1.);
@@ -772,6 +776,9 @@ void AsymptoticCalculator::FillBins(const RooAbsPdf & pdf, const RooArgList &obs
 
    RooArgSet obstmp(obs);
    double expectedEvents = pdf.expectedEvents(obstmp);
+   // if (debug)  { 
+   //    std::cout << "expected events = " << expectedEvents << std::endl;
+   // }
 
    if (debug) cout << "looping on observable " << v->GetName() << endl;
    for (int i = 0; i < v->getBins(); ++i) {
@@ -789,6 +796,8 @@ void AsymptoticCalculator::FillBins(const RooAbsPdf & pdf, const RooArgList &obs
          // this is now a new bin - compute the pdf in this bin 
          double totBinVolume = binVolume * v->getBinWidth(i);
          double fval = pdf.getVal(&obstmp)*totBinVolume;
+
+         //if (debug) std::cout << "pdf value in the bin " << fval << " bin volume = " << totBinVolume << "   " << fval*expectedEvents << std::endl;
          if (fval*expectedEvents <= 0)
          {
             if (fval*expectedEvents < 0)
@@ -832,6 +841,7 @@ bool AsymptoticCalculator::SetObsToExpected(RooProdPdf &prod, const RooArgSet &o
         RooGaussian * gaus = 0;
         if ((pois = dynamic_cast<RooPoisson *>(a)) != 0) {
             SetObsToExpected(*pois, obs);
+            pois->setNoRounding(true);  //needed since expecteed value is not an integer
         } else if ((gaus = dynamic_cast<RooGaussian *>(a)) != 0) {
             SetObsToExpected(*gaus, obs);
         } else {
@@ -923,6 +933,8 @@ RooAbsData * AsymptoticCalculator::GenerateCountingAsimovData(RooAbsPdf & pdf, c
         r = SetObsToExpected(*prod, observables);
     } else if ((pois = dynamic_cast<RooPoisson *>(&pdf)) != 0) {
         r = SetObsToExpected(*pois, observables);
+        // we need in this case to set Poisson to real values
+        pois->setNoRounding(true);
     } else if ((gaus = dynamic_cast<RooGaussian *>(&pdf)) != 0) {
         r = SetObsToExpected(*gaus, observables);
     } else {
@@ -1134,9 +1146,13 @@ RooAbsData * AsymptoticCalculator::MakeAsimovData(RooAbsData & realData, const M
       int minimPrintLevel = ROOT::Math::MinimizerOptions::DefaultPrintLevel();
       if (verbose>0) { 
          std::cout << "MakeAsimov: doing a conditional fit for finding best nuisance values " << std::endl;
+         minimPrintLevel = verbose;
          if (verbose>1) {
             std::cout << "POI values:\n"; poi.Print("v");
-            minimPrintLevel = verbose;
+            if (verbose > 2) { 
+               std::cout << "Nuis param values:\n"; 
+               constrainParams.Print("v");
+            }
          }
       }         
       RooFit::MsgLevel msglevel = RooMsgService::instance().globalKillBelow();
@@ -1210,7 +1226,16 @@ RooAbsData * AsymptoticCalculator::MakeAsimovData(const ModelConfig & model, con
    
    if (verbose>0) {
       std::cout << "Generated Asimov data for observables "; (model.GetObservables() )->Print(); 
-      if (verbose>1) std::cout << "\t\t\ttime for generating : ";  tw.Print(); 
+      if (verbose > 1) { 
+         if (asimov->numEntries() == 1 ) {
+            std::cout << "--- Asimov data values \n";
+            asimov->get()->Print("v");
+         }
+         else { 
+            std::cout << "--- Asimov data numEntries = " << asimov->numEntries() << " sumOfEntries = " << asimov->sumEntries() << std::endl;
+         }
+         std::cout << "\ttime for generating : ";  tw.Print(); 
+      }
    }
 
 
@@ -1275,9 +1300,14 @@ RooAbsData * AsymptoticCalculator::MakeAsimovData(const ModelConfig & model, con
 
          std::auto_ptr<RooArgSet> cpars(cterm->getParameters(&gobs));
          std::auto_ptr<RooArgSet> cgobs(cterm->getObservables(&gobs));
-         if (cgobs->getSize() != 1) {
+         if (cgobs->getSize() > 1) {
             oocoutE((TObject*)0,Generation) << "AsymptoticCalculator::MakeAsimovData: constraint term  " <<  cterm->GetName() 
                                             << " has multiple global observables -cannot generate - skip it" << std::endl;
+            continue; 
+         }
+         else if (cgobs->getSize() == 0) { 
+            oocoutW((TObject*)0,Generation) << "AsymptoticCalculator::MakeAsimovData: constraint term  " <<  cterm->GetName() 
+                                            << " has no global observables - skip it" << std::endl;
             continue; 
          }
          RooRealVar &rrv = dynamic_cast<RooRealVar &>(*cgobs->first());
@@ -1311,6 +1341,13 @@ RooAbsData * AsymptoticCalculator::MakeAsimovData(const ModelConfig & model, con
             oocoutW((TObject*)0,Generation) << "AsymptoticCalculator::MakeAsimovData:constraint term " 
                                             << cterm->GetName() << " of type " << className 
                                             << " is a non-supported type - result might be not correct " << std::endl;
+         }
+
+         // in cae of a Poisson constraint make sure the rounding is not set 
+         if (cClass == RooPoisson::Class() ) { 
+            RooPoisson * pois = dynamic_cast<RooPoisson*>(cterm); 
+            assert(pois); 
+            pois->setNoRounding(true); 
          }
 
          for (RooAbsArg *a2 = (RooAbsArg *) iter2->Next(); a2 != 0; a2 = (RooAbsArg *) iter2->Next()) {

@@ -34,7 +34,6 @@ are initialized to zero:
 
 <P><TT>&nbsp; TVector3 v1;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; //
 v1 = (0,0,0)</TT>
-<BR><TT>&nbsp; TVector3 v2(1);&nbsp;&nbsp;&nbsp;&nbsp; // v2 = (1,0,0)</TT>
 <BR><TT>&nbsp; TVector3 v3(1,2,3); // v3 = (1,2,3)</TT>
 <BR><TT>&nbsp; TVector3 v4(v2);&nbsp;&nbsp;&nbsp; // v4 = v2</TT>
 
@@ -168,6 +167,9 @@ theta plane) to the (x,y,z) frame.
 ClassImp(TVector3)
 
 //______________________________________________________________________________
+TVector3::TVector3()
+: fX(0.0), fY(0.0), fZ(0.0) {}
+
 TVector3::TVector3(const TVector3 & p) : TObject(p),
   fX(p.fX), fY(p.fY), fZ(p.fZ) {}
 

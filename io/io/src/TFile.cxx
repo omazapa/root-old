@@ -564,7 +564,7 @@ void TFile::Init(Bool_t create)
       // Make sure the anchor is in the name
       if (!fNoAnchorInName)
          if (!strchr(GetName(),'#'))
-            SetName(Form("%s#%s", GetName(), fArchive->GetMemberName()));
+            SetName(TString::Format("%s#%s", GetName(), fArchive->GetMemberName()));
 
       if (fArchive->SetCurrentMember() != -1)
          fArchiveOffset = fArchive->GetMemberFilePosition();
@@ -1670,6 +1670,11 @@ void TFile::ReadFree()
    // This linked list has been written on the file via WriteFree
    // as a single data record.
 
+   // Avoid problem with file corruption.
+   if (fNbytesFree < 0 || fNbytesFree > fEND) {
+      fNbytesFree = 0;
+      return;
+   }
    TKey *headerfree = new TKey(fSeekFree, fNbytesFree, this);
    headerfree->ReadFile();
    char *buffer = headerfree->GetBuffer();
@@ -3375,7 +3380,7 @@ void TFile::ReadStreamerInfo()
          if ( (!isstl && mode ==0) || (isstl && mode ==1) ) {
                // Skip the STL container the first time around
                // Skip the regular classes the second time around;
-            info->BuildCheck();
+            info->BuildCheck(this);
             Int_t uid = info->GetNumber();
             Int_t asize = fClassIndex->GetSize();
             if (uid >= asize && uid <100000) fClassIndex->Set(2*asize);
@@ -4477,13 +4482,13 @@ TFile::EFileType TFile::GetType(const char *name, Option_t *option, TString *pre
             TString lfname;
             if (fname[0] == '/') {
                if (prefix)
-                  lfname = Form("%s%s", prefix->Data(), fname);
+                  lfname.Form("%s%s", prefix->Data(), fname);
                else
                   lfname = fname;
             } else if (fname[0] == '~' || fname[0] == '$') {
                lfname = fname;
             } else {
-               lfname = Form("%s/%s", gSystem->HomeDirectory(), fname);
+               lfname.Form("%s/%s", gSystem->HomeDirectory(), fname);
             }
             // If option "READ" test existence and access
             TString opt = option;
@@ -4616,7 +4621,7 @@ void TFile::CpProgress(Long64_t bytesread, Long64_t size, TStopwatch &watch)
    watch.Stop();
    Double_t lCopy_time = watch.RealTime();
    fprintf(stderr, "| %.02f %% [%.01f MB/s]\r",
-           100.0*(size?(bytesread/((float)size)):1), bytesread/lCopy_time/1048576.);
+           100.0*(size?(bytesread/((float)size)):1), (lCopy_time>0.)?bytesread/lCopy_time/1048576.:0.);
    watch.Continue();
 }
 
@@ -4774,7 +4779,7 @@ Bool_t TFile::Cp(const char *src, const char *dst, Bool_t progressbar,
    //    cachesz = 4*buffersize     -> 4 buffers as peak mem usage
    //    readaheadsz = 2*buffersize -> Keep at max 4*buffersize bytes outstanding when reading
    //    rmpolicy = 1               -> Remove from the cache the blk with the least offset
-   opt += Form("&cachesz=%d&readaheadsz=%d&rmpolicy=1", 4*buffersize, 2*buffersize);
+   opt += TString::Format("&cachesz=%d&readaheadsz=%d&rmpolicy=1", 4*buffersize, 2*buffersize);
    sURL.SetOptions(opt);
 
    TFile *sfile = 0;

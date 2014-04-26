@@ -2541,7 +2541,7 @@ TFile* TTree::ChangeFile(TFile* file)
       file->Remove(obj);
       // Histogram: just change the directory.
       if (obj->InheritsFrom("TH1")) {
-         gROOT->ProcessLine(Form("((%s*)0x%lx)->SetDirectory((TDirectory*)0x%lx);", obj->ClassName(), (Long_t) obj, (Long_t) newfile));
+         gROOT->ProcessLine(TString::Format("((%s*)0x%lx)->SetDirectory((TDirectory*)0x%lx);", obj->ClassName(), (Long_t) obj, (Long_t) newfile));
          continue;
       }
       // Tree: must save all trees in the old file, reset them.
@@ -3500,9 +3500,10 @@ Long64_t TTree::Draw(const char* varexp, const char* selection, Option_t* option
    //
    //  varexp is an expression of the general form
    //   - "e1"           produces a 1-d histogram (TH1F) of expression "e1"
-   //   - "e1:e2"        produces an unbinned 2-d scatter-plot (TGraph) of "e1" versus "e2"
+   //   - "e1:e2"        produces an unbinned 2-d scatter-plot (TGraph) of "e1"
+   //                    on the y-axis versus "e2" on the x-axis
    //   - "e1:e2:e3"     produces an unbinned 3-d scatter-plot (TPolyMarker3D) of "e1"
-   //                    versus "e2" versus "e3"
+   //                    versus "e2" versus "e3" on the x-, y-, z-axis, respectively.
    //   - "e1:e2:e3:e4"  produces an unbinned 3-d scatter-plot (TPolyMarker3D) of "e1"
    //                    versus "e2" versus "e3" and "e4" mapped on the color number.
    //  (to create histograms in the 2, 3, and 4 dimensional case, see section "Saving
@@ -4969,7 +4970,7 @@ Long64_t TTree::GetEntryNumber(Long64_t entry) const
 }
 
 //______________________________________________________________________________
-Long64_t TTree::GetEntryNumberWithBestIndex(Int_t major, Int_t minor) const
+Long64_t TTree::GetEntryNumberWithBestIndex(Long64_t major, Long64_t minor) const
 {
    // Return entry number corresponding to major and minor number.
    // Note that this function returns only the entry number, not the data
@@ -4993,7 +4994,7 @@ Long64_t TTree::GetEntryNumberWithBestIndex(Int_t major, Int_t minor) const
 }
 
 //______________________________________________________________________________
-Long64_t TTree::GetEntryNumberWithIndex(Int_t major, Int_t minor) const
+Long64_t TTree::GetEntryNumberWithIndex(Long64_t major, Long64_t minor) const
 {
    // Return entry number corresponding to major and minor number.
    // Note that this function returns only the entry number, not the data
@@ -6554,7 +6555,7 @@ Long64_t TTree::ReadStream(istream& inputStream, const char *branchDescriptor, c
             desc = bdcur;
             olddesc = slash+1;
          } else {
-            desc = Form("%s/%s",bdname,olddesc.Data());
+            desc.Form("%s/%s",bdname,olddesc.Data());
          }
          char *bracket = strchr(bdname,'[');
          if (bracket) {

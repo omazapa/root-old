@@ -212,6 +212,13 @@ STRESSROOFIT   = stressRooFit$(ExeSuf)
 STRESSROOSTATSO  = stressRooStats.$(ObjSuf)
 STRESSROOSTATSS  = stressRooStats.$(SrcSuf)
 STRESSROOSTATS   = stressRooStats$(ExeSuf)
+
+ifeq ($(shell $(RC) --has-xml),yes)
+STRESSHISTFACTORYO  = stressHistFactory.$(ObjSuf)
+STRESSHISTFACTORYS  = stressHistFactory.$(SrcSuf)
+STRESSHISTFACTORY   = stressHistFactory$(ExeSuf)
+endif
+
 endif
 
 STRESSFITO    = stressFit.$(ObjSuf)
@@ -290,7 +297,8 @@ OBJS          = $(EVENTO) $(MAINEVENTO) $(EVENTMTO) $(HWORLDO) $(HSIMPLEO) \
                 $(CTORTUREO) $(QPRANDOMO) $(THREADSO) $(STRESSVECO) \
                 $(STRESSMATHO) $(STRESSFITO) $(STRESSHISTOFITO) \
                 $(STRESSHEPIXO) $(STRESSENTRYLISTO) $(STRESSROOFITO) \
-                $(STRESSROOSTATSO) $(STRESSPROOFO) $(STRESSMATHMOREO) \
+                $(STRESSROOSTATSO) $(STRESSHISTFACTORYO) \
+                $(STRESSPROOFO) $(STRESSMATHMOREO) \
                 $(STRESSTMVAO) $(STRESSINTERPO) $(STRESSITERO) \
                 $(STRESSHISTO) $(STRESSGUIO) $(SQLITETESTO)
 
@@ -301,7 +309,7 @@ PROGRAMS      = $(EVENT) $(EVENTMTSO) $(HWORLD) $(HSIMPLE) $(MINEXAM) \
                 $(TESTBITS) $(CTORTURE) $(QPRANDOM) $(THREADS) $(STRESSSP) \
                 $(STRESSVEC) $(STRESSFIT) $(STRESSHISTOFIT) $(STRESSHEPIX) \
                 $(STRESSENTRYLIST) $(STRESSROOFIT) $(STRESSROOSTATS) \
-                $(STRESSPROOF) $(STRESSMATH) \
+                $(STRESSHISTFACTORY) $(STRESSPROOF) $(STRESSMATH) \
                 $(STRESSMATHMORE) $(STRESSTMVA) $(STRESSINTERP) $(STRESSITER) \
                 $(STRESSHIST) $(STRESSGUI) $(SQLITETEST)
 
@@ -594,6 +602,7 @@ $(STRESSHEPIX): $(STRESSHEPIXO) $(STRESSGEOMETRY) $(STRESSFIT) $(STRESSL) \
 
 $(STRESSROOFITO): stressRooFit_tests.cxx
 $(STRESSROOSTATSO): stressRooStats_tests.cxx stressRooStats_models.cxx
+$(STRESSHISTFACTORYO): stressHistFactory_tests.cxx stressHistFactory_models.cxx
 
 ifeq ($(shell $(RC) --has-mathmore),yes)
 ifeq ($(PLATFORM),win32)
@@ -617,9 +626,20 @@ ifeq ($(PLATFORM),win32)
 		$(LD) $(LDFLAGS) $^ $(LIBS) '$(ROOTSYS)/lib/libRooStats.lib' '$(ROOTSYS)/lib/libRooFit.lib' '$(ROOTSYS)/lib/libRooFitCore.lib' '$(ROOTSYS)/lib/libHtml.lib' '$(ROOTSYS)/lib/libThread.lib' '$(ROOTSYS)/lib/libMinuit.lib' '$(ROOTSYS)/lib/libFoam.lib' '$(ROOTSYS)/lib/libProof.lib' $(EXTRAROOFITLIBS) $(OutPutOpt)$@
 		$(MT_EXE)
 else
-		$(LD) $(LDFLAGS) $^ $(LIBS) -lRooStats -lRooFit -lRooFitCore -lHtml -lThread -lMinuit -lFoam $(EXTRAROOFITLIBS) $(OutPutOpt)$@
+		$(LD) $(LDFLAGS) $^ $(LIBS) -lRooStats -lRooFit -lRooFitCore  -lThread -lMinuit -lFoam  $(EXTRAROOFITLIBS) $(OutPutOpt)$@
 endif
 		@echo "$@ done"
+
+$(STRESSHISTFACTORY): $(STRESSHISTFACTORYO)
+ifeq ($(PLATFORM),win32)
+		$(LD) $(LDFLAGS) $^ $(LIBS) '$(ROOTSYS)/lib/libHistFactory.lib' '$(ROOTSYS)/lib/libRooStats.lib' '$(ROOTSYS)/lib/libRooFit.lib' '$(ROOTSYS)/lib/libRooFitCore.lib' '$(ROOTSYS)/\
+lib/libXMLParser.lib' '$(ROOTSYS)/lib/libThread.lib' '$(ROOTSYS)/lib/libMinuit.lib' '$(ROOTSYS)/lib/libFoam.lib' '$(ROOTSYS)/lib/libProof.lib' $(EXTRAROOFITLIBS) $(OutPutOpt)$@
+		$(MT_EXE)
+else
+		$(LD) $(LDFLAGS) $^ $(LIBS) -lHistFactory -lRooStats -lRooFit -lRooFitCore -lMinuit -lFoam -lXMLParser $(EXTRAROOFITLIBS) $(OutPutOpt)$@
+endif
+		@echo "$@ done"
+
 
 $(STRESSPROOF): $(STRESSPROOFO)
 ifeq ($(PLATFORM),win32)
@@ -735,11 +755,13 @@ clean:
 
 distclean:      clean
 		-@(mv -f stressRooStats_ref.root stressRooStats_ref.root- >/dev/null 2>&1;true)
+		-@(mv -f stressHistFactory_ref.root stressHistFactory_ref.root- >/dev/null 2>&1;true)
 		@rm -f $(PROGRAMS) $(EVENTSO) $(EVENTLIB) *Dict.* *.def *.exp \
 		   *.root *.ps *.so *.lib *.dll *.d *.log .def so_locations \
 		   files/* testdb.sqlite
 		@rm -rf cxx_repository
 		-@(mv -f stressRooStats_ref.root- stressRooStats_ref.root >/dev/null 2>&1;true)
+		-@(mv -f stressHistFactory_ref.root- stressHistFactory_ref.root >/dev/null 2>&1;true)
 		-@cd RootShower && $(MAKE) distclean
 		-@cd rhtml && $(MAKE) distclean
 		-@cd RootIDE && $(MAKE) distclean

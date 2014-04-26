@@ -101,6 +101,7 @@ TMVA::DecisionTree::DecisionTree():
    fSepType        (NULL),
    fRegType        (NULL),
    fMinSize        (0),
+   fMinNodeSize    (1),
    fMinSepGain (0),
    fUseSearchTree(kFALSE),
    fPruneStrength(0),
@@ -393,15 +394,20 @@ UInt_t TMVA::DecisionTree::BuildTree( const std::vector<const TMVA::Event*> & ev
          // no cut can actually do anything to improve the node
          // hence, naturally, the current node is a leaf node
          if (DoRegression()) {
-            node->SetSeparationIndex(fRegType->GetSeparationIndex(s+b,target,target2));
-            node->SetResponse(target/(s+b));
-            node->SetRMS(TMath::Sqrt(target2/(s+b) - target/(s+b)*target/(s+b)));
+	    node->SetSeparationIndex(fRegType->GetSeparationIndex(s+b,target,target2));
+	    node->SetResponse(target/(s+b));
+	    if( (target2/(s+b) - target/(s+b)*target/(s+b)) < std::numeric_limits<double>::epsilon() ){
+	       node->SetRMS(0);
+	    }else{
+	       node->SetRMS(TMath::Sqrt(target2/(s+b) - target/(s+b)*target/(s+b)));
+	    }
          }
          else {
             node->SetSeparationIndex(fSepType->GetSeparationIndex(s,b));
-         }
-         if (node->GetPurity() > fNodePurityLimit) node->SetNodeType(1);
-         else node->SetNodeType(-1);
+	    
+	    if (node->GetPurity() > fNodePurityLimit) node->SetNodeType(1);
+	    else node->SetNodeType(-1);
+	 }
          if (node->GetDepth() > this->GetTotalTreeDepth()) this->SetTotalTreeDepth(node->GetDepth());
 
       } else {
@@ -453,15 +459,20 @@ UInt_t TMVA::DecisionTree::BuildTree( const std::vector<const TMVA::Event*> & ev
          node->SetLeft(leftNode);
          node->SetRight(rightNode);
 
-         this->BuildTree(rightSample, rightNode);
+	 this->BuildTree(rightSample, rightNode);
          this->BuildTree(leftSample,  leftNode );
+
       }
    }
    else{ // it is a leaf node
       if (DoRegression()) {
          node->SetSeparationIndex(fRegType->GetSeparationIndex(s+b,target,target2));
          node->SetResponse(target/(s+b));
-         node->SetRMS(TMath::Sqrt(target2/(s+b) - target/(s+b)*target/(s+b)));
+	 if( (target2/(s+b) - target/(s+b)*target/(s+b)) < std::numeric_limits<double>::epsilon() ) {
+	    node->SetRMS(0);
+	 }else{
+	    node->SetRMS(TMath::Sqrt(target2/(s+b) - target/(s+b)*target/(s+b)));
+	 }
       }
       else {
          node->SetSeparationIndex(fSepType->GetSeparationIndex(s,b));
@@ -979,9 +990,10 @@ Double_t TMVA::DecisionTree::TrainNodeFast( const EventConstList & eventSample,
          
          fisherCoeff = this->GetFisherCoefficients(eventSample, nFisherVars, mapVarInFisher);
          fisherOK = kTRUE;
-         delete [] useVarInFisher;
-         delete [] mapVarInFisher;
       }
+      delete [] useVarInFisher;
+      delete [] mapVarInFisher;
+
    }
 
 
@@ -1014,6 +1026,12 @@ Double_t TMVA::DecisionTree::TrainNodeFast( const EventConstList & eventSample,
       if (ivar < fNvars){
          xmin[ivar]=node->GetSampleMin(ivar);
          xmax[ivar]=node->GetSampleMax(ivar);
+	 if (xmax[ivar]-xmin[ivar] < std::numeric_limits<double>::epsilon() ) {
+	   //  std::cout << " variable " << ivar << " has no proper range in (xmax[ivar]-xmin[ivar] = " << xmax[ivar]-xmin[ivar] << std::endl;
+	   //  std::cout << " will set useVariable[ivar]=false"<<std::endl;
+	   useVariable[ivar]=kFALSE;
+	 }
+
       } else { // the fisher variable
          xmin[ivar]=999;
          xmax[ivar]=-999;
@@ -1203,15 +1221,20 @@ Double_t TMVA::DecisionTree::TrainNodeFast( const EventConstList & eventSample,
    if (DoRegression()) {
       node->SetSeparationIndex(fRegType->GetSeparationIndex(nTotS+nTotB,target[0][nBins-1],target2[0][nBins-1]));
       node->SetResponse(target[0][nBins-1]/(nTotS+nTotB));
-      node->SetRMS(TMath::Sqrt(target2[0][nBins-1]/(nTotS+nTotB) - target[0][nBins-1]/(nTotS+nTotB)*target[0][nBins-1]/(nTotS+nTotB)));
+      if ( (target2[0][nBins-1]/(nTotS+nTotB) - target[0][nBins-1]/(nTotS+nTotB)*target[0][nBins-1]/(nTotS+nTotB)) < std::numeric_limits<double>::epsilon() ) {
+	 node->SetRMS(0);
+      }else{ 
+	 node->SetRMS(TMath::Sqrt(target2[0][nBins-1]/(nTotS+nTotB) - target[0][nBins-1]/(nTotS+nTotB)*target[0][nBins-1]/(nTotS+nTotB)));
+      }
    }
    else {
       node->SetSeparationIndex(fSepType->GetSeparationIndex(nTotS,nTotB));
+      if (mxVar >=0){ 
+	if (nSelS[mxVar][cutIndex[mxVar]]/nTotS > nSelB[mxVar][cutIndex[mxVar]]/nTotB) cutType=kTRUE;
+	else cutType=kFALSE;
+      }      
    }
-   if (mxVar >= 0) { 
-      if (nSelS[mxVar][cutIndex[mxVar]]/nTotS > nSelB[mxVar][cutIndex[mxVar]]/nTotB) cutType=kTRUE;
-      else cutType=kFALSE;      
-    
+   if (mxVar >= 0) {    
       node->SetSelector((UInt_t)mxVar);
       node->SetCutValue(cutValues[mxVar][cutIndex[mxVar]]);
       node->SetCutType(cutType);
@@ -1620,8 +1643,10 @@ Double_t TMVA::DecisionTree::CheckEvent( const TMVA::Event * e, Bool_t UseYesNoL
    // the event for this decision tree.
   
    TMVA::DecisionTreeNode *current = this->GetRoot();
-   if (!current)
+   if (!current){
       Log() << kFATAL << "CheckEvent: started with undefined ROOT node" <<Endl;
+      return 0; //keeps covarity happy that doesn't know that kFATAL causes an exit
+   }
 
    while (current->GetNodeType() == 0) { // intermediate node in a (pruned) tree
       current = (current->GoesRight(*e)) ? 

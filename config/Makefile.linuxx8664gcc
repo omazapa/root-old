@@ -37,6 +37,11 @@ CINTCFLAGS    = -pipe -m64 -Wall -W -fPIC $(EXTRA_CFLAGS) \
                 -DG__STD_EXCEPTION -DG__64BIT
 COMPILER      = gnu
 
+ifeq ($(WERROR),yes)
+CXXFLAGS     += -Werror
+NOOPT        += -pedantic -Wno-long-long
+endif
+
 # Linker:
 LD            = g++
 LDFLAGS       = -m64 $(OPT) $(EXTRA_LDFLAGS) -Wl,--no-undefined -Wl,--as-needed
@@ -79,3 +84,4 @@ endif
 endif
 
 # Extras
+GLIBC_MALLOC_DEPRECATED = yes

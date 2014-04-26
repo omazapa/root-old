@@ -76,7 +76,7 @@ namespace OpenGL = ROOT::MacOSX::OpenGL;
 
 namespace {
 
-//Display configuration management.
+#pragma mark - Display configuration management.
 
 //______________________________________________________________________________
 void DisplayReconfigurationCallback(CGDirectDisplayID /*display*/, CGDisplayChangeSummaryFlags flags, void * /*userInfo*/)
@@ -85,24 +85,26 @@ void DisplayReconfigurationCallback(CGDirectDisplayID /*display*/, CGDisplayChan
       return;
 
    if (flags & kCGDisplayDesktopShapeChangedFlag) {
-      TGCocoa * const gCocoa = dynamic_cast<TGCocoa *>(gVirtualX);
-      assert(gCocoa != 0 && "DisplayReconfigurationCallback, gVirtualX is either null or has a wrong type");
+      assert(dynamic_cast<TGCocoa *>(gVirtualX) != 0 && "DisplayReconfigurationCallback, gVirtualX"
+                                                        " is either null or has a wrong type");
+      TGCocoa * const gCocoa = static_cast<TGCocoa *>(gVirtualX);
       gCocoa->ReconfigureDisplay();
    }
 }
 
-//Aux. functions called from GUI-rendering part.
+#pragma mark - Aux. functions called from GUI-rendering part.
 
 //______________________________________________________________________________
 void SetStrokeForegroundColorFromX11Context(CGContextRef ctx, const GCValues_t &gcVals)
 {
-   assert(ctx != 0 && "SetStrokeForegroundColorFromX11Context, ctx parameter is null");
+   assert(ctx != 0 && "SetStrokeForegroundColorFromX11Context, parameter 'ctx' is null");
    
    CGFloat rgb[3] = {};
    if (gcVals.fMask & kGCForeground)
       X11::PixelToRGB(gcVals.fForeground, rgb);
    else
-      ::Warning("SetStrokeForegroundColorFromX11Context", "x11 context does not have line color information");
+      ::Warning("SetStrokeForegroundColorFromX11Context",
+                "x11 context does not have line color information");
 
    CGContextSetRGBStrokeColor(ctx, rgb[0], rgb[1], rgb[2], 1.);
 }
@@ -116,7 +118,8 @@ void SetStrokeDashFromX11Context(CGContextRef ctx, const GCValues_t &gcVals)
    SetStrokeForegroundColorFromX11Context(ctx, gcVals);
    
    static const std::size_t maxLength = sizeof gcVals.fDashes / sizeof gcVals.fDashes[0];   
-   assert(maxLength >= std::size_t(gcVals.fDashLen) && "SetStrokeDashFromX11Context, x11 context has bad dash length > sizeof(fDashes)");
+   assert(maxLength >= std::size_t(gcVals.fDashLen) &&
+          "SetStrokeDashFromX11Context, x11 context has bad dash length > sizeof(fDashes)");
 
    CGFloat dashes[maxLength] = {};
    for (Int_t i = 0; i < gcVals.fDashLen; ++i)
@@ -137,7 +140,7 @@ void SetStrokeParametersFromX11Context(CGContextRef ctx, const GCValues_t &gcVal
 {
    //Set line width and color from GCValues_t object.
    //(GUI rendering).
-   assert(ctx != 0 && "SetStrokeParametersFromX11Context, ctx parameter is null");
+   assert(ctx != 0 && "SetStrokeParametersFromX11Context, parameter 'ctx' is null");
 
    const Mask_t mask = gcVals.fMask;
    if ((mask & kGCLineWidth) && gcVals.fLineWidth > 1)
@@ -155,7 +158,8 @@ void SetStrokeParametersFromX11Context(CGContextRef ctx, const GCValues_t &gcVal
       else if (gcVals.fLineStyle == kLineDoubleDash)
          SetStrokeDoubleDashFromX11Context(ctx ,gcVals);
       else {
-         ::Warning("SetStrokeParametersFromX11Context", "line style bit is set, but line style is unknown");
+         ::Warning("SetStrokeParametersFromX11Context", "line style bit is set,"
+                                                        " but line style is unknown");
          SetStrokeForegroundColorFromX11Context(ctx, gcVals);
       }
    } else 
@@ -167,7 +171,7 @@ void SetFilledAreaColorFromX11Context(CGContextRef ctx, const GCValues_t &gcVals
 {
    //Set fill color from "foreground" pixel color.
    //(GUI rendering).
-   assert(ctx != 0 && "SetFilledAreaColorFromX11Context, context parameter is null");
+   assert(ctx != 0 && "SetFilledAreaColorFromX11Context, parameter 'ctx' is null");
    
    CGFloat rgb[3] = {};
    if (gcVals.fMask & kGCForeground)
@@ -227,7 +231,7 @@ bool HasFillOpaqueStippledStyle(const GCValues_t &gcVals)
 //______________________________________________________________________________
 void DrawTile(NSObject<X11Drawable> *patternImage, CGContextRef ctx)
 {
-   assert(patternImage != nil && "DrawTile, patternImage parameter is nil");
+   assert(patternImage != nil && "DrawTile, parameter 'patternImage' is nil");
    assert(ctx != 0 && "DrawTile, ctx parameter is null");
    
    const CGRect patternRect = CGRectMake(0, 0, patternImage.fWidth, patternImage.fHeight);
@@ -248,8 +252,8 @@ void DrawPattern(void *info, CGContextRef ctx)
    //color and stipple mask to draw a pattern, or use pixmap
    //as a pattern image.
    //(GUI rendering).
-   assert(info != 0 && "DrawPattern, info parameter is null");
-   assert(ctx != 0 && "DrawPattern, ctx parameter is null");
+   assert(info != 0 && "DrawPattern, parameter 'info' is null");
+   assert(ctx != 0 && "DrawPattern, parameter 'ctx' is null");
 
    const PatternContext * const patternContext = (PatternContext *)info;
    const Mask_t mask = patternContext->fMask;
@@ -262,7 +266,8 @@ void DrawPattern(void *info, CGContextRef ctx)
    if (HasFillTiledStyle(mask, fillStyle)) {
       DrawTile(patternImage, ctx);
    } else if (HasFillStippledStyle(mask, fillStyle) || HasFillOpaqueStippledStyle(mask, fillStyle)) {
-      assert([patternImage isKindOfClass : [QuartzImage class]] && "DrawPattern, stipple must be a QuartzImage object");
+      assert([patternImage isKindOfClass : [QuartzImage class]] &&
+             "DrawPattern, stipple must be a QuartzImage object");
       QuartzImage * const image = (QuartzImage *)patternImage;
       assert(image.fIsStippleMask == YES && "DrawPattern, image is not a stipple mask");
 
@@ -270,7 +275,8 @@ void DrawPattern(void *info, CGContextRef ctx)
 
       if (HasFillOpaqueStippledStyle(mask,fillStyle)) {
          //Fill background first.
-         assert((mask & kGCBackground) && "DrawPattern, fill style is FillOpaqueStippled, but background color is not set in a context");
+         assert((mask & kGCBackground) &&
+                "DrawPattern, fill style is FillOpaqueStippled, but background color is not set in a context");
          X11::PixelToRGB(patternContext->fBackground, rgb);
          CGContextSetRGBFillColor(ctx, rgb[0], rgb[1], rgb[2], 1.);
          CGContextFillRect(ctx, patternRect);
@@ -295,8 +301,8 @@ void SetFillPattern(CGContextRef ctx, const PatternContext *patternContext)
    //Pattern is a QuartzImage object, it can be either a mask,
    //or pattern image itself.
    //(GUI-rendering).
-   assert(ctx != 0 && "SetFillPattern, ctx parameter is null");
-   assert(patternContext != 0 && "SetFillPattern, patternContext parameter is null");
+   assert(ctx != 0 && "SetFillPattern, parameter 'ctx' is null");
+   assert(patternContext != 0 && "SetFillPattern, parameter 'patternContext' is null");
    assert(patternContext->fImage != nil && "SetFillPattern, pattern image is nil");
 
    const Util::CFScopeGuard<CGColorSpaceRef> patternColorSpace(CGColorSpaceCreatePattern(0));
@@ -316,7 +322,7 @@ void SetFillPattern(CGContextRef ctx, const PatternContext *patternContext)
 //______________________________________________________________________________
 bool ParentRendersToChild(NSView<X11Window> *child)
 {
-   assert(child != nil && "ParentRendersToChild, child parameter is nil");
+   assert(child != nil && "ParentRendersToChild, parameter 'child' is nil");
 
    //Adovo poluchaetsia, tashhem-ta! ;)
    return (X11::ViewIsTextViewFrame(child, true) || X11::ViewIsHtmlViewFrame(child, true)) && !child.fContext &&
@@ -373,7 +379,8 @@ TGCocoa::TGCocoa()
               fSetApp(true),
               fDisplayShapeChanged(true)
 {
-   assert(dynamic_cast<TMacOSXSystem *>(gSystem) != nullptr && "TGCocoa, gSystem is eihter null or has a wrong type");
+   assert(dynamic_cast<TMacOSXSystem *>(gSystem) != nullptr &&
+          "TGCocoa, gSystem is eihter null or has a wrong type");
    TMacOSXSystem * const system = (TMacOSXSystem *)gSystem;
    
    if (!system->CocoaInitialized())
@@ -398,7 +405,8 @@ TGCocoa::TGCocoa(const char *name, const char *title)
               fSetApp(true),
               fDisplayShapeChanged(true)
 {
-   assert(dynamic_cast<TMacOSXSystem *>(gSystem) != nullptr && "TGCocoa, gSystem is eihter null or has a wrong type");
+   assert(dynamic_cast<TMacOSXSystem *>(gSystem) != nullptr &&
+          "TGCocoa, gSystem is eihter null or has a wrong type");
    TMacOSXSystem * const system = (TMacOSXSystem *)gSystem;
    
    if (!system->CocoaInitialized())
@@ -556,7 +564,7 @@ X11::Rectangle TGCocoa::GetDisplayGeometry()const
    return fDisplayRect;
 }
 
-//Window management part.
+#pragma mark - Window management part.
 
 //______________________________________________________________________________
 Window_t TGCocoa::GetDefaultRootWindow() const
@@ -573,21 +581,19 @@ Int_t TGCocoa::InitWindow(ULong_t parentID)
    //Actually, there is no special need in this function, 
    //it's a kind of simplified CreateWindow (with only
    //one parameter). This function is called by TRootCanvas,
-   //to create a special window inside TGCanvas.
+   //to create a special window inside TGCanvas (thus parentID must be a valid window ID).
    //TGX11/TGWin32 have internal array of such special windows,
    //they return index into this array, instead of drawable's ids.
-   //I simply re-use CreateWindow and return drawable's id.
+   //I simply re-use CreateWindow and return a drawable's id.
 
-   assert(parentID != 0 && "InitWindow, parentID parameter is 0");//0 is an invalid id.
+   assert(parentID != 0 && "InitWindow, parameter 'parentID' is 0");
 
    //Use parent's attributes (as it's done in TGX11).
    WindowAttributes_t attr = {};
-
-   if (fPimpl->IsRootWindow(parentID)) {
+   if (fPimpl->IsRootWindow(parentID))
       ROOT::MacOSX::X11::GetRootWindowAttributes(&attr);   
-   } else {
+   else
       [fPimpl->GetWindow(parentID) getAttributes : &attr];
-   }
 
    return CreateWindow(parentID, 0, 0, attr.fWidth, attr.fHeight, 0, attr.fDepth, attr.fClass, 0, 0, 0);
 }
@@ -612,7 +618,8 @@ void TGCocoa::SelectWindow(Int_t windowID)
 void TGCocoa::ClearWindow()
 {
    //Clear the selected drawable OR pixmap (the name - from TVirtualX interface - is bad).
-   assert(fSelectedDrawable > fPimpl->GetRootWindowID() && "ClearWindow, fSelectedDrawable is invalid");
+   assert(fSelectedDrawable > fPimpl->GetRootWindowID() &&
+          "ClearWindow, fSelectedDrawable is invalid");
 
    NSObject<X11Drawable> * const drawable = fPimpl->GetDrawable(fSelectedDrawable);
    if (drawable.fIsPixmap) {
@@ -622,11 +629,13 @@ void TGCocoa::ClearWindow()
       //obtain real pad's color and check for its transparency.
       CGContextRef pixmapCtx = drawable.fContext;
       assert(pixmapCtx != 0 && "ClearWindow, pixmap's context is null");
-      const Quartz::CGStateGuard ctxGuard(pixmapCtx);
-      CGContextSetRGBFillColor(pixmapCtx, 1., 1., 1., 1.);
-      CGContextFillRect(pixmapCtx, CGRectMake(0, 0, drawable.fWidth, drawable.fHeight));
+      //const Quartz::CGStateGuard ctxGuard(pixmapCtx);
+      //CGContextSetRGBFillColor(pixmapCtx, 1., 1., 1., 1.);
+      //CGContextFillRect(pixmapCtx, CGRectMake(0, 0, drawable.fWidth, drawable.fHeight));
+      //Now we really clear!
+      CGContextClearRect(pixmapCtx, CGRectMake(0, 0, drawable.fWidth, drawable.fHeight));
    } else {
-      //For a window call ClearArea, 0, 0 for width and height means the whole window.
+      //For a window ClearArea with w == 0 and h == 0 means the whole window.
       ClearArea(fSelectedDrawable, 0, 0, 0, 0);
    }
 }
@@ -643,7 +652,7 @@ void TGCocoa::GetGeometry(Int_t windowID, Int_t & x, Int_t &y, UInt_t &w, UInt_t
 
    if (windowID < 0 || fPimpl->IsRootWindow(windowID)) {
       //Comment in TVirtualX suggests, that wid can be < 0.
-      //This will be screen's geometry.
+      //This will be a screen's geometry.
       WindowAttributes_t attr = {};
       ROOT::MacOSX::X11::GetRootWindowAttributes(&attr);
       x = attr.fX;
@@ -679,7 +688,7 @@ void TGCocoa::MoveWindow(Int_t windowID, Int_t x, Int_t y)
    //windowID is either kNone or a valid window id.
    //x and y are coordinates of a top-left corner relative to the parent's coordinate system.
 
-   assert(!fPimpl->IsRootWindow(windowID) && "MoveWindow, called for 'root' window");
+   assert(!fPimpl->IsRootWindow(windowID) && "MoveWindow, called for root window");
 
    if (!windowID)//From TGX11.
       return;
@@ -704,7 +713,8 @@ void TGCocoa::ResizeWindow(Int_t windowID)
    if (!windowID)//From TGX11.
       return;
    
-   assert(!fPimpl->IsRootWindow(windowID) && "ResizeWindow, windowID parameter is a 'root' window");
+   assert(!fPimpl->IsRootWindow(windowID) &&
+          "ResizeWindow, parameter 'windowID' is a root window's id");
    
    const Util::AutoreleasePool pool;
    
@@ -728,10 +738,12 @@ void TGCocoa::UpdateWindow(Int_t /*mode*/)
    //if the following call to TGCocoa::Update will produce an exception dusing X11Buffer::Flush,
    //initial state of X11Buffer can not be restored, but it still must be in some valid state.
    
-   assert(fSelectedDrawable > fPimpl->GetRootWindowID() && "UpdateWindow, fSelectedDrawable is not a valid window id");
+   assert(fSelectedDrawable > fPimpl->GetRootWindowID() &&
+          "UpdateWindow, fSelectedDrawable is not a valid window id");
 
-   if (fPimpl->GetDrawable(fSelectedDrawable).fIsPixmap == YES)//Have no idea, why this can happen with ROOT - done by TGDNDManager :(
-      return; //TODO: check, when DND is implemented, if this still is required.
+   //Have no idea, why this can happen with ROOT - done by TGDNDManager :(
+   if (fPimpl->GetDrawable(fSelectedDrawable).fIsPixmap == YES)
+      return;
 
    NSObject<X11Window> * const window = fPimpl->GetWindow(fSelectedDrawable);
 
@@ -757,7 +769,7 @@ void TGCocoa::UpdateWindow(Int_t /*mode*/)
 //______________________________________________________________________________
 Window_t TGCocoa::GetCurrentWindow() const
 {
-   //Window, which was selected by SelectWindow.
+   //Window selected by SelectWindow.
    return fSelectedDrawable;
 }
 
@@ -795,19 +807,24 @@ Window_t TGCocoa::CreateWindow(Window_t parentID, Int_t x, Int_t y, UInt_t w, UI
    const Util::AutoreleasePool pool;
    
    if (fPimpl->IsRootWindow(parentID)) {//parent == root window.
-      QuartzWindow * const newWindow = X11::CreateTopLevelWindow(x, y, w, h, border, depth, clss, visual, attr, wtype);//Can throw.
+      //Can throw:
+      QuartzWindow * const newWindow = X11::CreateTopLevelWindow(x, y, w, h, border,
+                                                                 depth, clss, visual, attr, wtype);
       const Util::NSScopeGuard<QuartzWindow> winGuard(newWindow);
       const Window_t result = fPimpl->RegisterDrawable(newWindow);//Can throw.
       newWindow.fID = result;
-
       [newWindow setAcceptsMouseMovedEvents : YES];
 
       return result;
    } else {
       NSObject<X11Window> * const parentWin = fPimpl->GetWindow(parentID);
       //OpenGL view can not have children.
-      assert([parentWin.fContentView isKindOfClass : [QuartzView class]] && "CreateWindow, parent view must be QuartzView");
-      QuartzView * const childView = X11::CreateChildView((QuartzView *)parentWin.fContentView, x, y, w, h, border, depth, clss, visual, attr, wtype);//Can throw.
+      assert([parentWin.fContentView isKindOfClass : [QuartzView class]] &&
+             "CreateWindow, parent view must be QuartzView");
+
+      //Can throw:
+      QuartzView * const childView = X11::CreateChildView((QuartzView *)parentWin.fContentView,
+                                                           x, y, w, h, border, depth, clss, visual, attr, wtype);
       const Util::NSScopeGuard<QuartzView> viewGuard(childView);
       const Window_t result = fPimpl->RegisterDrawable(childView);//Can throw.
       childView.fID = result;
@@ -829,38 +846,50 @@ void TGCocoa::DestroyWindow(Window_t wid)
    //among siblings and across subhierarchies is not otherwise constrained.  
    //If the window you specified is a root window, no windows are destroyed. Destroying a mapped window 
    //will generate Expose events on other windows that were obscured by the window being destroyed. 
+
+   //No-throw guarantee???
    
    //I have NO idea why ROOT's GUI calls DestroyWindow with illegal
    //window id, but it does.
-   
-   //No-throw guarantee???
-   
+  
    if (!wid)
       return;
 
    if (fPimpl->IsRootWindow(wid))
       return;
    
-   const Util::AutoreleasePool pool;//TODO: check.
+   BOOL needFocusChange = NO;
+   
+   {//Block to force autoreleasepool to drain.
+   const Util::AutoreleasePool pool;
 
    fPimpl->fX11EventTranslator.CheckUnmappedView(wid);
 
-   assert(fPimpl->GetDrawable(wid).fIsPixmap == NO &&  "DestroyWindow, can not be called for QuartzPixmap or QuartzImage object");
+   assert(fPimpl->GetDrawable(wid).fIsPixmap == NO &&
+          "DestroyWindow, can not be called for QuartzPixmap or QuartzImage object");
    
    NSObject<X11Window> * const window = fPimpl->GetWindow(wid);   
    if (fPimpl->fX11CommandBuffer.BufferSize())
       fPimpl->fX11CommandBuffer.RemoveOperationsForDrawable(wid);
+   
+   //TEST: "fix" a keyboard focus.
+   if ((needFocusChange = window == window.fQuartzWindow && window.fQuartzWindow.fHasFocus))
+      window.fHasFocus = NO;//If any.
 
    DestroySubwindows(wid);
    if (window.fEventMask & kStructureNotifyMask)
       fPimpl->fX11EventTranslator.GenerateDestroyNotify(wid);
 
    //Interrupt modal loop (TGClient::WaitFor).
-   //TODO: check nested WaitFors.
    if (gClient->GetWaitForEvent() == kDestroyNotify && wid == gClient->GetWaitForWindow())
       gClient->SetWaitForWindow(kNone);
 
    fPimpl->DeleteDrawable(wid);
+   }
+   
+   //"Fix" a keyboard focus.
+   if (needFocusChange)
+      X11::WindowLostFocus(wid);
 }
 
 //______________________________________________________________________________
@@ -871,7 +900,8 @@ void TGCocoa::DestroySubwindows(Window_t wid)
    
    //No-throw guarantee??
    
-   if (!wid)//From TGX11.
+   //From TGX11:
+   if (!wid)
       return;
    
    if (fPimpl->IsRootWindow(wid))
@@ -879,7 +909,8 @@ void TGCocoa::DestroySubwindows(Window_t wid)
    
    const Util::AutoreleasePool pool;
 
-   assert(fPimpl->GetDrawable(wid).fIsPixmap == NO && "DestroySubwindows, can not be called for QuartzPixmap or QuartzImage object");
+   assert(fPimpl->GetDrawable(wid).fIsPixmap == NO &&
+          "DestroySubwindows, can not be called for QuartzPixmap or QuartzImage object");
 
    NSObject<X11Window> *window = fPimpl->GetWindow(wid);
    
@@ -900,12 +931,10 @@ void TGCocoa::GetWindowAttributes(Window_t wid, WindowAttributes_t &attr)
    if (!wid)//X11's None?
       return;
 
-   if (fPimpl->IsRootWindow(wid)) {
-      //'root' window.
+   if (fPimpl->IsRootWindow(wid))
       ROOT::MacOSX::X11::GetRootWindowAttributes(&attr);
-   } else {
+   else
       [fPimpl->GetWindow(wid) getAttributes : &attr];
-   }
 }
 
 //______________________________________________________________________________
@@ -916,14 +945,14 @@ void TGCocoa::ChangeWindowAttributes(Window_t wid, SetWindowAttributes_t *attr)
    if (!wid)//From TGX11
       return;
 
-   assert(!fPimpl->IsRootWindow(wid) && "ChangeWindowAttributes, called for the 'root' window");
-   assert(attr != 0 && "ChangeWindowAttributes, attr parameter is null");
+   assert(!fPimpl->IsRootWindow(wid) && "ChangeWindowAttributes, called for root window");
+   assert(attr != 0 && "ChangeWindowAttributes, parameter 'attr' is null");
    
    [fPimpl->GetWindow(wid) setAttributes : attr];
 }
 
 //______________________________________________________________________________
-void TGCocoa::SelectInput(Window_t windowID, UInt_t evmask)
+void TGCocoa::SelectInput(Window_t windowID, UInt_t eventMask)
 {
    //No-throw guarantee.
 
@@ -938,19 +967,18 @@ void TGCocoa::SelectInput(Window_t windowID, UInt_t evmask)
       return;
    
    NSObject<X11Window> * const window = fPimpl->GetWindow(windowID);
-   //XSelectInput overrides previous mask.
-   window.fEventMask = evmask;
+   //XSelectInput overrides a previous mask.
+   window.fEventMask = eventMask;
 }
 
 //______________________________________________________________________________
 void TGCocoa::ReparentChild(Window_t wid, Window_t pid, Int_t x, Int_t y)
 {
    //Reparent view.
+   
+   assert(!fPimpl->IsRootWindow(wid) && "ReparentChild, can not re-parent root window");
 
-   assert(!fPimpl->IsRootWindow(wid) && "ReparentChild, can not re-parent 'root' window");
-   //TODO: does ROOT cares about reparent X11 events?
-
-   const Util::AutoreleasePool pool;//TODO: check?
+   const Util::AutoreleasePool pool;
 
    NSView<X11Window> * const view = fPimpl->GetWindow(wid).fContentView;
    if (fPimpl->IsRootWindow(pid)) {
@@ -966,10 +994,13 @@ void TGCocoa::ReparentChild(Window_t wid, Window_t pid, Int_t x, Int_t y)
       if (!view.fOverrideRedirect)
          styleMask |= NSTitledWindowMask;
    
-      QuartzWindow * const newTopLevel = [[QuartzWindow alloc] initWithContentRect : frame styleMask : styleMask backing : NSBackingStoreBuffered defer : NO];
-      
+      QuartzWindow * const newTopLevel = [[QuartzWindow alloc] initWithContentRect : frame
+                                                                         styleMask : styleMask
+                                                                           backing : NSBackingStoreBuffered
+                                                                             defer : NO];
       [view setX : x Y : y];
       [newTopLevel addChild : view];
+
       fPimpl->ReplaceDrawable(wid, newTopLevel);
 
       [view release];
@@ -990,12 +1021,12 @@ void TGCocoa::ReparentChild(Window_t wid, Window_t pid, Int_t x, Int_t y)
 void TGCocoa::ReparentTopLevel(Window_t wid, Window_t pid, Int_t x, Int_t y)
 {
    //Reparent top-level window.
-   //I have to delete QuartzWindow here and place in its slot view + 
+   //I have to delete QuartzWindow here and place in its slot content view +
    //reparent this view into pid.
    if (fPimpl->IsRootWindow(pid))//Nothing to do, wid is already a top-level window.
       return;
    
-   const Util::AutoreleasePool pool;//TODO: check?
+   const Util::AutoreleasePool pool;
    
    NSView<X11Window> * const contentView = fPimpl->GetWindow(wid).fContentView;
    [contentView retain];
@@ -1013,18 +1044,17 @@ void TGCocoa::ReparentWindow(Window_t wid, Window_t pid, Int_t x, Int_t y)
 {
    //Change window's parent (possibly creating new top-level window or destroying top-level window).
 
-   if (!wid)//From TGX11.
+   if (!wid) //From TGX11.
       return;
    
-   assert(!fPimpl->IsRootWindow(wid) && "ReparentWindow, can not re-parent 'root' window");
+   assert(!fPimpl->IsRootWindow(wid) && "ReparentWindow, can not re-parent root window");
 
    NSView<X11Window> * const view = fPimpl->GetWindow(wid).fContentView;
-   if (view.fParentView) {
+   if (view.fParentView)
       ReparentChild(wid, pid, x, y);
-   } else {
+   else
       //wid is a top-level window (or content view of such a window).
       ReparentTopLevel(wid, pid, x, y);
-   }
 }
 
 //______________________________________________________________________________
@@ -1033,7 +1063,7 @@ void TGCocoa::MapWindow(Window_t wid)
    // Maps the window "wid" and all of its subwindows that have had map
    // requests. This function has no effect if the window is already mapped.
    
-   assert(!fPimpl->IsRootWindow(wid) && "MapWindow, called for 'root' window");
+   assert(!fPimpl->IsRootWindow(wid) && "MapWindow, called for root window");
    
    if (MakeProcessForeground())
       [fPimpl->GetWindow(wid) mapWindow];
@@ -1064,7 +1094,7 @@ void TGCocoa::MapRaised(Window_t wid)
    // requests on the screen and put this window on the top of of the
    // stack of all windows.
    
-   assert(!fPimpl->IsRootWindow(wid) && "MapRaised, called for 'root' window");
+   assert(!fPimpl->IsRootWindow(wid) && "MapRaised, called for root window");
    
    const Util::AutoreleasePool pool;
 
@@ -1085,17 +1115,24 @@ void TGCocoa::UnmapWindow(Window_t wid)
    // unmapped, this function has no effect. Any child window will no longer
    // be visible (but they are still mapped) until another map call is made
    // on the parent.
-   assert(!fPimpl->IsRootWindow(wid) && "UnmapWindow, called for 'root' window");
+   assert(!fPimpl->IsRootWindow(wid) && "UnmapWindow, called for root window");
    
-   const Util::AutoreleasePool pool;//TODO
+   const Util::AutoreleasePool pool;
    
    //If this window is a grab window or a parent of a grab window.
    fPimpl->fX11EventTranslator.CheckUnmappedView(wid);
-   [fPimpl->GetWindow(wid) unmapWindow];
+   
+   NSObject<X11Window> * const win = fPimpl->GetWindow(wid);
+   [win unmapWindow];
+
+   if (win == win.fQuartzWindow && win.fQuartzWindow.fHasFocus)
+      X11::WindowLostFocus(win.fID);
+
+   win.fHasFocus = NO;
 
    //if (window.fEventMask & kStructureNotifyMask)
-   //   fPimpl->fX11EventTranslator.GenerateUnmapNotify(wid);//??? TODO
-   
+   //   fPimpl->fX11EventTranslator.GenerateUnmapNotify(wid);
+
    //Interrupt modal loop (TGClient::WaitForUnmap).
    if (gClient->GetWaitForEvent() == kUnmapNotify && gClient->GetWaitForWindow() == wid)
       gClient->SetWaitForWindow(kNone);
@@ -1110,7 +1147,7 @@ void TGCocoa::RaiseWindow(Window_t wid)
    if (!wid)//From TGX11.
       return;
    
-   assert(!fPimpl->IsRootWindow(wid) && "RaiseWindow, called for 'root' window");
+   assert(!fPimpl->IsRootWindow(wid) && "RaiseWindow, called for root window");
    
    if (!fPimpl->GetWindow(wid).fParentView)
       return;
@@ -1127,7 +1164,7 @@ void TGCocoa::LowerWindow(Window_t wid)
    if (!wid)//From TGX11.
       return;
    
-   assert(!fPimpl->IsRootWindow(wid) && "LowerWindow, called for 'root' window");
+   assert(!fPimpl->IsRootWindow(wid) && "LowerWindow, called for root window");
    
    if (!fPimpl->GetWindow(wid).fParentView)
       return;
@@ -1148,8 +1185,8 @@ void TGCocoa::MoveWindow(Window_t wid, Int_t x, Int_t y)
    if (!wid)//From TGX11.
       return;
 
-   assert(!fPimpl->IsRootWindow(wid) && "MoveWindow, called for 'root' window");
-   
+   assert(!fPimpl->IsRootWindow(wid) && "MoveWindow, called for root window");
+
    [fPimpl->GetWindow(wid) setX : x Y : y];
 }
 
@@ -1180,6 +1217,11 @@ void TGCocoa::ResizeWindow(Window_t wid, UInt_t w, UInt_t h)
 
    assert(!fPimpl->IsRootWindow(wid) && "ResizeWindow, called for 'root' window");
    
+   //We can have this unfortunately.
+   const UInt_t siMax = std::numeric_limits<Int_t>::max();
+   if (w > siMax || h > siMax)
+      return;
+   
    NSSize newSize = {};
    newSize.width = w;
    newSize.height = h;
@@ -1193,6 +1235,25 @@ void TGCocoa::IconifyWindow(Window_t wid)
    // Iconifies the window "wid".
    if (!wid)
       return;
+   
+   assert(!fPimpl->IsRootWindow(wid) && "IconifyWindow, can not iconify the root window");
+   assert(fPimpl->GetWindow(wid).fIsPixmap == NO && "IconifyWindow, invalid window id");
+
+   NSObject<X11Window> * const win = fPimpl->GetWindow(wid);
+   assert(win.fQuartzWindow == win && "IconifyWindow, can be called only for a top level window");
+   
+   fPimpl->fX11EventTranslator.CheckUnmappedView(wid);
+
+   NSObject<X11Window> * const window = fPimpl->GetWindow(wid);   
+   if (fPimpl->fX11CommandBuffer.BufferSize())
+      fPimpl->fX11CommandBuffer.RemoveOperationsForDrawable(wid);
+   
+   if (window.fQuartzWindow.fHasFocus) {
+      X11::WindowLostFocus(win.fID);
+      window.fQuartzWindow.fHasFocus = NO;
+   }
+   
+   [win.fQuartzWindow miniaturize : win.fQuartzWindow];
 }
 
 //______________________________________________________________________________
@@ -1279,8 +1340,8 @@ void TGCocoa::GetWindowSize(Drawable_t wid, Int_t &x, Int_t &y, UInt_t &w, UInt_
    //        parent window's origin
    // w, h - the size of the window, not including the border.
    
-   //GUI classes can use rootID and 0?
-   if (!wid)//From GX11Gui.cxx.
+   //From GX11Gui.cxx:
+   if (!wid)
       return;
    
    if (fPimpl->IsRootWindow(wid)) {
@@ -1309,10 +1370,11 @@ void TGCocoa::GetWindowSize(Drawable_t wid, Int_t &x, Int_t &y, UInt_t &w, UInt_
 //______________________________________________________________________________
 void TGCocoa::SetWindowBackground(Window_t wid, ULong_t color)
 {
-   if (!wid)//From TGX11.
+   //From TGX11:
+   if (!wid)
       return;
 
-   assert(!fPimpl->IsRootWindow(wid) && "SetWindowBackground, can not set color for 'root' window");
+   assert(!fPimpl->IsRootWindow(wid) && "SetWindowBackground, can not set color for root window");
 
    fPimpl->GetWindow(wid).fBackgroundPixel = color;
 }
@@ -1323,11 +1385,14 @@ void TGCocoa::SetWindowBackgroundPixmap(Window_t windowID, Pixmap_t pixmapID)
    // Sets the background pixmap of the window "wid" to the specified
    // pixmap "pxm".
 
-   if (!windowID)//From TGX11/TGWin32.
+   //From TGX11/TGWin32:
+   if (!windowID)
       return;
 
-   assert(!fPimpl->IsRootWindow(windowID) && "SetWindowBackgroundPixmap, windowID parameter is a 'root' window");
-   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO && "SetWindowBackgroundPixmap, windowID parameter is not a window");
+   assert(!fPimpl->IsRootWindow(windowID) &&
+          "SetWindowBackgroundPixmap, can not set background for a root window");
+   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO &&
+          "SetWindowBackgroundPixmap, invalid window id");
 
    NSObject<X11Window> * const window = fPimpl->GetWindow(windowID);   
    if (pixmapID == kNone) {
@@ -1335,11 +1400,14 @@ void TGCocoa::SetWindowBackgroundPixmap(Window_t windowID, Pixmap_t pixmapID)
       return;
    }
    
-   assert(pixmapID > fPimpl->GetRootWindowID() && "SetWindowBackgroundPixmap, pixmapID parameter is not a valid pixmap id");
-   assert(fPimpl->GetDrawable(pixmapID).fIsPixmap == YES && "SetWindowBackgroundPixmap, pixmapID parameter is not a pixmap");
+   assert(pixmapID > fPimpl->GetRootWindowID() &&
+          "SetWindowBackgroundPixmap, parameter 'pixmapID' is not a valid pixmap id");
+   assert(fPimpl->GetDrawable(pixmapID).fIsPixmap == YES &&
+          "SetWindowBackgroundPixmap, bad drawable");
 
    NSObject<X11Drawable> * const pixmapOrImage = fPimpl->GetDrawable(pixmapID);
-   //X11 doc says, that pixmap can be freed immediately after call XSetWindowBackgroundPixmap, so I have to copy a pixmap.
+   //X11 doc says, that pixmap can be freed immediately after call
+   //XSetWindowBackgroundPixmap, so I have to copy a pixmap.
    Util::NSScopeGuard<QuartzImage> backgroundImage;
 
    if ([pixmapOrImage isKindOfClass : [QuartzPixmap class]]) {
@@ -1353,7 +1421,8 @@ void TGCocoa::SetWindowBackgroundPixmap(Window_t windowID, Pixmap_t pixmapID)
    }
    
    if (!backgroundImage.Get())
-      Error("SetWindowBackgroundPixmap", "QuartzImage initialization failed");//More concrete message was issued by QuartzImage.
+      //Detailed error message was issued by QuartzImage at this point.
+      Error("SetWindowBackgroundPixmap", "QuartzImage initialization failed");
 }
 
 //______________________________________________________________________________
@@ -1361,7 +1430,7 @@ Window_t TGCocoa::GetParent(Window_t windowID) const
 {
    // Returns the parent of the window "windowID".
 
-   //0 (checked in TGX11) or 'root'.
+   //0 or root (checked in TGX11):
    if (windowID <= fPimpl->GetRootWindowID())
       return windowID;
    
@@ -1383,27 +1452,22 @@ void TGCocoa::SetWindowName(Window_t wid, char *name)
       NSString * const windowTitle = [NSString stringWithCString : name encoding : NSASCIIStringEncoding];
       [(NSWindow *)drawable setTitle : windowTitle];
    } 
-
-   //else: before I had a warning message here, but looks like 
-   //ROOT's GUI can call this method on non-toplevel window. 
-   //Just ignore this case.
 }
 
 //______________________________________________________________________________
 void TGCocoa::SetIconName(Window_t /*wid*/, char * /*name*/)
 {
-   // Sets the window icon name.
+   //Noop.
 }
 
 //______________________________________________________________________________
 void TGCocoa::SetIconPixmap(Window_t /*wid*/, Pixmap_t /*pix*/)
 {
-   // Sets the icon name pixmap.
+   //Noop.
 }
 
 //______________________________________________________________________________
-void TGCocoa::SetClassHints(Window_t /*wid*/, char * /*className*/,
-                              char * /*resourceName*/)
+void TGCocoa::SetClassHints(Window_t /*wid*/, char * /*className*/, char * /*resourceName*/)
 {
    //Noop.
 }
@@ -1416,9 +1480,12 @@ void TGCocoa::ShapeCombineMask(Window_t windowID, Int_t /*x*/, Int_t /*y*/, Pixm
    // windows to the System.
    // This allows for making shaped (partially transparent) windows
    
-   assert(!fPimpl->IsRootWindow(windowID) && "ShapeCombineMask, windowID parameter is a 'root' window");
-   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO && "ShapeCombineMask, windowID parameter is a bad window id");
-   assert([fPimpl->GetDrawable(pixmapID) isKindOfClass : [QuartzImage class]] && "ShapeCombineMask, pixmapID parameter must point to QuartzImage object");
+   assert(!fPimpl->IsRootWindow(windowID) &&
+          "ShapeCombineMask, windowID parameter is a 'root' window");
+   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO &&
+          "ShapeCombineMask, windowID parameter is a bad window id");
+   assert([fPimpl->GetDrawable(pixmapID) isKindOfClass : [QuartzImage class]] &&
+          "ShapeCombineMask, pixmapID parameter must point to QuartzImage object");
    
    //TODO: nonrectangular window can be only NSWindow object,
    //not NSView (and mask is attached to a window).
@@ -1442,7 +1509,7 @@ void TGCocoa::ShapeCombineMask(Window_t windowID, Int_t /*x*/, Int_t /*y*/, Pixm
    }
 }
 
-//"Window manager hints" set of functions.
+#pragma mark - "Window manager hints" set of functions.
 
 //______________________________________________________________________________
 void TGCocoa::SetMWMHints(Window_t wid, UInt_t value, UInt_t funcs, UInt_t /*input*/)
@@ -1485,23 +1552,20 @@ void TGCocoa::SetMWMHints(Window_t wid, UInt_t value, UInt_t funcs, UInt_t /*inp
 //______________________________________________________________________________
 void TGCocoa::SetWMPosition(Window_t /*wid*/, Int_t /*x*/, Int_t /*y*/)
 {
-   // Tells the window manager the desired position [x,y] of window "wid".
+   //Noop.
 }
 
 //______________________________________________________________________________
 void TGCocoa::SetWMSize(Window_t /*wid*/, UInt_t /*w*/, UInt_t /*h*/)
 {
-   // Tells window manager the desired size of window "wid".
-   //
-   // w - the width
-   // h - the height
+   //Noop.
 }
 
 //______________________________________________________________________________
 void TGCocoa::SetWMSizeHints(Window_t wid, UInt_t wMin, UInt_t hMin, UInt_t wMax, UInt_t hMax, UInt_t /*wInc*/, UInt_t /*hInc*/)
 {
    //
-   assert(!fPimpl->IsRootWindow(wid) && "SetWMSizeHints, called for 'root' window");
+   assert(!fPimpl->IsRootWindow(wid) && "SetWMSizeHints, called for root window");
 
    const NSUInteger styleMask = NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask;
    const NSRect minRect = [NSWindow frameRectForContentRect : CGRectMake(0., 0., wMin, hMin) styleMask : styleMask];
@@ -1515,8 +1579,7 @@ void TGCocoa::SetWMSizeHints(Window_t wid, UInt_t wMin, UInt_t hMin, UInt_t wMax
 //______________________________________________________________________________
 void TGCocoa::SetWMState(Window_t /*wid*/, EInitialState /*state*/)
 {
-   // Sets the initial state of the window "wid": either kNormalState
-   // or kIconicState.
+   //Noop.
 }
 
 //______________________________________________________________________________
@@ -1555,17 +1618,17 @@ void TGCocoa::SetWMTransientHint(Window_t wid, Window_t mainWid)
       Warning("SetWMTransientHint", "transient and main windows are the same window");
 }
 
-/////////////////////////////////////////
-//GUI-rendering part.
+#pragma mark - GUI-rendering part.
+
 //______________________________________________________________________________
 void TGCocoa::DrawLineAux(Drawable_t wid, const GCValues_t &gcVals, Int_t x1, Int_t y1, Int_t x2, Int_t y2)
 {
    //Can be called directly of when flushing command buffer.
-   assert(!fPimpl->IsRootWindow(wid) && "DrawLineAux, called for 'root' window");
+   assert(!fPimpl->IsRootWindow(wid) && "DrawLineAux, called for root window");
    
    NSObject<X11Drawable> * const drawable = fPimpl->GetDrawable(wid);
    CGContextRef ctx = drawable.fContext;
-   assert(ctx != 0 && "DrawLineAux, ctx is null");
+   assert(ctx != 0 && "DrawLineAux, context is null");
 
    const Quartz::CGStateGuard ctxGuard(ctx);//Will restore state back.
    //Draw a line.
@@ -1606,11 +1669,12 @@ void TGCocoa::DrawLine(Drawable_t wid, GContext_t gc, Int_t x1, Int_t y1, Int_t 
    //b) for 'direct rendering' - operation was initiated by ROOT's GUI, not by 
    //   drawRect.
 
-   if (!wid) //From TGX11.
+   //From TGX11:
+   if (!wid)
       return;
    
-   assert(!fPimpl->IsRootWindow(wid) && "DrawLine, called for 'root' window");   
-   assert(gc > 0 && gc <= fX11Contexts.size() && "DrawLine, strange context index");
+   assert(!fPimpl->IsRootWindow(wid) && "DrawLine, called for root window");
+   assert(gc > 0 && gc <= fX11Contexts.size() && "DrawLine, invalid context index");
 
    const GCValues_t &gcVals = fX11Contexts[gc - 1];
    
@@ -1645,7 +1709,7 @@ void TGCocoa::DrawLine(Drawable_t wid, GContext_t gc, Int_t x1, Int_t y1, Int_t 
 //______________________________________________________________________________
 void TGCocoa::DrawSegmentsAux(Drawable_t wid, const GCValues_t &gcVals, const Segment_t *segments, Int_t nSegments)
 {
-   assert(!fPimpl->IsRootWindow(wid) && "DrawSegmentsAux, called for 'root' window");
+   assert(!fPimpl->IsRootWindow(wid) && "DrawSegmentsAux, called for root window");
    assert(segments != 0 && "DrawSegmentsAux, segments parameter is null");
    assert(nSegments > 0 && "DrawSegmentsAux, nSegments <= 0");
    
@@ -1657,12 +1721,14 @@ void TGCocoa::DrawSegmentsAux(Drawable_t wid, const GCValues_t &gcVals, const Se
 void TGCocoa::DrawSegments(Drawable_t wid, GContext_t gc, Segment_t *segments, Int_t nSegments)
 {
    //Draw multiple line segments. Each line is specified by a pair of points.
-   if (!wid)//From TGX11.
+
+   //From TGX11:
+   if (!wid)
       return;
       
-   assert(!fPimpl->IsRootWindow(wid) && "DrawSegments, called for 'root' window");
-   assert(gc > 0 && gc <= fX11Contexts.size() && "DrawSegments, bad GContext_t");
-   assert(segments != 0 && "DrawSegments, segments parameter is null");
+   assert(!fPimpl->IsRootWindow(wid) && "DrawSegments, called for root window");
+   assert(gc > 0 && gc <= fX11Contexts.size() && "DrawSegments, invalid context index");
+   assert(segments != 0 && "DrawSegments, parameter 'segments' is null");
    assert(nSegments > 0 && "DrawSegments, number of segments <= 0");
 
    NSObject<X11Drawable> * const drawable = fPimpl->GetDrawable(wid);
@@ -1697,7 +1763,7 @@ void TGCocoa::DrawSegments(Drawable_t wid, GContext_t gc, Segment_t *segments, I
 void TGCocoa::DrawRectangleAux(Drawable_t wid, const GCValues_t &gcVals, Int_t x, Int_t y, UInt_t w, UInt_t h)
 {
    //Can be called directly or during flushing command buffer.
-   assert(!fPimpl->IsRootWindow(wid) && "DrawRectangleAux, called for 'root' window");
+   assert(!fPimpl->IsRootWindow(wid) && "DrawRectangleAux, called for root window");
 
    NSObject<X11Drawable> * const drawable = fPimpl->GetDrawable(wid);
 
@@ -1715,7 +1781,7 @@ void TGCocoa::DrawRectangleAux(Drawable_t wid, const GCValues_t &gcVals, Int_t x
    }
 
    CGContextRef ctx = fPimpl->GetDrawable(wid).fContext;
-   assert(ctx && "DrawRectangleAux, ctx is null");
+   assert(ctx && "DrawRectangleAux, context is null");
    const Quartz::CGStateGuard ctxGuard(ctx);//Will restore context state.
 
    CGContextSetAllowsAntialiasing(ctx, false);
@@ -1737,8 +1803,8 @@ void TGCocoa::DrawRectangle(Drawable_t wid, GContext_t gc, Int_t x, Int_t y, UIn
    if (!wid)//From TGX11.
       return;
 
-   assert(!fPimpl->IsRootWindow(wid) && "DrawRectangle, called for 'root' window");
-   assert(gc > 0 && gc <= fX11Contexts.size() && "DrawRectangle, bad GContext_t");
+   assert(!fPimpl->IsRootWindow(wid) && "DrawRectangle, called for root window");
+   assert(gc > 0 && gc <= fX11Contexts.size() && "DrawRectangle, invalid context index");
 
    const GCValues_t &gcVals = fX11Contexts[gc - 1];
    
@@ -1775,10 +1841,12 @@ void TGCocoa::FillRectangleAux(Drawable_t wid, const GCValues_t &gcVals, Int_t x
 {
    //Can be called directly or when flushing command buffer.
   //Can be called directly or when flushing command buffer.
-   if (!wid)//From TGX11.
+
+   //From TGX11:
+   if (!wid)
       return;
 
-   assert(!fPimpl->IsRootWindow(wid) && "FillRectangleAux, called for 'root' window");
+   assert(!fPimpl->IsRootWindow(wid) && "FillRectangleAux, called for root window");
    
    NSObject<X11Drawable> * const drawable = fPimpl->GetDrawable(wid);
    CGContextRef ctx = drawable.fContext;
@@ -1802,14 +1870,14 @@ void TGCocoa::FillRectangleAux(Drawable_t wid, const GCValues_t &gcVals, Int_t x
    }
 
    const Quartz::CGStateGuard ctxGuard(ctx);//Will restore context state.
-   //TODO: At the moment I ignore: clip_mask, clip_x_origin, clip_y_origin, stipple and tile origins,
-   //check if any widget uses them.
 
    if (HasFillStippledStyle(gcVals) || HasFillOpaqueStippledStyle(gcVals) ||  HasFillTiledStyle(gcVals)) {
       PatternContext patternContext = {gcVals.fMask, gcVals.fFillStyle, 0, 0, nil, patternPhase};
 
       if (HasFillStippledStyle(gcVals) || HasFillOpaqueStippledStyle(gcVals)) {
-         assert(gcVals.fStipple != kNone && "FillRectangleAux, fill_style is FillStippled/FillOpaqueStippled, but no stipple is set in a context");
+         assert(gcVals.fStipple != kNone &&
+                "FillRectangleAux, fill_style is FillStippled/FillOpaqueStippled,"
+                " but no stipple is set in a context");
 
          patternContext.fForeground = gcVals.fForeground;
          patternContext.fImage = fPimpl->GetDrawable(gcVals.fStipple);
@@ -1817,7 +1885,8 @@ void TGCocoa::FillRectangleAux(Drawable_t wid, const GCValues_t &gcVals, Int_t x
          if (HasFillOpaqueStippledStyle(gcVals))
             patternContext.fBackground = gcVals.fBackground;
       } else {
-         assert(gcVals.fTile != kNone && "FillRectangleAux, fill_style is FillTiled, but not tile is set in a context");
+         assert(gcVals.fTile != kNone &&
+                "FillRectangleAux, fill_style is FillTiled, but not tile is set in a context");
          
          patternContext.fImage = fPimpl->GetDrawable(gcVals.fTile);
       }
@@ -1838,11 +1907,12 @@ void TGCocoa::FillRectangle(Drawable_t wid, GContext_t gc, Int_t x, Int_t y, UIn
    //Can be called in a 'normal way' - from drawRect method (QuartzView)
    //or directly by ROOT.
 
-   if (!wid)//From TGX11.
+   //From TGX11:
+   if (!wid)
       return;
 
-   assert(!fPimpl->IsRootWindow(wid) && "FillRectangle, called for 'root' window");
-   assert(gc > 0 && gc <= fX11Contexts.size() && "FillRectangle, bad GContext_t");
+   assert(!fPimpl->IsRootWindow(wid) && "FillRectangle, called for root window");
+   assert(gc > 0 && gc <= fX11Contexts.size() && "FillRectangle, invalid context index");
 
    const GCValues_t &gcVals = fX11Contexts[gc - 1];
    NSObject<X11Drawable> * const drawable = fPimpl->GetDrawable(wid);
@@ -1865,29 +1935,22 @@ void TGCocoa::FillRectangle(Drawable_t wid, GContext_t gc, Int_t x, Int_t y, UIn
          else
             FillRectangleAux(wid, gcVals, x, y, w, h);
       }
-   } else {
-      /*
-      if (!IsCocoaDraw())
-         fPimpl->fX11CommandBuffer.AddFillRectangle(wid, gcVals, x, y, w, h);
-      else
-      */
-      //Commented part: looks like it was not good idea: we can draw into 
-      //pixmap just to set the contents of this pixmap, outside of any GUI rendering.
-      //TODO: check, if other functions are also affected.
+   } else
       FillRectangleAux(wid, gcVals, x, y, w, h);
-   }   
 }
 
 //______________________________________________________________________________
 void TGCocoa::FillPolygonAux(Window_t wid, const GCValues_t &gcVals, const Point_t *polygon, Int_t nPoints) 
 {
    //Can be called directly or when flushing command buffer.
-   if (!wid)//From TGX11.
+
+   //From TGX11:
+   if (!wid)
       return;
 
-   assert(!fPimpl->IsRootWindow(wid) && "FillPolygonAux, called for 'root' window");
-   assert(polygon != 0 && "FillPolygonAux, polygon parameter is null");
-   assert(nPoints > 0 && "FillPolygonAux, nPoints <= 0");
+   assert(!fPimpl->IsRootWindow(wid) && "FillPolygonAux, called for root window");
+   assert(polygon != 0 && "FillPolygonAux, parameter 'polygon' is null");
+   assert(nPoints > 0 && "FillPolygonAux, number of points must be positive");
    
    NSObject<X11Drawable> * const drawable = fPimpl->GetDrawable(wid);
    CGContextRef ctx = drawable.fContext;
@@ -1905,14 +1968,13 @@ void TGCocoa::FillPolygonAux(Window_t wid, const GCValues_t &gcVals, const Point
    
    CGContextSetAllowsAntialiasing(ctx, false);
 
-   //TODO: At the moment I ignore: clip_mask, clip_x_origin, clip_y_origin, stipple and tile origins,
-   //check if any widget uses them.
-
    if (HasFillStippledStyle(gcVals) || HasFillOpaqueStippledStyle(gcVals) ||  HasFillTiledStyle(gcVals)) {
       PatternContext patternContext = {gcVals.fMask, gcVals.fFillStyle, 0, 0, nil, patternPhase};
 
       if (HasFillStippledStyle(gcVals) || HasFillOpaqueStippledStyle(gcVals)) {
-         assert(gcVals.fStipple != kNone && "FillRectangleAux, fill_style is FillStippled/FillOpaqueStippled, but no stipple is set in a context");
+         assert(gcVals.fStipple != kNone &&
+                "FillRectangleAux, fill style is FillStippled/FillOpaqueStippled,"
+                " but no stipple is set in a context");
 
          patternContext.fForeground = gcVals.fForeground;
          patternContext.fImage = fPimpl->GetDrawable(gcVals.fStipple);
@@ -1920,7 +1982,8 @@ void TGCocoa::FillPolygonAux(Window_t wid, const GCValues_t &gcVals, const Point
          if (HasFillOpaqueStippledStyle(gcVals))
             patternContext.fBackground = gcVals.fBackground;
       } else {
-         assert(gcVals.fTile != kNone && "FillRectangleAux, fill_style is FillTiled, but not tile is set in a context");
+         assert(gcVals.fTile != kNone &&
+                "FillRectangleAux, fill_style is FillTiled, but not tile is set in a context");
          
          patternContext.fImage = fPimpl->GetDrawable(gcVals.fTile);
       }
@@ -1929,7 +1992,7 @@ void TGCocoa::FillPolygonAux(Window_t wid, const GCValues_t &gcVals, const Point
    } else
       SetFilledAreaColorFromX11Context(ctx, gcVals);
 
-   //These +2 -2 shit is the result of ROOT's GUI producing strange coordinates out of ....
+   //This +2 -2 shit is the result of ROOT's GUI producing strange coordinates out of ....
    // - first noticed on checkmarks in a menu - they were all shifted.
    
    CGContextBeginPath(ctx);
@@ -1963,12 +2026,13 @@ void TGCocoa::FillPolygon(Window_t wid, GContext_t gc, Point_t *polygon, Int_t n
    // tile-stipple-x-origin, and tile-stipple-y-origin.
    // (see also the GCValues_t structure)
    
-   if (!wid)//from TGX11.
+   //From TGX11:
+   if (!wid)
       return;
    
-   assert(polygon != 0 && "FillPolygon, 'points' array is null");
-   assert(nPoints > 0 && "FillPolygon, bad number of points");
-   assert(gc > 0 && gc <= fX11Contexts.size() && "FillPolygon, bad CGContext_t");
+   assert(polygon != 0 && "FillPolygon, parameter 'polygon' is null");
+   assert(nPoints > 0 && "FillPolygon, number of points must be positive");
+   assert(gc > 0 && gc <= fX11Contexts.size() && "FillPolygon, invalid context index");
    
    NSObject<X11Drawable> * const drawable = fPimpl->GetDrawable(wid);
    const GCValues_t &gcVals = fX11Contexts[gc - 1];
@@ -1999,15 +2063,16 @@ void TGCocoa::FillPolygon(Window_t wid, GContext_t gc, Point_t *polygon, Int_t n
 }
 
 //______________________________________________________________________________
-void TGCocoa::CopyAreaAux(Drawable_t src, Drawable_t dst, const GCValues_t &gcVals, Int_t srcX, Int_t srcY, UInt_t width, UInt_t height, Int_t dstX, Int_t dstY)
+void TGCocoa::CopyAreaAux(Drawable_t src, Drawable_t dst, const GCValues_t &gcVals, Int_t srcX, Int_t srcY,
+                          UInt_t width, UInt_t height, Int_t dstX, Int_t dstY)
 {
    //Called directly or when flushing command buffer.
    if (!src || !dst)//Can this happen? From TGX11.
       return;
    
-   assert(!fPimpl->IsRootWindow(src) && "CopyAreaAux, src parameter is 'root' window");
-   assert(!fPimpl->IsRootWindow(dst) && "CopyAreaAux, dst parameter is 'root' window");
-   
+   assert(!fPimpl->IsRootWindow(src) && "CopyAreaAux, src parameter is root window");
+   assert(!fPimpl->IsRootWindow(dst) && "CopyAreaAux, dst parameter is root window");
+
    //Some copy operations create autoreleased cocoa objects,
    //I do not want them to wait till run loop's iteration end to die.
    const Util::AutoreleasePool pool;
@@ -2020,7 +2085,8 @@ void TGCocoa::CopyAreaAux(Drawable_t src, Drawable_t dst, const GCValues_t &gcVa
 
    QuartzImage *mask = nil;
    if ((gcVals.fMask & kGCClipMask) && gcVals.fClipMask) {
-      assert(fPimpl->GetDrawable(gcVals.fClipMask).fIsPixmap == YES && "CopyArea, mask is not a pixmap");
+      assert(fPimpl->GetDrawable(gcVals.fClipMask).fIsPixmap == YES &&
+             "CopyArea, mask is not a pixmap");
       mask = (QuartzImage *)fPimpl->GetDrawable(gcVals.fClipMask);
    }
    
@@ -2034,14 +2100,15 @@ void TGCocoa::CopyAreaAux(Drawable_t src, Drawable_t dst, const GCValues_t &gcVa
 }
 
 //______________________________________________________________________________
-void TGCocoa::CopyArea(Drawable_t src, Drawable_t dst, GContext_t gc, Int_t srcX, Int_t srcY, UInt_t width, UInt_t height, Int_t dstX, Int_t dstY)
+void TGCocoa::CopyArea(Drawable_t src, Drawable_t dst, GContext_t gc, Int_t srcX, Int_t srcY,
+                       UInt_t width, UInt_t height, Int_t dstX, Int_t dstY)
 {
    if (!src || !dst)//Can this happen? From TGX11.
       return;
       
-   assert(!fPimpl->IsRootWindow(src) && "CopyArea, src parameter is 'root' window");
-   assert(!fPimpl->IsRootWindow(dst) && "CopyArea, dst parameter is 'root' window");
-   assert(gc > 0 && gc <= fX11Contexts.size() && "CopyArea, bad GContext_t");
+   assert(!fPimpl->IsRootWindow(src) && "CopyArea, src parameter is root window");
+   assert(!fPimpl->IsRootWindow(dst) && "CopyArea, dst parameter is root window");
+   assert(gc > 0 && gc <= fX11Contexts.size() && "CopyArea, invalid context index");
 
    NSObject<X11Drawable> * const drawable = fPimpl->GetDrawable(dst);
    const GCValues_t &gcVals = fX11Contexts[gc - 1];
@@ -2080,11 +2147,11 @@ void TGCocoa::CopyArea(Drawable_t src, Drawable_t dst, GContext_t gc, Int_t srcX
 void TGCocoa::DrawStringAux(Drawable_t wid, const GCValues_t &gcVals, Int_t x, Int_t y, const char *text, Int_t len)
 {
    //Can be called by ROOT directly, or indirectly by AppKit.
-   assert(!fPimpl->IsRootWindow(wid) && "DrawStringAux, called for the 'root' window");
+   assert(!fPimpl->IsRootWindow(wid) && "DrawStringAux, called for root window");
 
    NSObject<X11Drawable> * const drawable = fPimpl->GetDrawable(wid);
    CGContextRef ctx = drawable.fContext;
-   assert(ctx != 0 && "DrawStringAux, ctx is null");
+   assert(ctx != 0 && "DrawStringAux, context is null");
 
    const Quartz::CGStateGuard ctxGuard(ctx);//Will reset parameters back.
 
@@ -2127,8 +2194,8 @@ void TGCocoa::DrawString(Drawable_t wid, GContext_t gc, Int_t x, Int_t y, const 
    if (!wid)//from TGX11.
       return;
 
-   assert(!fPimpl->IsRootWindow(wid) && "DrawString, called for the 'root' window");
-   assert(gc > 0 && gc <= fX11Contexts.size() && "DrawString, bad GContext_t");
+   assert(!fPimpl->IsRootWindow(wid) && "DrawString, called for root window");
+   assert(gc > 0 && gc <= fX11Contexts.size() && "DrawString, invalid context index");
 
    NSObject<X11Drawable> * const drawable = fPimpl->GetDrawable(wid);
    const GCValues_t &gcVals = fX11Contexts[gc - 1];
@@ -2170,7 +2237,7 @@ void TGCocoa::DrawString(Drawable_t wid, GContext_t gc, Int_t x, Int_t y, const 
 //______________________________________________________________________________
 void TGCocoa::ClearAreaAux(Window_t windowID, Int_t x, Int_t y, UInt_t w, UInt_t h)
 {
-   assert(!fPimpl->IsRootWindow(windowID) && "ClearAreaAux, called for the 'root' window");
+   assert(!fPimpl->IsRootWindow(windowID) && "ClearAreaAux, called for root window");
    
    QuartzView * const view = (QuartzView *)fPimpl->GetWindow(windowID).fContentView;
    assert(view.fContext != 0 && "ClearAreaAux, view.fContext is null");
@@ -2212,12 +2279,14 @@ void TGCocoa::ClearArea(Window_t wid, Int_t x, Int_t y, UInt_t w, UInt_t h)
    //Can be called from drawRect method and also by ROOT's GUI directly.
    //Should not be called for pixmap?
    
-   if (!wid) //From TGX11.
+   //From TGX11:
+   if (!wid)
       return;
 
-   assert(!fPimpl->IsRootWindow(wid) && "ClearArea, called for the 'root' window");
+   assert(!fPimpl->IsRootWindow(wid) && "ClearArea, called for root window");
    
-   QuartzView * const view = (QuartzView *)fPimpl->GetWindow(wid).fContentView;//If wid is pixmap or image, this will crush.
+   //If wid is pixmap or image, this will crush.
+   QuartzView * const view = (QuartzView *)fPimpl->GetWindow(wid).fContentView;
 
    if (ParentRendersToChild(view)) {
       if (X11::LockFocus(view)) {
@@ -2238,15 +2307,16 @@ void TGCocoa::ClearArea(Window_t wid, Int_t x, Int_t y, UInt_t w, UInt_t h)
 //______________________________________________________________________________
 void TGCocoa::ClearWindow(Window_t wid)
 {
-   // Clears the entire area in the specified window. Comment from TGX11.
+   //Clears the entire area in the specified window (comment from TGX11).
 
-   if (!wid)//From TGX11.
+   //From TGX11:
+   if (!wid)
       return;
 
    ClearArea(wid, 0, 0, 0, 0);
 }
 
-//Pixmap management.
+#pragma mark - Pixmap management.
 
 //______________________________________________________________________________
 Int_t TGCocoa::OpenPixmap(UInt_t w, UInt_t h)
@@ -2256,12 +2326,15 @@ Int_t TGCocoa::OpenPixmap(UInt_t w, UInt_t h)
    newSize.width = w;
    newSize.height = h;
 
-   Util::NSScopeGuard<QuartzPixmap> pixmap([[QuartzPixmap alloc] initWithW : w H : h scaleFactor : [[NSScreen mainScreen] backingScaleFactor]]);
+   //TODO: what about multi-head setup and scaling factor?
+   Util::NSScopeGuard<QuartzPixmap> pixmap([[QuartzPixmap alloc] initWithW : w H : h
+                                           scaleFactor : [[NSScreen mainScreen] backingScaleFactor]]);
    if (pixmap.Get()) {
       pixmap.Get().fID = fPimpl->RegisterDrawable(pixmap.Get());//Can throw.
       return (Int_t)pixmap.Get().fID;
    } else {
-      Error("OpenPixmap", "QuartzPixmap initialization failed");//More concrete message was issued by QuartzPixmap.
+      //Detailed error message was issued by QuartzPixmap by this point:
+      Error("OpenPixmap", "QuartzPixmap initialization failed");
       return -1;
    }
 }
@@ -2269,16 +2342,17 @@ Int_t TGCocoa::OpenPixmap(UInt_t w, UInt_t h)
 //______________________________________________________________________________
 Int_t TGCocoa::ResizePixmap(Int_t wid, UInt_t w, UInt_t h)
 {
-   assert(!fPimpl->IsRootWindow(wid) && "ResizePixmap, called for 'root' window");
+   assert(!fPimpl->IsRootWindow(wid) && "ResizePixmap, called for root window");
 
-   NSObject<X11Drawable> *drawable = fPimpl->GetDrawable(wid);
-   assert(drawable.fIsPixmap == YES && "ResizePixmap, object is not a pixmap");
+   NSObject<X11Drawable> * const drawable = fPimpl->GetDrawable(wid);
+   assert(drawable.fIsPixmap == YES && "ResizePixmap, invalid drawable");
 
    QuartzPixmap *pixmap = (QuartzPixmap *)drawable;
    if (w == pixmap.fWidth && h == pixmap.fHeight)
       return 1;
    
-   if ([pixmap resizeW : w H : h scaleFactor : [[NSScreen mainScreen] backingScaleFactor]])//This can throw std::bad_alloc, ok, no resource will leak.
+   //TODO: what about multi-head setup and scale factor?
+   if ([pixmap resizeW : w H : h scaleFactor : [[NSScreen mainScreen] backingScaleFactor]])
       return 1;
 
    return -1;
@@ -2287,7 +2361,8 @@ Int_t TGCocoa::ResizePixmap(Int_t wid, UInt_t w, UInt_t h)
 //______________________________________________________________________________
 void TGCocoa::SelectPixmap(Int_t pixmapID)
 {
-   assert(pixmapID > (Int_t)fPimpl->GetRootWindowID() && "SelectPixmap, pixmapID parameter is not a valid id");
+   assert(pixmapID > (Int_t)fPimpl->GetRootWindowID() &&
+          "SelectPixmap, parameter 'pixmapID' is not a valid id");
 
    fSelectedDrawable = pixmapID;
 }
@@ -2295,11 +2370,14 @@ void TGCocoa::SelectPixmap(Int_t pixmapID)
 //______________________________________________________________________________
 void TGCocoa::CopyPixmap(Int_t pixmapID, Int_t x, Int_t y)
 {
-   assert(pixmapID > (Int_t)fPimpl->GetRootWindowID() && "CopyPixmap, pixmapID parameter is not a valid id");
-   assert(fSelectedDrawable > fPimpl->GetRootWindowID() && "CopyPixmap, fSelectedDrawable is not a valid window id");
+   assert(pixmapID > (Int_t)fPimpl->GetRootWindowID() &&
+          "CopyPixmap, parameter 'pixmapID' is not a valid id");
+   assert(fSelectedDrawable > fPimpl->GetRootWindowID() &&
+          "CopyPixmap, fSelectedDrawable is not a valid window id");
    
    NSObject<X11Drawable> * const source = fPimpl->GetDrawable(pixmapID);
-   assert([source isKindOfClass : [QuartzPixmap class]] && "CopyPixmap, source is not a pixmap");
+   assert([source isKindOfClass : [QuartzPixmap class]] &&
+          "CopyPixmap, source is not a pixmap");
    QuartzPixmap * const pixmap = (QuartzPixmap *)source;
    
    NSObject<X11Drawable> * const drawable = fPimpl->GetDrawable(fSelectedDrawable);
@@ -2312,14 +2390,15 @@ void TGCocoa::CopyPixmap(Int_t pixmapID, Int_t x, Int_t y)
       if (window.fBackBuffer) {
          destination = window.fBackBuffer;
       } else {
-         Warning("CopyPixmap", "Operation skipped, since destination window is not double buffered");
+         Warning("CopyPixmap", "Operation skipped, since destination"
+                               " window is not double buffered");
          return;
       }
    }
 
    const X11::Rectangle copyArea(0, 0, pixmap.fWidth, pixmap.fHeight);
    const X11::Point dstPoint(x, y);
-   
+
    [destination copy : pixmap area : copyArea withMask : nil clipOrigin : X11::Point() toPoint : dstPoint];
 }
 
@@ -2329,8 +2408,8 @@ void TGCocoa::ClosePixmap()
    // Deletes current pixmap.
 }
 
-//Different functions to create pixmap from different data sources. Used by GUI.
-//These functions implement TVirtualX interface, some of them repeat each other.
+#pragma mark - Different functions to create pixmap from different data sources. Used by GUI.
+#pragma mark - These functions implement TVirtualX interface, some of them dupilcate others.
 
 //______________________________________________________________________________
 Pixmap_t TGCocoa::CreatePixmap(Drawable_t /*wid*/, UInt_t w, UInt_t h)
@@ -2346,13 +2425,14 @@ Pixmap_t TGCocoa::CreatePixmap(Drawable_t /*wid*/, const char *bitmap, UInt_t wi
    //Create QuartzImage, using bitmap and foregroundPixel/backgroundPixel,
    //if depth is one - create an image mask instead.
 
-   assert(bitmap != 0 && "CreatePixmap, bitmap parameter is null");
-   assert(width > 0 && "CreatePixmap, width parameter is 0");
-   assert(height > 0 && "CreatePixmap, height parameter is 0");
-   
+   assert(bitmap != 0 && "CreatePixmap, parameter 'bitmap' is null");
+   assert(width > 0 && "CreatePixmap, parameter 'width' is 0");
+   assert(height > 0 && "CreatePixmap, parameter 'height' is 0");
+
    std::vector<unsigned char> imageData (depth > 1 ? width * height * 4 : width * height);
 
-   X11::FillPixmapBuffer((unsigned char*)bitmap, width, height, foregroundPixel, backgroundPixel, depth, &imageData[0]);
+   X11::FillPixmapBuffer((unsigned char*)bitmap, width, height, foregroundPixel,
+                          backgroundPixel, depth, &imageData[0]);
 
    //Now we can create CGImageRef.
    Util::NSScopeGuard<QuartzImage> image;
@@ -2389,10 +2469,12 @@ Pixmap_t TGCocoa::CreatePixmapFromData(unsigned char *bits, UInt_t width, UInt_t
       std::swap(p[0], p[2]);
 
    //Now we can create CGImageRef.
-   Util::NSScopeGuard<QuartzImage> image([[QuartzImage alloc] initWithW : width H : height data : &imageData[0]]);
+   Util::NSScopeGuard<QuartzImage> image([[QuartzImage alloc] initWithW : width
+                                          H : height data : &imageData[0]]);
 
    if (!image.Get()) {
-      Error("CreatePixmapFromData", "QuartzImage initialziation failed");//More concrete message was issued by QuartzImage.
+      //Detailed error message was issued by QuartzImage.
+      Error("CreatePixmapFromData", "QuartzImage initialziation failed");
       return kNone;
    }
 
@@ -2414,7 +2496,8 @@ Pixmap_t TGCocoa::CreateBitmap(Drawable_t /*wid*/, const char *bitmap, UInt_t wi
    
    std::vector<unsigned char> imageData(width * height);
    
-   for (unsigned i = 0, j = 0, e = width / 8 * height; i < e; ++i) {//TASImage supposes 8-bit bytes and packs mask bits.
+   //TASImage assumes 8-bit bytes and packs mask bits.
+   for (unsigned i = 0, j = 0, e = width / 8 * height; i < e; ++i) {
       for(unsigned bit = 0; bit < 8; ++bit, ++j) {
          if (bitmap[i] & (1 << bit))
             imageData[j] = 0;//Opaque.
@@ -2424,9 +2507,11 @@ Pixmap_t TGCocoa::CreateBitmap(Drawable_t /*wid*/, const char *bitmap, UInt_t wi
    }
 
    //Now we can create CGImageRef.
-   Util::NSScopeGuard<QuartzImage> image([[QuartzImage alloc] initMaskWithW : width H : height bitmapMask : &imageData[0]]);
+   Util::NSScopeGuard<QuartzImage> image([[QuartzImage alloc] initMaskWithW : width
+                                         H : height bitmapMask : &imageData[0]]);
    if (!image.Get()) {
-      Error("CreateBitmap", "QuartzImage initialization failed");//More concrete message was issued by QuartzImage.
+      //Detailed error message was issued by QuartzImage.
+      Error("CreateBitmap", "QuartzImage initialization failed");
       return kNone;
    }
 
@@ -2464,10 +2549,10 @@ unsigned char *TGCocoa::GetColorBits(Drawable_t wid, Int_t x, Int_t y, UInt_t w,
    if (fPimpl->IsRootWindow(wid)) {
       Warning("GetColorBits", "Called for root window");
    } else {
-      assert(x >= 0 && "GetColorBits, x parameter is negative");
-      assert(y >= 0 && "GetColorBits, y parameter is negative");
-      assert(w != 0 && "GetColorBits, w parameter is 0");
-      assert(h != 0 && "GetColorBits, h parameter is 0");
+      assert(x >= 0 && "GetColorBits, parameter 'x' is negative");
+      assert(y >= 0 && "GetColorBits, parameter 'y' is negative");
+      assert(w != 0 && "GetColorBits, parameter 'w' is 0");
+      assert(h != 0 && "GetColorBits, parameter 'h' is 0");
 
       const X11::Rectangle area(x, y, w, h);
       return [fPimpl->GetDrawable(wid) readColorBits : area];//readColorBits can throw std::bad_alloc, no resource will leak.
@@ -2476,7 +2561,7 @@ unsigned char *TGCocoa::GetColorBits(Drawable_t wid, Int_t x, Int_t y, UInt_t w,
    return 0;
 }
 
-//"XImage" emulation.
+#pragma mark - XImage emulation.
 
 //______________________________________________________________________________
 Drawable_t TGCocoa::CreateImage(UInt_t width, UInt_t height)
@@ -2492,8 +2577,8 @@ Drawable_t TGCocoa::CreateImage(UInt_t width, UInt_t height)
 void TGCocoa::GetImageSize(Drawable_t wid, UInt_t &width, UInt_t &height)
 {
    // Returns the width and height of the image wid
-   assert(wid > fPimpl->GetRootWindowID() && "GetImageSize, wid parameter is a bad image id");
-   
+   assert(wid > fPimpl->GetRootWindowID() && "GetImageSize, parameter 'wid' is invalid");
+
    NSObject<X11Drawable> * const drawable = fPimpl->GetDrawable(wid);
    width = drawable.fWidth;
    height = drawable.fHeight;
@@ -2509,9 +2594,10 @@ void TGCocoa::PutPixel(Drawable_t imageID, Int_t x, Int_t y, ULong_t pixel)
    // x, y  - coordinates
    // pixel - the new pixel value
    
-   assert([fPimpl->GetDrawable(imageID) isKindOfClass : [QuartzPixmap class]] && "PutPixel, imageID parameter is a bad pixmap id");
-   assert(x >= 0 && "PutPixel, x parameter is negative");
-   assert(y >= 0 && "PutPixel, y parameter is negative");
+   assert([fPimpl->GetDrawable(imageID) isKindOfClass : [QuartzPixmap class]] &&
+          "PutPixel, parameter 'imageID' is a bad pixmap id");
+   assert(x >= 0 && "PutPixel, parameter 'x' is negative");
+   assert(y >= 0 && "PutPixel, parameter 'y' is negative");
 
    QuartzPixmap * const pixmap = (QuartzPixmap *)fPimpl->GetDrawable(imageID);
 
@@ -2521,7 +2607,8 @@ void TGCocoa::PutPixel(Drawable_t imageID, Int_t x, Int_t y, ULong_t pixel)
 }
 
 //______________________________________________________________________________
-void TGCocoa::PutImage(Drawable_t drawableID, GContext_t gc, Drawable_t imageID, Int_t dstX, Int_t dstY, Int_t srcX, Int_t srcY, UInt_t width, UInt_t height)
+void TGCocoa::PutImage(Drawable_t drawableID, GContext_t gc, Drawable_t imageID, Int_t dstX, Int_t dstY,
+                       Int_t srcX, Int_t srcY, UInt_t width, UInt_t height)
 {
    //TGX11 uses ZPixmap in CreateImage ... so background/foreground 
    //in gc can NEVER be used (and the depth is ALWAYS > 1).
@@ -2539,7 +2626,7 @@ void TGCocoa::DeleteImage(Drawable_t imageID)
    DeletePixmap(imageID);
 }
 
-//Mouse related code.
+#pragma mark - Mouse related code.
 
 //______________________________________________________________________________
 void TGCocoa::GrabButton(Window_t wid, EMouseButton button, UInt_t keyModifiers, UInt_t eventMask,
@@ -2553,7 +2640,8 @@ void TGCocoa::GrabButton(Window_t wid, EMouseButton button, UInt_t keyModifiers,
    //I'm not going to emulate it..
    //This function also does ungrab.
    
-   if (!wid)//From TGWin32.
+   //From TGWin32:
+   if (!wid)
       return;
    
    assert(!fPimpl->IsRootWindow(wid) && "GrabButton, called for 'root' window");
@@ -2601,12 +2689,14 @@ void TGCocoa::ChangeActivePointerGrab(Window_t, UInt_t, Cursor_t)
    // Changes the specified dynamic parameters if the pointer is actively
    // grabbed by the client and if the specified time is no earlier than the
    // last-pointer-grab time and no later than the current X server time.
+   //Noop.
 }
 
 //______________________________________________________________________________
-void TGCocoa::SetKeyAutoRepeat(Bool_t /*on = kTRUE*/)
+void TGCocoa::SetKeyAutoRepeat(Bool_t /*on*/)
 {
    // Turns key auto repeat on (kTRUE) or off (kFALSE).
+   //Noop.
 }
 
 //______________________________________________________________________________
@@ -2640,7 +2730,7 @@ void TGCocoa::GrabKey(Window_t wid, Int_t keyCode, UInt_t rootKeyModifiers, Bool
    
    //Key code already must be Cocoa's key code, this is done by GUI classes,
    //they call KeySymToKeyCode.
-   assert(!fPimpl->IsRootWindow(wid) && "GrabKey, called for 'root' window");
+   assert(!fPimpl->IsRootWindow(wid) && "GrabKey, called for root window");
 
    NSView<X11Window> * const view = fPimpl->GetWindow(wid).fContentView;
    const NSUInteger cocoaKeyModifiers = X11::GetCocoaKeyModifiersFromROOTKeyModifiers(rootKeyModifiers);
@@ -2674,7 +2764,7 @@ Window_t TGCocoa::GetInputFocus()
 void TGCocoa::SetInputFocus(Window_t wid)
 {
    // Changes the input focus to specified window "wid".
-   assert(!fPimpl->IsRootWindow(wid) && "SetInputFocus, called for 'root' window");
+   assert(!fPimpl->IsRootWindow(wid) && "SetInputFocus, called for root window");
    
    if (wid == kNone)
       fPimpl->fX11EventTranslator.SetInputFocus(nil);
@@ -2695,13 +2785,13 @@ void TGCocoa::LookupString(Event_t *event, char *buf, Int_t length, UInt_t &keys
    // buflen - the length of the buffer
    // keysym - returns the "keysym" computed from the event
    //          if this argument is not NULL
-   assert(buf != 0 && "LookupString, buf parameter is null");
-   assert(length >= 2 && "LookupString, length parameter - not enough memory to return null-terminated ASCII string");
+   assert(buf != 0 && "LookupString, parameter 'buf' is null");
+   assert(length >= 2 && "LookupString, parameter 'length' - not enough memory to return null-terminated ASCII string");
 
    X11::MapUnicharToKeySym(event->fCode, buf, length, keysym);
 }
 
-//Font management.
+#pragma mark - Font management.
 
 //______________________________________________________________________________
 FontStruct_t TGCocoa::LoadQueryFont(const char *fontName)
@@ -2739,6 +2829,7 @@ void TGCocoa::DeleteFont(FontStruct_t fs)
 Bool_t TGCocoa::HasTTFonts() const
 {
    // Returns True when TrueType fonts are used
+   //No, we use Core Text and do not want TTF to calculate metrics.
    return kFALSE;
 }
 
@@ -2772,9 +2863,7 @@ void TGCocoa::FreeFontStruct(FontStruct_t /*fs*/)
 {
    // Frees the font structure "fs". The font itself will be freed when
    // no other resource references it.
-
-   //
-   // fFontManager->UnloadFont(fs);
+   //Noop.
 }
 
 //______________________________________________________________________________
@@ -2801,7 +2890,7 @@ void TGCocoa::FreeFontNames(char **fontList)
    fPimpl->fFontManager.FreeFontNames(fontList);
 }
 
-//Color management.
+#pragma mark - Color management.
 
 //______________________________________________________________________________
 Bool_t TGCocoa::ParseColor(Colormap_t /*cmap*/, const char *colorName, ColorStruct_t &color)
@@ -2853,9 +2942,10 @@ ULong_t TGCocoa::GetPixel(Color_t rootColorIndex)
 }
 
 //______________________________________________________________________________
-void TGCocoa::GetPlanes(Int_t & /*nplanes*/)
+void TGCocoa::GetPlanes(Int_t &nPlanes)
 {
-   // Returns the maximum number of planes.
+   //Implemented as NSBitsPerPixelFromDepth([mainScreen depth]);
+   nPlanes = GetDepth();
 }
 
 //______________________________________________________________________________
@@ -2879,7 +2969,7 @@ Colormap_t TGCocoa::GetColormap() const
    return Colormap_t();
 }
 
-//"Context management".
+#pragma mark - Graphical context management.
 
 //______________________________________________________________________________
 GContext_t TGCocoa::CreateGC(Drawable_t /*wid*/, GCValues_t *gval)
@@ -2899,7 +2989,7 @@ void TGCocoa::SetForeground(GContext_t gc, ULong_t foreground)
    // foreground - the foreground you want to set
    // (see also the GCValues_t structure)
    
-   assert(gc <= fX11Contexts.size() && gc > 0 && "ChangeGC - stange context id");
+   assert(gc <= fX11Contexts.size() && gc > 0 && "ChangeGC, invalid context id");
    
    GCValues_t &x11Context = fX11Contexts[gc - 1];
    x11Context.fMask |= kGCForeground;
@@ -2910,7 +3000,7 @@ void TGCocoa::SetForeground(GContext_t gc, ULong_t foreground)
 void TGCocoa::ChangeGC(GContext_t gc, GCValues_t *gval)
 {
    //
-   assert(gc <= fX11Contexts.size() && gc > 0 && "ChangeGC - stange context id");
+   assert(gc <= fX11Contexts.size() && gc > 0 && "ChangeGC, invalid context id");
    assert(gval != 0 && "ChangeGC, gval parameter is null");
    
    GCValues_t &x11Context = fX11Contexts[gc - 1];
@@ -2999,7 +3089,7 @@ void TGCocoa::DeleteGC(GContext_t /*gc*/)
    // Deletes the specified GC "gc".
 }
 
-//Cursor management.
+#pragma mark - Cursor management.
 
 //______________________________________________________________________________
 Cursor_t TGCocoa::CreateCursor(ECursor cursor)
@@ -3021,7 +3111,7 @@ void TGCocoa::SetCursor(Int_t wid, ECursor cursor)
 {
    // The cursor "cursor" will be used when the pointer is in the
    // window "wid".
-   assert(!fPimpl->IsRootWindow(wid) && "SetCursor, called for 'root' window");
+   assert(!fPimpl->IsRootWindow(wid) && "SetCursor, called for root window");
    
    NSView<X11Window> * const view = fPimpl->GetWindow(wid).fContentView;
    view.fCurrentCursor = cursor;
@@ -3050,11 +3140,12 @@ void TGCocoa::QueryPointer(Int_t &x, Int_t &y)
 }
 
 //______________________________________________________________________________
-void TGCocoa::QueryPointer(Window_t winID, Window_t &rootWinID, Window_t &childWinID, Int_t &rootX, Int_t &rootY, Int_t &winX, Int_t &winY, UInt_t &mask)
+void TGCocoa::QueryPointer(Window_t winID, Window_t &rootWinID, Window_t &childWinID,
+                           Int_t &rootX, Int_t &rootY, Int_t &winX, Int_t &winY, UInt_t &mask)
 {
-   //Emulate XQueryPointer(?).
+   //Emulate XQueryPointer.
 
-   //From TGX11/TGWin32.
+   //From TGX11/TGWin32:
    if (!winID)
       return;//Neither TGX11, nor TGWin32 set any of out parameters.
    
@@ -3074,9 +3165,8 @@ void TGCocoa::QueryPointer(Window_t winID, Window_t &rootWinID, Window_t &childW
       winX = winPoint.x;
       winY = winPoint.y;
    } else {
-      //Warning("QueryPointer", "Window %d parameter is a root window", (int)winID);
-      winX = 0;
-      winY = 0;
+      winX = screenPoint.x;
+      winY = screenPoint.y;
    }
 
    //Find child window in these coordinates (?).
@@ -3089,7 +3179,7 @@ void TGCocoa::QueryPointer(Window_t winID, Window_t &rootWinID, Window_t &childW
    }   
 }
 
-//OpenGL management.
+#pragma mark - OpenGL management.
 
 //______________________________________________________________________________
 Double_t TGCocoa::GetOpenGLScalingFactor()
@@ -3097,11 +3187,13 @@ Double_t TGCocoa::GetOpenGLScalingFactor()
    //Scaling factor to let our OpenGL code know, that we probably
    //work on a retina display.
    
+   //TODO: what about multi-head setup?
    return [[NSScreen mainScreen] backingScaleFactor];
 }
 
 //______________________________________________________________________________
-Window_t TGCocoa::CreateOpenGLWindow(Window_t parentID, UInt_t width, UInt_t height, const std::vector<std::pair<UInt_t, Int_t> > &formatComponents)
+Window_t TGCocoa::CreateOpenGLWindow(Window_t parentID, UInt_t width, UInt_t height,
+                                     const std::vector<std::pair<UInt_t, Int_t> > &formatComponents)
 {
    //ROOT never creates GL widgets with 'root' as a parent (so not top-level gl-windows).
    //If this change, assert must be deleted.
@@ -3142,7 +3234,8 @@ Window_t TGCocoa::CreateOpenGLWindow(Window_t parentID, UInt_t width, UInt_t hei
    NSView<X11Window> *parentView = nil;
    if (!fPimpl->IsRootWindow(parentID)) {
       parentView = fPimpl->GetWindow(parentID).fContentView;
-      assert([parentView isKindOfClass : [QuartzView class]] && "CreateOpenGLWindow, parent view must be QuartzView");
+      assert([parentView isKindOfClass : [QuartzView class]] &&
+             "CreateOpenGLWindow, parent view must be QuartzView");
    }
    
    NSRect viewFrame = {};
@@ -3166,7 +3259,8 @@ Window_t TGCocoa::CreateOpenGLWindow(Window_t parentID, UInt_t width, UInt_t hei
       
       
       if (!parent) {
-         Error("CreateOpenGLWindow", "QuartzWindow allocation/initialization failed for a top-level GL widget");
+         Error("CreateOpenGLWindow", "QuartzWindow allocation/initialization"
+                                     " failed for a top-level GL widget");
          return kNone;
       }
       
@@ -3180,14 +3274,16 @@ Window_t TGCocoa::CreateOpenGLWindow(Window_t parentID, UInt_t width, UInt_t hei
 //______________________________________________________________________________
 Handle_t TGCocoa::CreateOpenGLContext(Window_t windowID, Handle_t sharedID)
 {
-   assert(!fPimpl->IsRootWindow(windowID) && "CreateOpenGLContext, windowID is a 'root' window");
+   assert(!fPimpl->IsRootWindow(windowID) &&
+          "CreateOpenGLContext, parameter 'windowID' is a root window");
    assert([fPimpl->GetWindow(windowID).fContentView isKindOfClass : [ROOTOpenGLView class]] && 
           "CreateOpenGLContext, view is not an OpenGL view");
 
    NSOpenGLContext * const sharedContext = fPimpl->GetGLContextForHandle(sharedID);
    ROOTOpenGLView * const glView = (ROOTOpenGLView *)fPimpl->GetWindow(windowID);
 
-   const Util::NSScopeGuard<NSOpenGLContext> newContext([[NSOpenGLContext alloc] initWithFormat : glView.pixelFormat shareContext : sharedContext]);
+   const Util::NSScopeGuard<NSOpenGLContext>
+      newContext([[NSOpenGLContext alloc] initWithFormat : glView.pixelFormat shareContext : sharedContext]);
    glView.fOpenGLContext = newContext.Get();
    const Handle_t ctxID = fPimpl->RegisterGLContext(newContext.Get());
 
@@ -3243,17 +3339,20 @@ Bool_t TGCocoa::MakeOpenGLContextCurrent(Handle_t ctxID, Window_t windowID)
       if (!fakeWindow) {
          //We did not find any window. Create a new one.
          SetWindowAttributes_t attr = {};
-         const UInt_t width = std::max(glView.frame.size.width, CGFloat(100));//100 - is just a stupid hardcoded value.
+         //100 - is just a stupid hardcoded value:
+         const UInt_t width = std::max(glView.frame.size.width, CGFloat(100));
          const UInt_t height = std::max(glView.frame.size.height, CGFloat(100));
 
          NSRect viewFrame = {};
          viewFrame.size.width = width;
          viewFrame.size.height = height;
 
-         const NSUInteger styleMask = NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask;
+         const NSUInteger styleMask = NSTitledWindowMask | NSClosableWindowMask |
+                                      NSMiniaturizableWindowMask | NSResizableWindowMask;
 
          //NOTE: defer parameter is 'NO', otherwise this trick will not help.
-         fakeWindow = [[QuartzWindow alloc] initWithContentRect : viewFrame styleMask : styleMask backing : NSBackingStoreBuffered defer : NO windowAttributes : &attr];
+         fakeWindow = [[QuartzWindow alloc] initWithContentRect : viewFrame styleMask : styleMask
+                        backing : NSBackingStoreBuffered defer : NO windowAttributes : &attr];
          Util::NSScopeGuard<QuartzWindow> winGuard(fakeWindow);
 
          fakeView = fakeWindow.fContentView;
@@ -3285,7 +3384,8 @@ Handle_t TGCocoa::GetCurrentOpenGLContext()
    
    const Handle_t contextID = fPimpl->GetHandleForGLContext(currentContext);
    if (!contextID)
-      Error("GetCurrentOpenGLContext", "The current OpenGL context was not created/registered by TGCocoa");
+      Error("GetCurrentOpenGLContext", "The current OpenGL context was"
+                                       " not created/registered by TGCocoa");
    
    return contextID;
 }
@@ -3325,13 +3425,13 @@ void TGCocoa::DeleteOpenGLContext(Int_t ctxID)
    fPimpl->DeleteGLContext(ctxID);
 }
 
-//Off-screen rendering for TPad/TCanvas.
+#pragma mark - Off-screen rendering for TPad/TCanvas.
 
 //______________________________________________________________________________
 void TGCocoa::SetDoubleBuffer(Int_t windowID, Int_t mode)
 {
    //In ROOT, canvas has a "double buffer" - pixmap attached to 'wid'.
-   assert(windowID > (Int_t)fPimpl->GetRootWindowID() && "SetDoubleBuffer called for 'root' window");
+   assert(windowID > (Int_t)fPimpl->GetRootWindowID() && "SetDoubleBuffer called for root window");
    
    if (windowID == 999) {//Comment in TVirtaulX suggests, that 999 means all windows.
       Warning("SetDoubleBuffer", "called with wid == 999");
@@ -3354,11 +3454,13 @@ void TGCocoa::SetDoubleBufferON()
    //Attach pixmap to the selected window (view).
    fDirectDraw = false;
    
-   assert(fSelectedDrawable > fPimpl->GetRootWindowID() && "SetDoubleBufferON, called, but no correct window was selected before");
+   assert(fSelectedDrawable > fPimpl->GetRootWindowID() &&
+          "SetDoubleBufferON, called, but no correct window was selected before");
    
    NSObject<X11Window> * const window = fPimpl->GetWindow(fSelectedDrawable);
    
-   assert(window.fIsPixmap == NO && "SetDoubleBufferON, selected drawable is a pixmap, can not attach pixmap to pixmap");
+   assert(window.fIsPixmap == NO &&
+          "SetDoubleBufferON, selected drawable is a pixmap, can not attach pixmap to pixmap");
    
    const unsigned currW = window.fWidth;
    const unsigned currH = window.fHeight;
@@ -3368,12 +3470,14 @@ void TGCocoa::SetDoubleBufferON()
          return;
    }
 
-   Util::NSScopeGuard<QuartzPixmap> pixmap([[QuartzPixmap alloc] initWithW : currW H : currH scaleFactor : [[NSScreen mainScreen] backingScaleFactor]]);
-   if (pixmap.Get()) {
+   //TODO: what about multi-head setup?
+   Util::NSScopeGuard<QuartzPixmap> pixmap([[QuartzPixmap alloc] initWithW : currW
+                                            H : currH scaleFactor : [[NSScreen mainScreen] backingScaleFactor]]);
+   if (pixmap.Get())
       window.fBackBuffer = pixmap.Get();
-   } else {
-      Error("SetDoubleBufferON", "QuartzPixmap initialization failed");//More concrete message was issued by QuartzPixmap.
-   }
+   else
+      //Detailed error message was issued by QuartzPixmap.
+      Error("SetDoubleBufferON", "QuartzPixmap initialization failed");
 }
 
 //______________________________________________________________________________
@@ -3385,15 +3489,16 @@ void TGCocoa::SetDrawMode(EDrawMode mode)
    fDrawMode = mode;
 }
 
-//Event management part.
+#pragma mark - Event management part.
 
 //______________________________________________________________________________
 void TGCocoa::SendEvent(Window_t wid, Event_t *event)
 {
-   if (fPimpl->IsRootWindow(wid))//ROOT's GUI can send events to 'root' window.
+   if (fPimpl->IsRootWindow(wid))//ROOT's GUI can send events to root window.
       return;
-      
-   if (!wid || !event) //From TGX11.
+   
+   //From TGX11:
+   if (!wid || !event)
       return;
 
    Event_t newEvent = *event;
@@ -3445,8 +3550,7 @@ Handle_t TGCocoa::GetNativeEvent() const
    return kNone;
 }
 
-//"Drag and drop", "Copy and paste", X11 properties.
-//Quite preliminary and not-tested yet.
+#pragma mark - "Drag and drop", "Copy and paste", X11 properties.
 
 //______________________________________________________________________________
 Atom_t  TGCocoa::InternAtom(const char *name, Bool_t onlyIfExist)
@@ -3455,7 +3559,7 @@ Atom_t  TGCocoa::InternAtom(const char *name, Bool_t onlyIfExist)
    //TODO: this is a temporary hack to make
    //client message (close window) work.
 
-   assert(name != 0 && "InternAtom, atomName parameter is null");
+   assert(name != 0 && "InternAtom, parameter 'name' is null");
    return FindAtom(name, !onlyIfExist);
 }
 
@@ -3473,11 +3577,14 @@ void TGCocoa::SetPrimarySelectionOwner(Window_t windowID)
       return;
 
    //TODO: check, if this really happens and probably remove assert.
-   assert(!fPimpl->IsRootWindow(windowID) && "SetPrimarySelectionOwner, windowID parameter is a 'root' window");
-   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO && "SetPrimarySelectionOwner, windowID parameter is not a valid window");
+   assert(!fPimpl->IsRootWindow(windowID) &&
+          "SetPrimarySelectionOwner, windowID parameter is a 'root' window");
+   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO &&
+          "SetPrimarySelectionOwner, windowID parameter is not a valid window");
 
    const Atom_t primarySelectionAtom = FindAtom("XA_PRIMARY", false);
-   assert(primarySelectionAtom != kNone && "SetPrimarySelectionOwner, predefined XA_PRIMARY atom was not found");
+   assert(primarySelectionAtom != kNone &&
+          "SetPrimarySelectionOwner, predefined XA_PRIMARY atom was not found");
 
    fSelectionOwners[primarySelectionAtom] = windowID;
    //No events will be send - I do not have different clients, so nobody to send SelectionClear.
@@ -3495,8 +3602,10 @@ Bool_t TGCocoa::SetSelectionOwner(Window_t windowID, Atom_t &selection)
    if (!windowID)
       return kFALSE;
       
-   assert(!fPimpl->IsRootWindow(windowID) && "SetSelectionOwner, windowID parameter is a 'root' window'");
-   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO && "SetSelectionOwner, windowID parameter is not a valid window");
+   assert(!fPimpl->IsRootWindow(windowID) &&
+          "SetSelectionOwner, windowID parameter is a 'root' window'");
+   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO &&
+          "SetSelectionOwner, windowID parameter is not a valid window");
    
    fSelectionOwners[selection] = windowID;
    //No messages, since I do not have different clients.
@@ -3512,7 +3621,8 @@ Window_t TGCocoa::GetPrimarySelectionOwner()
    // That is the window in which, for example some text is selected.
    //End of comment.
    const Atom_t primarySelectionAtom = FindAtom("XA_PRIMARY", false);
-   assert(primarySelectionAtom != kNone && "GetPrimarySelectionOwner, predefined XA_PRIMARY atom was not found");
+   assert(primarySelectionAtom != kNone &&
+          "GetPrimarySelectionOwner, predefined XA_PRIMARY atom was not found");
 
    return fSelectionOwners[primarySelectionAtom];
 }
@@ -3531,23 +3641,29 @@ void TGCocoa::ConvertPrimarySelection(Window_t windowID, Atom_t clipboard, Time_
    // confirms the selected atom and type.
    //End of comment.
    
-   if (!windowID)//From TGWin32.
+   //From TGWin32:
+   if (!windowID)
       return;
 
-   assert(!fPimpl->IsRootWindow(windowID) && "ConvertPrimarySelection, windowID parameter is a 'root' window");
-   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO && "ConvertPrimarySelection, windowID parameter is not a valid window");
+   assert(!fPimpl->IsRootWindow(windowID) &&
+          "ConvertPrimarySelection, parameter 'windowID' is root window");
+   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO &&
+          "ConvertPrimarySelection, parameter windowID parameter is not a window id");
    
    Atom_t primarySelectionAtom = FindAtom("XA_PRIMARY", false);
-   assert(primarySelectionAtom != kNone && "ConvertPrimarySelection, XA_PRIMARY predefined atom not found");
+   assert(primarySelectionAtom != kNone &&
+          "ConvertPrimarySelection, XA_PRIMARY predefined atom not found");
    
    Atom_t stringAtom = FindAtom("XA_STRING", false);
-   assert(stringAtom != kNone && "ConvertPrimarySelection, XA_STRING predefined atom not found");
+   assert(stringAtom != kNone &&
+          "ConvertPrimarySelection, XA_STRING predefined atom not found");
 
    ConvertSelection(windowID, primarySelectionAtom, stringAtom, clipboard, when);
 }
 
 //______________________________________________________________________________
-void TGCocoa::ConvertSelection(Window_t windowID, Atom_t &selection, Atom_t &target, Atom_t &property, Time_t &/*timeStamp*/)
+void TGCocoa::ConvertSelection(Window_t windowID, Atom_t &selection, Atom_t &target,
+                               Atom_t &property, Time_t &/*timeStamp*/)
 {
    // Requests that the specified selection be converted to the specified
    // target type.
@@ -3558,8 +3674,10 @@ void TGCocoa::ConvertSelection(Window_t windowID, Atom_t &selection, Atom_t &tar
    if (!windowID)
       return;
       
-   assert(!fPimpl->IsRootWindow(windowID) && "ConvertSelection, windowID parameter is a 'root' window'");
-   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO && "ConvertSelection, windowID parameter is not a valid window");
+   assert(!fPimpl->IsRootWindow(windowID) &&
+          "ConvertSelection, parameter 'windowID' is root window'");
+   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO &&
+          "ConvertSelection, parameter 'windowID' is not a window id");
 
    Event_t newEvent = {};
    selection_iterator selIter = fSelectionOwners.find(selection);
@@ -3580,7 +3698,8 @@ void TGCocoa::ConvertSelection(Window_t windowID, Atom_t &selection, Atom_t &tar
 
 //______________________________________________________________________________
 Int_t TGCocoa::GetProperty(Window_t windowID, Atom_t propertyID, Long_t, Long_t, Bool_t, Atom_t,
-                           Atom_t *actualType, Int_t *actualFormat, ULong_t *nItems, ULong_t *bytesAfterReturn, unsigned char **propertyReturn)
+                           Atom_t *actualType, Int_t *actualFormat, ULong_t *nItems,
+                           ULong_t *bytesAfterReturn, unsigned char **propertyReturn)
 {
    //Comment from TVirtualX:
    // Returns the actual type of the property; the actual format of the property;
@@ -3589,16 +3708,19 @@ Int_t TGCocoa::GetProperty(Window_t windowID, Atom_t propertyID, Long_t, Long_t,
    // actually returned.
    //End of comment.
    
-   //TODO: actually, property can be set for a 'root' window. I have to save this data somehow.
+   //TODO: actually, property can be set for root window.
+   //I have to save this data somehow.
    if (fPimpl->IsRootWindow(windowID))
       return 0;
 
-   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO && "GetProperty, windowID is not a valid window id");
-   assert(propertyID > 0 && propertyID <= fAtomToName.size() && "GetProperty, propertyID parameter is not a valid atom");
-   assert(actualType != 0 && "GetProperty, actualType parameter is null");
-   assert(actualFormat != 0 && "GetProperty, actualFormat parameter is null");
-   assert(bytesAfterReturn != 0 && "GetProperty, bytesAfterReturn parameter is null");
-   assert(propertyReturn != 0 && "GetProperty, propertyReturn parameter is null");
+   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO &&
+          "GetProperty, parameter 'windowID' is not a valid window id");
+   assert(propertyID > 0 && propertyID <= fAtomToName.size() &&
+          "GetProperty, parameter 'propertyID' is not a valid atom");
+   assert(actualType != 0 && "GetProperty, parameter 'actualType' is null");
+   assert(actualFormat != 0 && "GetProperty, parameter 'actualFormat' is null");
+   assert(bytesAfterReturn != 0 && "GetProperty, parameter 'bytesAfterReturn' is null");
+   assert(propertyReturn != 0 && "GetProperty, parameter 'propertyReturn' is null");
 
    const Util::AutoreleasePool pool;
    
@@ -3615,7 +3737,8 @@ Int_t TGCocoa::GetProperty(Window_t windowID, Atom_t propertyID, Long_t, Long_t,
    }
 
    unsigned tmpFormat = 0, tmpElements = 0;
-   *propertyReturn = [window getProperty : atomName.c_str() returnType : actualType returnFormat : &tmpFormat nElements : &tmpElements];
+   *propertyReturn = [window getProperty : atomName.c_str() returnType : actualType
+                      returnFormat : &tmpFormat nElements : &tmpElements];
    *actualFormat = (Int_t)tmpFormat;
    *nItems = tmpElements;
 
@@ -3623,7 +3746,8 @@ Int_t TGCocoa::GetProperty(Window_t windowID, Atom_t propertyID, Long_t, Long_t,
 }
 
 //______________________________________________________________________________
-void TGCocoa::GetPasteBuffer(Window_t windowID, Atom_t propertyID, TString &text, Int_t &nChars, Bool_t clearBuffer)
+void TGCocoa::GetPasteBuffer(Window_t windowID, Atom_t propertyID, TString &text,
+                             Int_t &nChars, Bool_t clearBuffer)
 {
    //Comment from TVirtualX:
    // Gets contents of the paste buffer "atom" into the string "text".
@@ -3631,12 +3755,16 @@ void TGCocoa::GetPasteBuffer(Window_t windowID, Atom_t propertyID, TString &text
    // buffer afterwards.
    //End of comment.
 
-   if (!windowID)//From TGX11.
+   //From TGX11:
+   if (!windowID)
       return;
    
-   assert(!fPimpl->IsRootWindow(windowID) && "GetPasteBuffer, windowID parameter is a 'root' window");
-   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO && "GetPasteBuffer, windowID parameter is not a valid window");
-   assert(propertyID && propertyID <= fAtomToName.size() && "GetPasteBuffer, propertyID parameter is not a valid atom");
+   assert(!fPimpl->IsRootWindow(windowID) &&
+          "GetPasteBuffer, parameter 'windowID' is root window");
+   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO &&
+          "GetPasteBuffer, parameter 'windowID' is not a valid window");
+   assert(propertyID && propertyID <= fAtomToName.size() &&
+          "GetPasteBuffer, parameter 'propertyID' is not a valid atom");
    
    const Util::AutoreleasePool pool;
    
@@ -3651,20 +3779,26 @@ void TGCocoa::GetPasteBuffer(Window_t windowID, Atom_t propertyID, TString &text
    Atom_t tmpType = 0;
    unsigned tmpFormat = 0, nElements = 0;
    
-   const Util::ScopedArray<char> propertyData((char *)[window getProperty : atomString.c_str() returnType : &tmpType returnFormat : &tmpFormat nElements : &nElements]);
+   const Util::ScopedArray<char>
+      propertyData((char *)[window getProperty : atomString.c_str()
+                            returnType : &tmpType returnFormat : &tmpFormat
+                            nElements : &nElements]);
+
    assert(tmpFormat == 8 && "GetPasteBuffer, property has wrong format");
    
    text.Insert(0, propertyData.Get(), nElements);
    nChars = (Int_t)nElements;
 
    if (clearBuffer) {
-      //For the moment - just remove the property (anyway, ChangeProperty/ChangeProperties will re-create it).
+      //For the moment - just remove the property
+      //(anyway, ChangeProperty/ChangeProperties will re-create it).
       [window removeProperty : atomString.c_str()];
    }
 }
 
 //______________________________________________________________________________
-void TGCocoa::ChangeProperty(Window_t windowID, Atom_t propertyID, Atom_t type, UChar_t *data, Int_t len)
+void TGCocoa::ChangeProperty(Window_t windowID, Atom_t propertyID, Atom_t type,
+                             UChar_t *data, Int_t len)
 {
    //Comment from TVirtualX:
    // Alters the property for the specified window and causes the X server
@@ -3689,9 +3823,12 @@ void TGCocoa::ChangeProperty(Window_t windowID, Atom_t propertyID, Atom_t type, 
    if (!data || !len) //From TGWin32.
       return;
 
-   assert(!fPimpl->IsRootWindow(windowID) && "ChangeProperty, windowID parameter is a 'root' window");
-   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO && "ChangeProperty, windowID parameter is not a valid window id");
-   assert(propertyID && propertyID <= fAtomToName.size() && "ChangeProperty, propertyID parameter is not a valid atom");
+   assert(!fPimpl->IsRootWindow(windowID) &&
+          "ChangeProperty, parameter 'windowID' is root window");
+   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO &&
+          "ChangeProperty, parameter 'windowID' is not a valid window id");
+   assert(propertyID && propertyID <= fAtomToName.size() &&
+          "ChangeProperty, parameter 'propertyID' is not a valid atom");
 
    const Util::AutoreleasePool pool;
    
@@ -3703,7 +3840,8 @@ void TGCocoa::ChangeProperty(Window_t windowID, Atom_t propertyID, Atom_t type, 
 }
 
 //______________________________________________________________________________
-void TGCocoa::ChangeProperties(Window_t windowID, Atom_t propertyID, Atom_t type, Int_t format, UChar_t *data, Int_t len)
+void TGCocoa::ChangeProperties(Window_t windowID, Atom_t propertyID, Atom_t type,
+                               Int_t format, UChar_t *data, Int_t len)
 {
    //Comment from TVirtualX:
    // Alters the property for the specified window and causes the X server
@@ -3719,16 +3857,20 @@ void TGCocoa::ChangeProperties(Window_t windowID, Atom_t propertyID, Atom_t type
    if (!data || !len)//From TGWin32.
       return;
    
-   assert(!fPimpl->IsRootWindow(windowID) && "ChangeProperties, windowID parameter is a 'root' window");
-   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO && "ChangeProperties, windowID parameter is not a valid window id");
-   assert(propertyID && propertyID <= fAtomToName.size() && "ChangeProperties, propertyID parameter is not a valid atom");
+   assert(!fPimpl->IsRootWindow(windowID) &&
+          "ChangeProperties, parameter 'windowID' is root window");
+   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO &&
+          "ChangeProperties, parameter 'windowID' is not a valid window id");
+   assert(propertyID && propertyID <= fAtomToName.size() &&
+          "ChangeProperties, parameter 'propertyID' is not a valid atom");
 
    const Util::AutoreleasePool pool;
 
    const std::string &atomName = fAtomToName[propertyID - 1];
    
    NSObject<X11Window> * const window = fPimpl->GetWindow(windowID);
-   [window setProperty : atomName.c_str() data : data size : len forType : type format : format];
+   [window setProperty : atomName.c_str() data : data
+                  size : len forType : type format : format];
    //No property notify, ROOT does not know about this.
 }
 
@@ -3746,10 +3888,13 @@ void TGCocoa::DeleteProperty(Window_t windowID, Atom_t &propertyID)
 
    //Strange signature - why propertyID is a reference?
    //TODO: check, if ROOT sets/deletes properties on a 'root' window.
-   assert(!fPimpl->IsRootWindow(windowID) && "DeleteProperty, windowID parameter is a 'root' window");
-   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO && "DeleteProperty, windowID parameter is not a valid window");
-   assert(propertyID && propertyID <= fAtomToName.size() && "DeleteProperty, propertyID parameter is invalid atom");
-   
+   assert(!fPimpl->IsRootWindow(windowID) &&
+          "DeleteProperty, parameter 'windowID' is root window");
+   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO &&
+          "DeleteProperty, parameter 'windowID' is not a valid window");
+   assert(propertyID && propertyID <= fAtomToName.size() &&
+          "DeleteProperty, parameter 'propertyID' is not a valid atom");
+
    const std::string &atomString = fAtomToName[propertyID - 1];
    [fPimpl->GetWindow(windowID) removeProperty : atomString.c_str()];
 }
@@ -3767,8 +3912,10 @@ void TGCocoa::SetDNDAware(Window_t windowID, Atom_t *typeList)
    //I simply put all data for a property into a vector and set the property (either creating
    //a new property or replacing the existing).
    
-   assert(windowID > fPimpl->GetRootWindowID() && "SetDNDAware, windowID parameter is a bad window id");
-   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO && "SetDNDAware, windowID parameter is not a window");
+   assert(windowID > fPimpl->GetRootWindowID() &&
+          "SetDNDAware, parameter 'windowID' is not a valid window id");
+   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO &&
+          "SetDNDAware, parameter 'windowID' is not a window");
    
    const Util::AutoreleasePool pool;
    
@@ -3785,7 +3932,7 @@ void TGCocoa::SetDNDAware(Window_t windowID, Atom_t *typeList)
    const Atom_t xaAtomAtom = FindAtom("XA_ATOM", false);
 
    assert(xaAtomAtom == 4 && "SetDNDAware, XA_ATOM is not defined");//This is a predefined atom.
-   
+
    //ROOT's GUI uses Atom_t, which is unsigned long, and it's 64-bit.
    //While calling XChangeProperty, it passes the address of this typelist
    //and format is ... 32. I have to pack data into unsigned and force the size:
@@ -3800,7 +3947,8 @@ void TGCocoa::SetDNDAware(Window_t windowID, Atom_t *typeList)
          propertyData.push_back(unsigned(typeList[i]));//hehe.
    }
    
-   [view setProperty : "XdndAware" data : (unsigned char *)&propertyData[0] size : propertyData.size() forType : xaAtomAtom format : 32];
+   [view setProperty : "XdndAware" data : (unsigned char *)&propertyData[0]
+                size : propertyData.size() forType : xaAtomAtom format : 32];
 }
 
 //______________________________________________________________________________
@@ -3808,10 +3956,11 @@ Bool_t TGCocoa::IsDNDAware(Window_t windowID, Atom_t * /*typeList*/)
 {
    //Checks if the Window is DND aware. typeList is ignored.
 
-   if (windowID <= fPimpl->GetRootWindowID())//kNone or 'root'.
+   if (windowID <= fPimpl->GetRootWindowID())//kNone or root.
       return kFALSE;
    
-   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO && "IsDNDAware, windowID parameter is not a window");
+   assert(fPimpl->GetDrawable(windowID).fIsPixmap == NO &&
+          "IsDNDAware, windowID parameter is not a window");
 
    QuartzView * const view = (QuartzView *)fPimpl->GetWindow(windowID).fContentView;
    return view.fIsDNDAware;
@@ -3821,10 +3970,8 @@ Bool_t TGCocoa::IsDNDAware(Window_t windowID, Atom_t * /*typeList*/)
 void TGCocoa::SetTypeList(Window_t, Atom_t, Atom_t *)
 {
    // Add the list of drag and drop types to the Window win.
-   
    //It's never called from GUI.
-   
-   Warning("SetTypeList", "Not implemented");
+   ::Warning("SetTypeList", "Not implemented");
 }
 
 //______________________________________________________________________________
@@ -3847,15 +3994,16 @@ Window_t TGCocoa::FindRWindow(Window_t winID, Window_t dragWinID, Window_t input
    //about child. Since X11 version is more readable, I'm reproducing X11 version here,
    //and ... my code can't be wrong, since there is nothing right about this function.
 
-   NSView<X11Window> * const testView = X11::FindDNDAwareViewInPoint(fPimpl->IsRootWindow(winID) ? nil : fPimpl->GetWindow(winID).fContentView, 
-                                                                     dragWinID, inputWinID, x, y, maxDepth);
+   NSView<X11Window> * const testView = X11::FindDNDAwareViewInPoint(
+                                                      fPimpl->IsRootWindow(winID) ? nil : fPimpl->GetWindow(winID).fContentView,
+                                                      dragWinID, inputWinID, x, y, maxDepth);
    if (testView)
       return testView.fID;
    
    return kNone;
 }
 
-//////////////
+#pragma mark - Noops.
 
 //______________________________________________________________________________
 UInt_t TGCocoa::ExecCommand(TGWin32Command * /*code*/)
@@ -3875,7 +4023,7 @@ Int_t TGCocoa::GetDoubleBuffer(Int_t /*wid*/)
 void TGCocoa::GetCharacterUp(Float_t &chupx, Float_t &chupy)
 {
    // Returns character up vector.
-   chupx = chupy = 0;
+   chupx = chupy = 0.f;
 }
 
 //______________________________________________________________________________
@@ -3969,13 +4117,33 @@ void TGCocoa::Sync(Int_t /*mode*/)
 }
 
 //______________________________________________________________________________
-void TGCocoa::Warp(Int_t /*ix*/, Int_t /*iy*/, Window_t /*id*/)
+void TGCocoa::Warp(Int_t ix, Int_t iy, Window_t winID)
 {
    // Sets the pointer position.
    // ix - new X coordinate of pointer
    // iy - new Y coordinate of pointer
    // Coordinates are relative to the origin of the window id
    // or to the origin of the current window if id == 0.
+
+   if (!winID)
+      return;
+
+   NSPoint newCursorPosition = {};
+   newCursorPosition.x = ix;
+   newCursorPosition.y = iy;
+   
+   if (fPimpl->GetRootWindowID() == winID) {
+      //Suddenly .... top-left - based!
+      newCursorPosition.x = X11::GlobalXROOTToCocoa(newCursorPosition.x);
+
+   } else {
+      assert(fPimpl->GetDrawable(winID).fIsPixmap == NO &&
+             "Warp, drawable is not a window");
+      newCursorPosition = X11::TranslateToScreen(fPimpl->GetWindow(winID).fContentView,
+                                                 newCursorPosition);
+   }
+   
+   CGWarpMouseCursorPosition(newCursorPosition);
 }
 
 //______________________________________________________________________________
@@ -4207,6 +4375,8 @@ void TGCocoa::GetRegionBox(Region_t /*reg*/, Rectangle_t * /*rect*/)
    // Returns smallest enclosing rectangle.
 }
 
+#pragma mark - Details and aux. functions.
+
 //______________________________________________________________________________
 ROOT::MacOSX::X11::EventTranslator *TGCocoa::GetEventTranslator()const
 {
@@ -4243,7 +4413,8 @@ void *TGCocoa::GetCurrentContext()
 {
    NSObject<X11Drawable> * const drawable = fPimpl->GetDrawable(fSelectedDrawable);
    if (!drawable.fIsPixmap) {
-      Error("GetCurrentContext", "TCanvas/TPad's internal error, selected drawable is not a pixmap!");
+      Error("GetCurrentContext", "TCanvas/TPad's internal error,"
+                                 " selected drawable is not a pixmap!");
       return 0;
    }
    
@@ -4253,7 +4424,7 @@ void *TGCocoa::GetCurrentContext()
 //______________________________________________________________________________
 bool TGCocoa::MakeProcessForeground()
 {
-   //We start root in a terminal window, so it's considered as a 
+   //We start ROOT in a terminal window, so it's considered as a
    //background process. Background process has a lot of problems
    //if it tries to create and manage windows.
    //So, first time we convert process to foreground, next time
@@ -4334,7 +4505,8 @@ void TGCocoa::SetApplicationIcon()
          const Util::ScopedArray<char> fileName(gSystem->Which(iconDirectoryPath, "RootIcon.ico", kReadPermission));
          if (fileName.Get()) {
             const Util::AutoreleasePool pool;
-            NSString *cocoaStr = [NSString stringWithCString : fileName.Get() encoding : NSASCIIStringEncoding];//Aha, ASCII ;) do not install root in ...
+            //Aha, ASCII ;) do not install ROOT in ...
+            NSString *cocoaStr = [NSString stringWithCString : fileName.Get() encoding : NSASCIIStringEncoding];
             NSImage *image = [[[NSImage alloc] initWithContentsOfFile : cocoaStr] autorelease];
             [NSApp setApplicationIconImage : image];
          }

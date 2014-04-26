@@ -70,10 +70,10 @@ using std::atoi;
 // some additional TMlpANN options
 const Bool_t EnforceNormalization__=kTRUE;
 #if ROOT_VERSION_CODE > ROOT_VERSION(5,13,06)
-const TMultiLayerPerceptron::ELearningMethod LearningMethod__= TMultiLayerPerceptron::kStochastic;
+//const TMultiLayerPerceptron::ELearningMethod LearningMethod__= TMultiLayerPerceptron::kStochastic;
 // const TMultiLayerPerceptron::ELearningMethod LearningMethod__= TMultiLayerPerceptron::kBatch;
 #else
-const TMultiLayerPerceptron::LearningMethod LearningMethod__= TMultiLayerPerceptron::kStochastic;
+//const TMultiLayerPerceptron::LearningMethod LearningMethod__= TMultiLayerPerceptron::kStochastic;
 #endif
 
 REGISTER_METHOD(TMlpANN)
@@ -88,6 +88,7 @@ TMVA::MethodTMlpANN::MethodTMlpANN( const TString& jobName,
                                     TDirectory* theTargetDir) :
    TMVA::MethodBase( jobName, Types::kTMlpANN, methodTitle, theData, theOption, theTargetDir ),
    fMLP(0),
+   fLocalTrainingTree(0),
    fNcycles(100),
    fValidationFraction(0.5),
    fLearningMethod( "" )
@@ -101,6 +102,7 @@ TMVA::MethodTMlpANN::MethodTMlpANN( DataSetInfo& theData,
                                     TDirectory* theTargetDir ) :
    TMVA::MethodBase( Types::kTMlpANN, theData, theWeightFile, theTargetDir ),
    fMLP(0),
+   fLocalTrainingTree(0),
    fNcycles(100),
    fValidationFraction(0.5),
    fLearningMethod( "" )

@@ -10,20 +10,37 @@
  *************************************************************************/
 
 #include <stdexcept>
+#include <cassert>
+#include <limits>
 #include <memory>
 #include <vector>
 
 #include "TAttMarker.h"
+#include "TObjArray.h"
 #include "TVirtualX.h"
 #include "TError.h"
 #include "TImage.h"
 #include "TROOT.h"
 #include "TPad.h"
 
+#include "TColorGradient.h"
 #include "TGLPadPainter.h"
 #include "TGLIncludes.h"
 #include "TGLUtil.h"
 #include "TError.h"
+#include "TMath.h"
+
+namespace {
+
+//______________________________________________________________________________
+bool IsGradientFill(Color_t fillColorIndex)
+{
+   //Not a bad idea to assert on gVirtualX != nullptr
+   return dynamic_cast<TColorGradient *>(gROOT->GetColor(fillColorIndex));
+}
+
+}
+
 
 //______________________________________________________________________________
    //"Delegating" part of TGLPadPainter. Line/fill/etc. attributes can be
@@ -250,6 +267,7 @@ void TGLPadPainter::SelectDrawable(Int_t /*device*/)
    //and all subsequent drawings will go into
    //this pixmap. For OpenGL this means the change of
    //coordinate system and viewport.
+
    if (fLocked)
       return;
 
@@ -260,7 +278,12 @@ void TGLPadPainter::SelectDrawable(Int_t /*device*/)
 
       py = gPad->GetWh() - py;
       //
-      glViewport(px, py, GLsizei(gPad->GetWw() * pad->GetAbsWNDC()), GLsizei(gPad->GetWh() * pad->GetAbsHNDC()));
+      TGLUtil::InitializeIfNeeded();
+      const Float_t scale = TGLUtil::GetScreenScalingFactor();
+      
+      glViewport(GLint(px * scale), GLint(py * scale),
+                 GLsizei(gPad->GetWw() * pad->GetAbsWNDC() * scale),
+                 GLsizei(gPad->GetWh() * pad->GetAbsHNDC() * scale));
 
       glMatrixMode(GL_PROJECTION);
       glLoadIdentity();
@@ -270,7 +293,8 @@ void TGLPadPainter::SelectDrawable(Int_t /*device*/)
       glLoadIdentity();
       glTranslated(0., 0., -1.);
    } else {
-      Error("TGLPadPainter::SelectDrawable", "function was called not from TPad or TCanvas code\n");
+      ::Error("TGLPadPainter::SelectDrawable",
+               "function was called not from TPad or TCanvas code\n");
       throw std::runtime_error("");
    }
 }
@@ -315,8 +339,8 @@ void TGLPadPainter::InvalidateCS()
 {
    //When TPad::Range for gPad is called, projection
    //must be changed in OpenGL.
-   if (fLocked)
-      return;
+
+   if (fLocked) return;
 
    glMatrixMode(GL_PROJECTION);
    glLoadIdentity();
@@ -332,8 +356,8 @@ void TGLPadPainter::LockPainter()
    //Locked state of painter means, that
    //GL context can be invalid, so no GL calls
    //can be executed.
-   if (fLocked)
-      return;
+
+   if (fLocked) return;
 
    glFinish();
    fLocked = kTRUE;
@@ -349,6 +373,7 @@ const Double_t lineWidthTS = 3.;
 void TGLPadPainter::DrawLine(Double_t x1, Double_t y1, Double_t x2, Double_t y2)
 {
    //Draw line segment.
+
    if (fLocked) {
       //GL pad painter can be called in non-standard situation:
       //not from TPad::Paint, but
@@ -392,8 +417,8 @@ void TGLPadPainter::DrawLine(Double_t x1, Double_t y1, Double_t x2, Double_t y2)
 void TGLPadPainter::DrawLineNDC(Double_t u1, Double_t v1, Double_t u2, Double_t v2)
 {
    //Draw line segment in NDC coordinates.
-   if (fLocked)
-      return;
+
+   if (fLocked) return;
 
    const Rgl::Pad::LineAttribSet lineAttribs(kTRUE, gVirtualX->GetLineStyle(), fLimits.GetMaxLineWidth(), kTRUE);
    const Double_t xRange = gPad->GetX2() - gPad->GetX1();
@@ -409,8 +434,15 @@ void TGLPadPainter::DrawLineNDC(Double_t u1, Double_t v1, Double_t u2, Double_t 
 void TGLPadPainter::DrawBox(Double_t x1, Double_t y1, Double_t x2, Double_t y2, EBoxMode mode)
 {
    //Draw filled or hollow box.
-   if (fLocked)
+   
+   if (fLocked) return;
+   
+   if (IsGradientFill(gVirtualX->GetFillColor())) {
+      Double_t xs[] = {x1, x2, x2, x1};
+      Double_t ys[] = {y1, y1, y2, y2};
+      DrawPolygonWithGradient(4, xs, ys);
       return;
+   }
 
    if (mode == kHollow) {
       const Rgl::Pad::LineAttribSet lineAttribs(kTRUE, 0, fLimits.GetMaxLineWidth(), kTRUE);
@@ -429,33 +461,28 @@ void TGLPadPainter::DrawBox(Double_t x1, Double_t y1, Double_t x2, Double_t y2, 
 void TGLPadPainter::DrawFillArea(Int_t n, const Double_t *x, const Double_t *y)
 {
    //Draw tesselated polygon (probably, outline only).
+   assert(x != 0 && "DrawFillArea, parameter 'x' is null");
+   assert(y != 0 && "DrawFillArea, parameter 'y' is null");
+
    if (fLocked)
       return;
+
+   if (n < 3) {
+      ::Error("TGLPadPainter::DrawFillArea",
+              "invalid number of points in a polygon");
+      return;
+   }
+
+   if (IsGradientFill(gVirtualX->GetFillColor()))
+      return DrawPolygonWithGradient(n, x, y);
 
    if (!gVirtualX->GetFillStyle()) {
       fIsHollowArea = kTRUE;
       return DrawPolyLine(n, x, y);
    }
 
-   fVs.resize(n * 3);
-
-   for (Int_t i = 0; i < n; ++i) {
-      fVs[i * 3]     = x[i];
-      fVs[i * 3 + 1] = y[i];
-      fVs[i * 3 + 2] = 0.;
-   }
-
    const Rgl::Pad::FillAttribSet fillAttribs(fSSet, kFALSE);
-
-   GLUtesselator *t = (GLUtesselator *)fTess.GetTess();
-   gluBeginPolygon(t);
-   gluNextContour(t, (GLenum)GLU_UNKNOWN);
-
-   for (Int_t i = 0; i < n; ++i)
-      gluTessVertex(t, &fVs[i * 3], &fVs[i * 3]);
-
-
-   gluEndPolygon(t);
+   DrawTesselation(n, x, y);
 }
 
 //______________________________________________________________________________
@@ -463,8 +490,8 @@ void TGLPadPainter::DrawFillArea(Int_t n, const Float_t *x, const Float_t *y)
 {
    //Draw tesselated polygon (never called, probably, since TPad::PaintFillArea for floats
    //is deprecated).
-   if (fLocked)
-      return;
+
+   if (fLocked) return;
 
    if (!gVirtualX->GetFillStyle()) {
       fIsHollowArea = kTRUE;
@@ -495,8 +522,8 @@ void TGLPadPainter::DrawFillArea(Int_t n, const Float_t *x, const Float_t *y)
 void TGLPadPainter::DrawPolyLine(Int_t n, const Double_t *x, const Double_t *y)
 {
    //Draw poly-line in user coordinates.
-   if (fLocked)
-      return;
+
+   if (fLocked) return;
 
    const Rgl::Pad::LineAttribSet lineAttribs(kTRUE, gVirtualX->GetLineStyle(), fLimits.GetMaxLineWidth(), kTRUE);
 
@@ -532,8 +559,8 @@ void TGLPadPainter::DrawPolyLine(Int_t n, const Double_t *x, const Double_t *y)
 void TGLPadPainter::DrawPolyLine(Int_t n, const Float_t *x, const Float_t *y)
 {
    //Never called?
-   if (fLocked)
-      return;
+
+   if (fLocked) return;
 
    const Rgl::Pad::LineAttribSet lineAttribs(kTRUE, gVirtualX->GetLineStyle(), fLimits.GetMaxLineWidth(), kTRUE);
 
@@ -554,8 +581,8 @@ void TGLPadPainter::DrawPolyLine(Int_t n, const Float_t *x, const Float_t *y)
 void TGLPadPainter::DrawPolyLineNDC(Int_t n, const Double_t *u, const Double_t *v)
 {
    //Poly line in NDC.
-   if (fLocked)
-      return;
+   
+   if (fLocked) return;
 
    const Rgl::Pad::LineAttribSet lineAttribs(kTRUE, gVirtualX->GetLineStyle(), fLimits.GetMaxLineWidth(), kTRUE);
    const Double_t xRange = gPad->GetX2() - gPad->GetX1();
@@ -582,8 +609,8 @@ void ConvertMarkerPoints(Int_t n, const ValueType *x, const ValueType *y, std::v
 void TGLPadPainter::DrawPolyMarker(Int_t n, const Double_t *x, const Double_t *y)
 {
    //Poly-marker.
-   if (fLocked)
-      return;
+
+   if (fLocked) return;
 
    ConvertMarkerPoints(n, x, y, fPoly);
    DrawPolyMarker();
@@ -593,8 +620,8 @@ void TGLPadPainter::DrawPolyMarker(Int_t n, const Double_t *x, const Double_t *y
 void TGLPadPainter::DrawPolyMarker(Int_t n, const Float_t *x, const Float_t *y)
 {
    //Poly-marker.
-   if (fLocked)
-      return;
+
+   if (fLocked) return;
 
    ConvertMarkerPoints(n, x, y, fPoly);
    DrawPolyMarker();
@@ -604,8 +631,8 @@ void TGLPadPainter::DrawPolyMarker(Int_t n, const Float_t *x, const Float_t *y)
 void TGLPadPainter::DrawPolyMarker()
 {
    //Poly-marker.
-   if (fLocked)
-      return;
+
+   if (fLocked) return;
 
    SaveProjectionMatrix();
    glLoadIdentity();
@@ -614,9 +641,13 @@ void TGLPadPainter::DrawPolyMarker()
    //
    glMatrixMode(GL_MODELVIEW);
    //
+   const TGLEnableGuard blendGuard(GL_BLEND);
+   
    Float_t rgba[4] = {};
-   Rgl::Pad::ExtractRGB(gVirtualX->GetMarkerColor(), rgba);
-   glColor3fv(rgba);
+   Rgl::Pad::ExtractRGBA(gVirtualX->GetMarkerColor(), rgba);
+
+   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+   glColor4fv(rgba);
 
    const TPoint *xy = &fPoly[0];
    const Style_t markerStyle = gVirtualX->GetMarkerStyle();
@@ -685,16 +716,11 @@ void TGLPadPainter::DrawPolyMarker()
 }
 
 //______________________________________________________________________________
-void TGLPadPainter::DrawText(Double_t x, Double_t y, const char *text, ETextMode /*mode*/)
+template<class Char>
+void TGLPadPainter::DrawTextHelper(Double_t x, Double_t y, const Char *text, ETextMode /*mode*/)
 {
-   //Draw text. This operation is especially
-   //dangerous if in locked state -
-   //ftgl will assert on zero texture size
-   //(which is result of bad GL context).
-   if (fLocked)
-      return;
-
    SaveProjectionMatrix();
+
    glLoadIdentity();
    //
    glOrtho(0, gPad->GetAbsWNDC() * gPad->GetWw(), 0, gPad->GetAbsHNDC() * gPad->GetWh(), -10., 10.);
@@ -702,12 +728,23 @@ void TGLPadPainter::DrawText(Double_t x, Double_t y, const char *text, ETextMode
    glMatrixMode(GL_MODELVIEW);
 
    Float_t rgba[4] = {};
-   Rgl::Pad::ExtractRGB(gVirtualX->GetTextColor(), rgba);
-   glColor3fv(rgba);
+   Rgl::Pad::ExtractRGBA(gVirtualX->GetTextColor(), rgba);
+   glColor4fv(rgba);
 
-   fFM.RegisterFont(Int_t(gVirtualX->GetTextSize()) - 1,
-                    TGLFontManager::GetFontNameFromId(gVirtualX->GetTextFont()),
-                    TGLFont::kTexture, fF);
+   //10 is the first valid font index.
+   //20 is FreeSerifBold, as in TTF.cxx and in TGLFontManager.cxx.
+   //shift - is the shift to access "extended" fonts.
+   const Int_t shift = TGLFontManager::GetExtendedFontStartIndex();
+   
+   Int_t fontIndex = TMath::Max(Short_t(10), gVirtualX->GetTextFont());
+   if (fontIndex / 10 + shift > TGLFontManager::GetFontFileArray()->GetEntries())
+      fontIndex = 20 + shift * 10;
+   else
+      fontIndex += shift * 10;
+
+   fFM.RegisterFont(TMath::Max(Int_t(gVirtualX->GetTextSize()) - 1, 10),//kTexture does not work if size < 10.
+                               TGLFontManager::GetFontNameFromId(fontIndex),
+                               TGLFont::kTexture, fF);
    fF.PreRender();
 
    const UInt_t padH = UInt_t(gPad->GetAbsHNDC() * gPad->GetWh());
@@ -715,7 +752,40 @@ void TGLPadPainter::DrawText(Double_t x, Double_t y, const char *text, ETextMode
 
    fF.PostRender();
    RestoreProjectionMatrix();
+
    glMatrixMode(GL_MODELVIEW);
+}
+
+//______________________________________________________________________________
+void TGLPadPainter::DrawText(Double_t x, Double_t y, const char *text, ETextMode mode)
+{
+   //Draw text. This operation is especially
+   //dangerous if in locked state -
+   //ftgl will assert on zero texture size
+   //(which is result of bad GL context).
+
+   if (fLocked) return;
+
+   if (!gVirtualX->GetTextSize())
+      return;
+
+   DrawTextHelper(x, y, text, mode);
+}
+
+//______________________________________________________________________________
+void TGLPadPainter::DrawText(Double_t x, Double_t y, const wchar_t *text, ETextMode mode)
+{
+   //Draw text. This operation is especially
+   //dangerous if in locked state -
+   //ftgl will assert on zero texture size
+   //(which is result of bad GL context).
+
+   if (fLocked) return;
+   
+   if (!gVirtualX->GetTextSize())
+      return;
+
+   DrawTextHelper(x, y, text, mode);
 }
 
 //______________________________________________________________________________
@@ -725,8 +795,23 @@ void TGLPadPainter::DrawTextNDC(Double_t u, Double_t v, const char *text, ETextM
    //dangerous if in locked state -
    //ftgl will assert on zero texture size
    //(which is result of bad GL context).
-   if (fLocked)
-      return;
+
+   if (fLocked) return;
+
+   const Double_t xRange = gPad->GetX2() - gPad->GetX1();
+   const Double_t yRange = gPad->GetY2() - gPad->GetY1();
+   DrawText(gPad->GetX1() + u * xRange, gPad->GetY1() + v * yRange, text, mode);
+}
+
+//______________________________________________________________________________
+void TGLPadPainter::DrawTextNDC(Double_t u, Double_t v, const wchar_t *text, ETextMode mode)
+{
+   //Draw text in NDC. This operation is especially
+   //dangerous if in locked state -
+   //ftgl will assert on zero texture size
+   //(which is result of bad GL context).
+
+   if (fLocked) return;
 
    const Double_t xRange = gPad->GetX2() - gPad->GetX1();
    const Double_t yRange = gPad->GetY2() - gPad->GetY1();
@@ -793,7 +878,9 @@ void TGLPadPainter::SaveImage(TVirtualPad *pad, const char *fileName, Int_t type
    // Using TImage save frame-buffer contents as a picture.
 
    TVirtualPad *canvas = (TVirtualPad *)pad->GetCanvas();
-   if (!canvas) return;
+   if (!canvas)
+      return;
+
    gROOT->ProcessLine(Form("((TCanvas *)0x%lx)->Flush();", (ULong_t)canvas));
 
    std::vector<unsigned> buff(canvas->GetWw() * canvas->GetWh());
@@ -805,7 +892,7 @@ void TGLPadPainter::SaveImage(TVirtualPad *pad, const char *fileName, Int_t type
 
    std::auto_ptr<TImage> image(TImage::Create());
    if (!image.get()) {
-      Error("TGLPadPainter::SaveImage", "TImage creation failed");
+      ::Error("TGLPadPainter::SaveImage", "TImage creation failed");
       return;
    }
 
@@ -813,7 +900,7 @@ void TGLPadPainter::SaveImage(TVirtualPad *pad, const char *fileName, Int_t type
    UInt_t *argb = image->GetArgbArray();
 
    if (!argb) {
-      Error("TGLPadPainter::SaveImage", "null argb array in TImage object");
+      ::Error("TGLPadPainter::SaveImage", "null argb array in TImage object");
       return;
    }
 
@@ -837,6 +924,462 @@ void TGLPadPainter::SaveImage(TVirtualPad *pad, const char *fileName, Int_t type
    image->WriteImage(fileName, (TImage::EImageFileTypes)type);
 }
 
+//______________________________________________________________________________
+void TGLPadPainter::DrawPixels(const unsigned char *pixelData, UInt_t width, UInt_t height,
+                               Int_t dstX, Int_t dstY, Bool_t enableBlending)
+{
+   if (fLocked)
+      return;
+
+   if (!pixelData) {
+      //I'd prefer an assert.
+      ::Error("TGLPadPainter::DrawPixels", "pixel data is null");
+      return;
+   }
+   
+   if (std::numeric_limits<UInt_t>::digits >= 32) {
+      //TASImage uses bit 31 as ...
+      //alpha channel flag! FUUUUUUUUUUUUU .....   !!!
+      CLRBIT(width, 31);
+      CLRBIT(height, 31);
+   }
+   
+   if (!width) {
+      //Assert is better.
+      ::Error("TGLPadPainter::DrawPixels", "invalid width");
+      return;
+   }
+   
+   if (!height) {
+      //Assert is better.
+      ::Error("TGLPadPainter::DrawPixels", "invalid height");
+      return;
+   }
+   
+   if (TPad *pad = dynamic_cast<TPad *>(gPad)) {
+      //TASImage passes pixel coordinates in pad's pixmap coordinate space.
+      //While glRasterPosX said to work with 'window' coordinates,
+      //that's a lie :) it does not :)
+      
+      const Double_t rasterX = Double_t(dstX) / (pad->GetAbsWNDC() * pad->GetWw()) *
+                                (pad->GetX2() - pad->GetX1()) + pad->GetX1();
+
+      const Double_t yRange = pad->GetY2() - pad->GetY1();
+      const Double_t rasterY = yRange - Double_t(dstY + height) / (pad->GetAbsHNDC() * pad->GetWh()) * yRange +
+                               pad->GetY1();
+
+      GLdouble oldPos[4] = {};
+      //Save the previous raster pos.
+      glGetDoublev(GL_CURRENT_RASTER_POSITION, oldPos);
+
+      glRasterPos2d(rasterX, rasterY);
+      //Stupid asimage provides us upside-down image.
+      std::vector<unsigned char> upsideDownImage(4 * width * height);
+      const unsigned char *srcLine = pixelData + 4 * width * (height - 1);
+      unsigned char *dstLine = &upsideDownImage[0];
+      for (UInt_t i = 0; i < height; ++i, srcLine -= 4 * width, dstLine += 4 * width)
+         std::copy(srcLine, srcLine + 4 * width, dstLine);
+      
+      if (enableBlending) {
+         glEnable(GL_BLEND);
+         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+      }
+      
+      glDrawPixels(width, height, GL_BGRA, GL_UNSIGNED_BYTE, &upsideDownImage[0]);
+      
+      if (enableBlending)
+         glDisable(GL_BLEND);
+      
+      //Restore raster pos.
+      glRasterPos2d(oldPos[0], oldPos[1]);
+   } else
+      ::Error("TGLPadPainter::DrawPixels", "no pad found to draw");
+}
+
+//Aux. functions - gradient and solid fill of arbitrary area.
+
+//______________________________________________________________________________
+void TGLPadPainter::DrawPolygonWithGradient(Int_t n, const Double_t *x, const Double_t *y)
+{
+   //At the moment I assume both linear and radial gradients will work the same way  -
+   //using a stencil buffer and some big rectangle(s) to fill with a gradient.
+   //Thus I have a 'common' part - the part responsible for a stencil test.
+
+   assert(n > 2 && "DrawPolygonWithGradient, invalid number of points");
+   assert(x != 0 && "DrawPolygonWithGradient, parameter 'x' is null");
+   assert(y != 0 && "DrawPolygonWithGradient, parameter 'y' is null");
+
+   assert(dynamic_cast<TColorGradient *>(gROOT->GetColor(gVirtualX->GetFillColor())) != 0 &&
+          "DrawPolygonWithGradient, the current fill color is not a gradient fill");
+   const TColorGradient * const grad =
+         dynamic_cast<TColorGradient *>(gROOT->GetColor(gVirtualX->GetFillColor()));
+
+   if (fLocked)
+      return;
+   
+   //Now, some magic!
+   const TGLEnableGuard stencilGuard(GL_STENCIL_TEST);
+   
+   //TODO: check that the state is restored back correctly after
+   //      we done with a gradient.
+   //TODO: make sure that we have glDepthMask set to false in general!
+   glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+   
+   glStencilFunc(GL_NEVER, 1, 0xFF);
+   glStencilOp(GL_REPLACE, GL_KEEP, GL_KEEP);// draw 1s on test fail (always)
+   //Draw stencil pattern
+   glStencilMask(0xFF);
+   glClear(GL_STENCIL_BUFFER_BIT);
+
+   //Draw our polygon into the stencil buffer:
+   DrawTesselation(n, x, y);
+
+   glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+   glStencilMask(0x00);
+   //Draw where stencil's value is 0
+   glStencilFunc(GL_EQUAL, 0, 0xFF);
+   //Draw only where stencil's value is 1
+   glStencilFunc(GL_EQUAL, 1, 0xFF);
+   
+   //At the moment radial gradient is derived from linear - it was convenient
+   //at some point, but in fact it was a bad idea. And now I have to
+   //first check radial gradient.
+   //TODO: TRadialGradient must inherit TColorGradient directly.
+   const TRadialGradient * const rGrad = dynamic_cast<const TRadialGradient *>(grad);
+   if (rGrad)
+      DrawGradient(rGrad, n, x, y);
+   else {
+      const TLinearGradient * const lGrad = dynamic_cast<const TLinearGradient *>(grad);
+      assert(lGrad != 0 && "DrawPolygonWithGradient, unknown gradient type");
+      DrawGradient(lGrad, n, x, y);
+   }
+}
+
+//______________________________________________________________________________
+void TGLPadPainter::DrawGradient(const TRadialGradient *grad, Int_t nPoints,
+                                 const Double_t *xs, const Double_t *ys)
+{
+   assert(grad != 0 && "DrawGradient, parameter 'grad' is null");
+   assert(nPoints > 2 && "DrawGradient, invalid number of points");
+   assert(xs != 0 && "DrawGradient, parameter 'xs' is null");
+   assert(ys != 0 && "DrawGradient, parameter 'ys' is null");
+
+   if (grad->GetGradientType() != TRadialGradient::kSimple) {
+      ::Warning("TGLPadPainter::DrawGradient",
+                "extended radial gradient is not supported");//yet?
+      return;
+   }
+
+   //TODO: check the polygon's bbox!
+   const Rgl::Pad::BoundingRect<Double_t> &bbox = Rgl::Pad::FindBoundingRect(nPoints, xs, ys);
+   TColorGradient::Point center = grad->GetCenter();
+   Double_t radius = grad->GetRadius();
+
+   //Adjust the center and radius depending on coordinate mode.
+   if (grad->GetCoordinateMode() == TColorGradient::kObjectBoundingMode) {
+      radius *= TMath::Max(bbox.fWidth, bbox.fHeight);
+      center.fX = bbox.fWidth * center.fX + bbox.fXMin;
+      center.fY = bbox.fHeight * center.fY + bbox.fYMin;
+   } else {
+      const Double_t w = gPad->GetX2() - gPad->GetX1();
+      const Double_t h = gPad->GetY2() - gPad->GetY1();
+      
+      radius *= TMath::Max(w, h);
+      center.fX *= w;
+      center.fY *= h;
+   }
+   //Now for the gradient fill we switch into pixel coordinates:
+   const Double_t pixelW = gPad->GetAbsWNDC() * gPad->GetWw();
+   const Double_t pixelH = gPad->GetAbsHNDC() * gPad->GetWh();
+   //
+   SaveProjectionMatrix();
+   SaveModelviewMatrix();
+   //A new ortho projection:
+   glMatrixMode(GL_PROJECTION);
+   glLoadIdentity();
+   //
+   glOrtho(0., pixelW, 0., pixelH, -10., 10.);
+   //
+   radius *= TMath::Max(pixelH, pixelW);
+   center.fX = gPad->XtoPixel(center.fX);
+   center.fY = pixelH - gPad->YtoPixel(center.fY);
+
+   Double_t maxR = 0.;
+   {
+   const Double_t xMin = gPad->XtoPixel(bbox.fXMin);
+   const Double_t xMax = gPad->XtoPixel(bbox.fXMax);
+   const Double_t yMin = pixelH - gPad->YtoPixel(bbox.fYMin);
+   const Double_t yMax = pixelH - gPad->YtoPixel(bbox.fYMax);
+   //Get the longest distance from the center to the bounding box vertices
+   //(this will be the maximum possible radius):
+   const Double_t maxDistX = TMath::Max(TMath::Abs(center.fX - xMin),
+                                        TMath::Abs(center.fX - xMax));
+   const Double_t maxDistY = TMath::Max(TMath::Abs(center.fY - yMin),
+                                        TMath::Abs(center.fY - yMax));
+   maxR = TMath::Sqrt(maxDistX * maxDistX + maxDistY * maxDistY);
+   }
+
+   //If gradient 'stops inside the polygon', we use
+   //the solid fill for the arae outside of radial gradient:
+   const Bool_t solidFillAfter = maxR > radius;
+   //We emulate a radial gradient using triangles and linear gradient:
+   //TODO: Can be something smarter? (btw even 100 seems to be enough)
+   const UInt_t nSlices = 500;
+
+   const UInt_t nColors = (UInt_t)grad->GetNumberOfSteps();
+   //+1 - the strip from the last color's position to radius,
+   //and (probably) + 1 for solidFillAfter.
+   const UInt_t nCircles = nColors + 1 + solidFillAfter;
+   
+   //TODO: can locations be outside of [0., 1.] ???
+   //at the moment I assume the answer is NO, NEVER.
+   const Double_t * const locations = grad->GetColorPositions();
+   // * 2 below == x,y
+   std::vector<Double_t> circles(nSlices * nCircles * 2);
+   const Double_t angle = TMath::TwoPi() / nSlices;
+
+   //"Main" circles (for colors at locations[i]).
+   for (UInt_t i = 0; i < nColors; ++i) {
+      Double_t * const circle = &circles[i * nSlices * 2];
+      //TODO: either check locations here or somewhere else.
+      const Double_t r = radius * locations[i];
+      for (UInt_t j = 0, e = nSlices * 2 - 2; j < e; j += 2) {
+         circle[j] = center.fX + r * TMath::Cos(angle * j);
+         circle[j + 1] = center.fY + r * TMath::Sin(angle * j);
+      }
+      //The "closing" vertices:
+      circle[(nSlices - 1) * 2] = circle[0];
+      circle[(nSlices - 1) * 2 + 1] = circle[1];
+   }
+   
+   {
+   //The strip between lastPos and radius:
+   Double_t * const circle = &circles[nColors * nSlices * 2];
+   for (UInt_t j = 0, e = nSlices * 2 - 2; j < e; j += 2) {
+      circle[j] = center.fX + radius * TMath::Cos(angle * j);
+      circle[j + 1] = center.fY + radius * TMath::Sin(angle * j);
+   }
+
+   circle[(nSlices - 1) * 2] = circle[0];
+   circle[(nSlices - 1) * 2 + 1] = circle[1];
+   }
+
+   if (solidFillAfter) {
+      //The strip after the radius:
+      Double_t * const circle = &circles[(nCircles - 1) * nSlices * 2];
+      for (UInt_t j = 0, e = nSlices * 2 - 2; j < e; j += 2) {
+         circle[j] = center.fX + maxR * TMath::Cos(angle * j);
+         circle[j + 1] = center.fY + maxR * TMath::Sin(angle * j);
+      }
+
+      circle[(nSlices - 1) * 2] = circle[0];
+      circle[(nSlices - 1) * 2 + 1] = circle[1];
+   }
+   
+   //Now we draw:
+   //1) triangle fan in the center (from center to the locations[1],
+   //   with a solid fill).
+   //2) quad strips for colors.
+   //3) additional quad strip from the lastLocation to the radius
+   //4) additiona quad strip (if any) from the radius to maxR.
+
+   //RGBA values:
+   const Double_t * const rgba = grad->GetColors();
+   
+   const TGLEnableGuard alphaGuard(GL_BLEND);
+   //TODO?
+   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+   
+   //Probably a degenerated case. Maybe not.
+   glBegin(GL_TRIANGLE_FAN);
+   glColor4dv(rgba);
+   glVertex2d(center.fX, center.fY);
+
+   for (UInt_t i = 0, e = nSlices * 2; i < e; i += 2)
+      glVertex2dv(&circles[i]);
+   
+   glEnd();
+   
+   for (UInt_t i = 0; i < nColors - 1; ++i) {
+      const Double_t * const inner = &circles[i * nSlices * 2];
+      const Double_t * const innerRGBA = rgba + i * 4;
+      const Double_t * const outerRGBA = rgba + (i + 1) * 4;
+      const Double_t * const outer = &circles[(i + 1) * nSlices * 2];
+   
+      Rgl::DrawQuadStripWithRadialGradientFill(nSlices, inner, innerRGBA, outer, outerRGBA);
+   }
+   
+   //Probably degenerated strip.
+   {
+   glBegin(GL_QUAD_STRIP);
+   const Double_t * const inner = &circles[nSlices * (nColors - 1) * 2];
+   const Double_t * const solidRGBA = rgba + (nColors - 1) * 4;
+   const GLdouble * const outer = &circles[nSlices * nColors * 2];
+   
+   Rgl::DrawQuadStripWithRadialGradientFill(nSlices, inner, solidRGBA, outer, solidRGBA);
+   }
+   
+   if (solidFillAfter) {
+      glBegin(GL_QUAD_STRIP);
+      const Double_t * const inner = &circles[nSlices * nColors * 2];
+      const Double_t * solidRGBA = rgba + (nColors - 1) * 4;
+      const Double_t * const outer = &circles[nSlices * (nColors + 1) * 2];
+
+      Rgl::DrawQuadStripWithRadialGradientFill(nSlices, inner, solidRGBA, outer, solidRGBA);
+   }
+
+   RestoreProjectionMatrix();
+   RestoreModelviewMatrix();
+}
+
+//______________________________________________________________________________
+void TGLPadPainter::DrawGradient(const TLinearGradient *grad, Int_t n,
+                                 const Double_t *x, const Double_t *y)
+{
+   assert(grad != 0 && "DrawGradient, parameter 'grad' is null");
+   assert(n > 2 && "DrawGradient, invalid number of points");
+   assert(x != 0 && "DrawGradient, parameter 'x' is null");
+   assert(y != 0 && "DrawGradient, parameter 'y' is null");
+
+   //Now we fill the whole scene with one big rectangle
+   //(group of rectangles) with a gradient fill using
+   //stencil test.
+   
+   //Find a bounding rect.
+   const Rgl::Pad::BoundingRect<Double_t> &bbox = Rgl::Pad::FindBoundingRect(n, x, y);
+   //TODO: check the bbox??
+   
+   //For the gradient fill we switch into the
+   //pixel coordinates.
+   SaveProjectionMatrix();
+   SaveModelviewMatrix();
+
+   //A new ortho projection:
+   glMatrixMode(GL_PROJECTION);
+   glLoadIdentity();
+   
+   const Double_t pixelW = gPad->GetAbsWNDC() * gPad->GetWw();
+   const Double_t pixelH = gPad->GetAbsHNDC() * gPad->GetWh();
+   glOrtho(0., pixelW, 0., pixelH, -10., 10.);
+   
+   //A new modelview:
+   glMatrixMode(GL_MODELVIEW);
+   glLoadIdentity();   
+   //
+   TColorGradient::Point start = grad->GetStart();
+   TColorGradient::Point end   = grad->GetEnd();
+
+   //Change gradient coordinates from 'NDC' to pad coords:
+   if (grad->GetCoordinateMode() == TColorGradient::kPadMode)
+   {
+      const Double_t w = gPad->GetX2() - gPad->GetX1();
+      const Double_t h = gPad->GetY2() - gPad->GetY1();
+
+      start.fX = start.fX * w;
+      start.fY = start.fY * h;
+      end.fX   = end.fX * w;
+      end.fY   = end.fY * h;
+   } else {
+      start.fX = start.fX * bbox.fWidth + bbox.fXMin;
+      start.fY = start.fY * bbox.fHeight + bbox.fYMin;
+      end.fX   = end.fX * bbox.fWidth + bbox.fXMin;
+      end.fY   = end.fY * bbox.fHeight + bbox.fYMin;
+   }
+
+   //TODO: with a radial fill we'll have to extract the code
+   //      below into the separate function/and have additional function
+   //      for a radial gradient.
+   //Now from pad to pixels:
+   start.fX = gPad->XtoPixel(start.fX);
+   start.fY = pixelH - gPad->YtoPixel(start.fY);
+   end.fX = gPad->XtoPixel(end.fX);
+   end.fY = pixelH - gPad->YtoPixel(end.fY);
+   const Double_t xMin = gPad->XtoPixel(bbox.fXMin);
+   const Double_t xMax = gPad->XtoPixel(bbox.fXMax);
+   const Double_t yMin = pixelH - gPad->YtoPixel(bbox.fYMin);
+   const Double_t yMax = pixelH - gPad->YtoPixel(bbox.fYMax);
+   //
+   
+   //TODO: check all calculations!
+
+   //Get the longest distance from the start point to the bounding box vertices:
+   const Double_t maxDistX = TMath::Max(TMath::Abs(start.fX - xMin), TMath::Abs(start.fX - xMax));
+   const Double_t maxDistY = TMath::Max(TMath::Abs(start.fY - yMin), TMath::Abs(start.fY - yMax));
+   
+   const Double_t startEndLength = TMath::Sqrt((end.fX - start.fX) * (end.fX - start.fX) +
+                                               (end.fY - start.fY) * (end.fY - start.fY));
+   const Double_t h = TMath::Max(TMath::Sqrt(maxDistX * maxDistX + maxDistY * maxDistY),
+                                 startEndLength);
+
+   //Boxes with a gradients to emulate gradient fill with many colors:
+   const Double_t * const colorPositions = grad->GetColorPositions();
+   std::vector<Double_t> gradBoxes(grad->GetNumberOfSteps() + 2);
+   gradBoxes[0] = start.fY - h;
+   for (unsigned i = 1; i <= grad->GetNumberOfSteps(); ++i)
+      gradBoxes[i] = startEndLength * colorPositions[i - 1] + start.fY;
+
+   gradBoxes[grad->GetNumberOfSteps() + 1] = start.fY + h;
+
+   //Rotation angle - gradient's axis:
+   Double_t angle = TMath::ACos((startEndLength * (end.fY - start.fY)) /
+                                (startEndLength * startEndLength)) * TMath::RadToDeg();
+   if (end.fX > start.fX)
+      angle *= -1;
+   
+   glTranslated(start.fX, start.fY, 0.);
+   glRotated(angle, 0., 0., 1.);
+   glTranslated(-start.fX, -start.fY, 0.);
+   //
+   const Double_t * const rgba = grad->GetColors();
+
+   const unsigned nEdges = gradBoxes.size();
+   const unsigned nColors = grad->GetNumberOfSteps();
+   const Double_t xLeft = start.fX - h, xRight = start.fX + h;
+
+   const TGLEnableGuard alphaGuard(GL_BLEND);
+   //TODO?
+   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+   Rgl::DrawBoxWithGradientFill(gradBoxes[0], gradBoxes[1], xLeft, xRight, rgba, rgba);
+   Rgl::DrawBoxWithGradientFill(gradBoxes[nEdges - 2], gradBoxes[nEdges - 1], xLeft, xRight,
+                           rgba + (nColors - 1) * 4, rgba + (nColors - 1) * 4);
+
+   for (unsigned i = 1; i < nEdges - 2; ++i)
+      Rgl::DrawBoxWithGradientFill(gradBoxes[i], gradBoxes[i + 1], xLeft,
+                                   xRight, rgba + (i - 1) * 4, rgba + i * 4);
+   
+   RestoreProjectionMatrix();
+   RestoreModelviewMatrix();
+}
+
+//______________________________________________________________________________
+void TGLPadPainter::DrawTesselation(Int_t n, const Double_t *x, const Double_t *y)
+{
+   assert(n > 2 && "DrawTesselation, invalid number of points");
+   assert(x != 0 && "DrawTesselation, parameter 'x' is null");
+   assert(y != 0 && "DrawTesselation, parameter 'y' is null");
+
+   //Data for a tesselator:
+   fVs.resize(n * 3);
+   
+   for (Int_t i = 0; i < n; ++i) {
+      fVs[i * 3]     = x[i];
+      fVs[i * 3 + 1] = y[i];
+      fVs[i * 3 + 2] = 0.;
+   }
+   
+   //TODO: A very primitive way to tesselate - check what
+   //kind of polygons we can really have from TPad/TCanvas.
+   GLUtesselator *t = (GLUtesselator *)fTess.GetTess();
+   gluBeginPolygon(t);
+   gluNextContour(t, (GLenum)GLU_UNKNOWN);
+
+   for (Int_t i = 0; i < n; ++i)
+      gluTessVertex(t, &fVs[i * 3], &fVs[i * 3]);
+
+   gluEndPolygon(t);
+}
+
 
 //Aux. functions.
 namespace {
@@ -854,3 +1397,4 @@ void ConvertMarkerPoints(Int_t n, const ValueType *x, const ValueType *y, std::v
 }
 
 }
+

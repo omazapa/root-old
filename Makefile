@@ -104,14 +104,27 @@ SYSTEML       = $(UNIXL)
 SYSTEMO       = $(UNIXO)
 SYSTEMDO      = $(UNIXDO)
 else
+ifeq ($(ARCH),win64gcc)
+MODULES      += core/unix
+SYSTEML       = $(UNIXL)
+SYSTEMO       = $(UNIXO)
+SYSTEMDO      = $(UNIXDO)
+else
 MODULES      += core/unix
 SYSTEML       = $(UNIXL)
 SYSTEMO       = $(UNIXO)
 SYSTEMDO      = $(UNIXDO)
 endif
 endif
+endif
 ifeq ($(PLATFORM),ios)
 MODULES      += graf2d/ios
+endif
+ifeq ($(BUILDVC),yes)
+MODULES      += math/vc
+endif
+ifeq ($(BUILDVDT),yes)
+MODULES      += math/vdt
 endif
 ifeq ($(BUILDCOCOA),yes)
 MODULES      += graf2d/quartz
@@ -774,10 +787,10 @@ buildtools:
 		   TARGETFLAGS=-DR__$(shell echo $(ARCH) | tr 'a-z' 'A-Z') \
 		   rootcint cint/cint/lib/posix/mktypes \
 		) || exit 1;
+endif
 
 distclean::
-		@rm -rf $(BUILDTOOLSDIR)
-endif
+		@rm -rf buildtools
 
 postbin:        $(POSTBIN)
 
@@ -1157,7 +1170,7 @@ install: all
 	   echo "Installing libraries in $(DESTDIR)$(LIBDIR)"; \
 	   $(INSTALLDIR)                        $(DESTDIR)$(LIBDIR); \
 	   $(INSTALLDATA) lib/*                 $(DESTDIR)$(LIBDIR); \
-	   if [ x"$(ARCH)" = x"win32gcc" ]; then \
+	   if ([ x"$(ARCH)" = x"win32gcc" ] || [ x"$(ARCH)" = x"win64gcc" ]); then \
 	      $(INSTALLDATA) bin/*.dll             $(DESTDIR)$(BINDIR); \
 	      for f in $(DESTDIR)$(LIBDIR)/*.dll; do \
 	         bindll=`basename $$f | sed 's,\..*$$,,'`; \

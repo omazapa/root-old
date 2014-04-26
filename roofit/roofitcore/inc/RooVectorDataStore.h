@@ -248,12 +248,12 @@ public:
       } else {
 	_vec.resize(siz);
       }
-      _vec0 = &_vec.front();
+      _vec0 = _vec.size() > 0 ? &_vec.front() : 0;
     }
 
     void reserve(Int_t siz) {
       _vec.reserve(siz);
-      _vec0 = &_vec.front();
+      _vec0 = _vec.size() > 0 ? &_vec.front() : 0;
     }
 
   protected:
@@ -538,12 +538,12 @@ public:
       } else {
 	_vec.resize(siz);
       }
-      _vec0 = &_vec.front();
+      _vec0 = _vec.size() > 0 ? &_vec.front() : 0;
     }
 
     void reserve(Int_t siz) {
       _vec.reserve(siz);
-      _vec0 = &_vec.front();
+      _vec0 = _vec.size() > 0 ? &_vec.front() : 0;
     }
 
     void setBufArg(RooAbsCategory* arg) { _cat = arg; }
@@ -712,6 +712,10 @@ public:
     return _realfStoreList.back() ;
   }
 
+  virtual Bool_t hasFilledCache() const { return _cache ? kTRUE : kFALSE ; }  
+
+  void forceCacheUpdate() ; 
+
  private:
   RooArgSet _varsww ;
   RooRealVar* _wgtVar ;     // Pointer to weight variable (if set)
@@ -744,6 +748,8 @@ public:
 
   RooVectorDataStore* _cache ; //! Optimization cache
   RooAbsArg* _cacheOwner ; //! Cache owner
+
+  Bool_t _forcedUpdate ; //! Request for forced cache update 
 
   ClassDef(RooVectorDataStore,2) // STL-vector-based Data Storage class
 };

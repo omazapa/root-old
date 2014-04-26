@@ -27,6 +27,8 @@
 #include "TPoint.h"
 #endif
 
+class TLinearGradient;
+class TRadialGradient;
 /*
 The _main_ purpose of TGLPadPainter is to enable 2d gl raphics
 inside standard TPad/TCanvas.
@@ -49,6 +51,9 @@ private:
    Bool_t                      fIsHollowArea;
    
    Bool_t                      fLocked;
+   
+   template<class Char_t>
+   void DrawTextHelper(Double_t x, Double_t y, const Char_t *text, ETextMode mode);
 public:
    TGLPadPainter();
    
@@ -114,12 +119,17 @@ public:
    void     DrawPolyMarker(Int_t n, const Float_t *x, const Float_t *y);
    
    void     DrawText(Double_t x, Double_t y, const char *text, ETextMode mode);
-   void     DrawText(Double_t, Double_t, const wchar_t *, ETextMode){}
+   void     DrawText(Double_t, Double_t, const wchar_t *, ETextMode);
    void     DrawTextNDC(Double_t x, Double_t y, const char *text, ETextMode mode);
-   void     DrawTextNDC(Double_t, Double_t, const wchar_t *, ETextMode){}
+   void     DrawTextNDC(Double_t, Double_t, const wchar_t *, ETextMode);
    
    //jpg, png, gif and bmp output.
    void     SaveImage(TVirtualPad *pad, const char *fileName, Int_t type) const;
+
+   //TASImage support.
+   void     DrawPixels(const unsigned char *pixelData, UInt_t width, UInt_t height,
+                       Int_t dstX, Int_t dstY, Bool_t enableBlending);
+   
 
 private:
    
@@ -138,6 +148,14 @@ private:
    
    void     DrawPolyMarker();
    
+   //Aux. functions for a gradient and solid fill:
+   void DrawPolygonWithGradient(Int_t n, const Double_t *x, const Double_t *y);
+   //
+   void DrawGradient(const TLinearGradient *gradient, Int_t n, const Double_t *x, const Double_t *y);
+   void DrawGradient(const TRadialGradient *gradient, Int_t n, const Double_t *x, const Double_t *y);
+   //
+   void DrawTesselation(Int_t n, const Double_t *x, const Double_t *y);
+   
    TGLPadPainter(const TGLPadPainter &rhs);
    TGLPadPainter & operator = (const TGLPadPainter &rhs);
    
@@ -145,3 +163,4 @@ private:
 };
 
 #endif
+

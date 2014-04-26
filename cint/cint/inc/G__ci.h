@@ -1433,7 +1433,7 @@ typedef struct {
 } G__va_arg_buf;
 
 
-// cross-compiling for iOS and iOS simulator (assumes host is Intel Mac OS X)
+/* cross-compiling for iOS and iOS simulator (assumes host is Intel Mac OS X) */
 #if defined(R__IOSSIM) || defined(R__IOS)
 #ifdef __x86_64__
 #define R__x86_64 1
@@ -1573,7 +1573,7 @@ typedef struct {
 
 #endif
 
-// cross-compiling for iOS and iOS simulator (assumes host is Intel Mac OS X)
+/* cross-compiling for iOS and iOS simulator (assumes host is Intel Mac OS X) */
 #if defined(R__IOSSIM) || defined(R__IOS)
 #undef __i386__
 #undef __arm__

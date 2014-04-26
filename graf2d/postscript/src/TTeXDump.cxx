@@ -391,7 +391,11 @@ void TTeXDump::DrawPolyMarker(Int_t n, Double_t *xw, Double_t *yw)
       PrintFast(1,")");
    }
 
-   PrintStr("}{\\draw[mark options={color=c,fill=c},mark size=");
+   if (fMarkerStyle == 23 || fMarkerStyle == 32) {
+      PrintStr("}{\\draw[mark options={color=c,fill=c,rotate=180},mark size=");
+   } else {
+      PrintStr("}{\\draw[mark options={color=c,fill=c},mark size=");
+   }
    PrintStr(Form("%fpt,mark=",8./3.33*fMarkerSize));
    switch (fMarkerStyle) {
    case 1 :
@@ -421,7 +425,6 @@ void TTeXDump::DrawPolyMarker(Int_t n, Double_t *xw, Double_t *yw)
       break;
    case 23 :
       PrintStr("triangle*");
-      PrintStr(",mark options={rotate=180}");
       break;
    case 24 :
       PrintStr("o");
@@ -449,7 +452,6 @@ void TTeXDump::DrawPolyMarker(Int_t n, Double_t *xw, Double_t *yw)
       break;
    case 32 :
       PrintStr("triangle");
-      PrintStr(",mark options={rotate=180}");
       break;
    case 33 :
       PrintStr("diamond*");
@@ -737,6 +739,7 @@ void TTeXDump::Text(Double_t x, Double_t y, const char *chars)
    }
    t.ReplaceAll("&","\\&");
    t.ReplaceAll("#","\\#");
+   t.ReplaceAll("%","\\%");
    
    Int_t txalh = fTextAlign/10;
    if (txalh <1) txalh = 1; if (txalh > 3) txalh = 3;

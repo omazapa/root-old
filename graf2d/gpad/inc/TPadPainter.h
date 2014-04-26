@@ -1,5 +1,16 @@
-#ifndef ROOT_TGLPadPainter
-#define ROOT_TGLPadPainter
+// @(#)root/gpad:$Id$
+// Author:  Olivier Couet, Timur Pocheptsov  06/05/2009
+
+/*************************************************************************
+ * Copyright (C) 1995-2009, Rene Brun and Fons Rademakers.               *
+ * All rights reserved.                                                  *
+ *                                                                       *
+ * For the licensing terms see $ROOTSYS/LICENSE.                         *
+ * For the list of contributors see $ROOTSYS/README/CREDITS.             *
+ *************************************************************************/
+
+#ifndef ROOT_TPadPainter
+#define ROOT_TPadPainter
 
 #ifndef ROOT_TVirtualPadPainter
 #include "TVirtualPadPainter.h"
@@ -55,6 +66,11 @@ public:
    void     CopyDrawable(Int_t id, Int_t px, Int_t py);
    void     DestroyDrawable();
    void     SelectDrawable(Int_t device);
+   
+   //TASImage support (noop for a non-gl pad).
+   void     DrawPixels(const unsigned char *pixelData, UInt_t width, UInt_t height,
+                       Int_t dstX, Int_t dstY, Bool_t enableBlending);
+   
 
    void     DrawLine(Double_t x1, Double_t y1, Double_t x2, Double_t y2);
    void     DrawLineNDC(Double_t u1, Double_t v1, Double_t u2, Double_t v2);

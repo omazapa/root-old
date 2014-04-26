@@ -28,6 +28,7 @@ public:
 
   Data();
   Data( const Data& other );
+  /// constructor from name, file and path. Name of the histogram should not include the path
   Data( std::string HistoName, std::string InputFile, std::string HistoPath="" );
 
   std::string GetName() { return fName; }
@@ -59,7 +60,7 @@ protected:
 
 
   // The Data Histogram
-  TRef fhData;
+  HistRef fhData;
 
 
 };

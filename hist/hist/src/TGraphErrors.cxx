@@ -126,7 +126,7 @@ TGraphErrors::TGraphErrors(Int_t n, const Double_t *x, const Double_t *y, const 
 
 //______________________________________________________________________________
 TGraphErrors::TGraphErrors(const TVectorF &vx, const TVectorF &vy, const TVectorF &vex, const TVectorF &vey)
-   : TGraph()
+   : TGraph(TMath::Min(vx.GetNrows(), vy.GetNrows()), vx.GetMatrixArray(), vy.GetMatrixArray() )
 {
    // constructor with four vectors of floats in input
    // A grapherrors is built with the X coordinates taken from vx and Y coord from vy
@@ -134,16 +134,10 @@ TGraphErrors::TGraphErrors(const TVectorF &vx, const TVectorF &vy, const TVector
    // The number of points in the graph is the minimum of number of points
    // in vx and vy.
 
-   fNpoints = TMath::Min(vx.GetNrows(), vy.GetNrows());
-   if (!TGraph::CtorAllocate()) return;
    if (!CtorAllocate()) return;
-   Int_t ivxlow  = vx.GetLwb();
-   Int_t ivylow  = vy.GetLwb();
    Int_t ivexlow = vex.GetLwb();
    Int_t iveylow = vey.GetLwb();
    for (Int_t i = 0; i < fNpoints; i++) {
-      fX[i]   = vx(i + ivxlow);
-      fY[i]   = vy(i + ivylow);
       fEX[i]  = vex(i + ivexlow);
       fEY[i]  = vey(i + iveylow);
    }
@@ -152,7 +146,7 @@ TGraphErrors::TGraphErrors(const TVectorF &vx, const TVectorF &vy, const TVector
 
 //______________________________________________________________________________
 TGraphErrors::TGraphErrors(const TVectorD  &vx, const TVectorD  &vy, const TVectorD  &vex, const TVectorD  &vey)
-   : TGraph()
+   : TGraph(TMath::Min(vx.GetNrows(), vy.GetNrows()), vx.GetMatrixArray(), vy.GetMatrixArray() )
 {
    // constructor with four vectors of doubles in input
    // A grapherrors is built with the X coordinates taken from vx and Y coord from vy
@@ -160,16 +154,10 @@ TGraphErrors::TGraphErrors(const TVectorD  &vx, const TVectorD  &vy, const TVect
    // The number of points in the graph is the minimum of number of points
    // in vx and vy.
 
-   fNpoints = TMath::Min(vx.GetNrows(), vy.GetNrows());
-   if (!TGraph::CtorAllocate()) return;
    if (!CtorAllocate()) return;
-   Int_t ivxlow  = vx.GetLwb();
-   Int_t ivylow  = vy.GetLwb();
    Int_t ivexlow = vex.GetLwb();
    Int_t iveylow = vey.GetLwb();
    for (Int_t i = 0; i < fNpoints; i++) {
-      fX[i]   = vx(i + ivxlow);
-      fY[i]   = vy(i + ivylow);
       fEX[i]  = vex(i + ivexlow);
       fEY[i]  = vey(i + iveylow);
    }
@@ -235,11 +223,13 @@ TGraphErrors::TGraphErrors(const char *filename, const char *format, Option_t *o
    //  format = "%lg %lg"         read only 2 first columns into X,Y
    //  format = "%lg %lg %lg"     read only 3 first columns into X,Y and EY
    //  format = "%lg %lg %lg %lg" read only 4 first columns into X,Y,EX,EY.
+   //
    // For files separated by a specific delimiter different from ' ' and '\t' (e.g. ';' in csv files)
    // you can avoid using %*s to bypass this delimiter by explicitly specify the "option" argument,
    // e.g. option=" \t,;" for columns of figures separated by any of these characters (' ', '\t', ',', ';') 
    // used once (e.g. "1;1") or in a combined way (" 1;,;;  1"). 
    // Note in that case, the instanciation is about 2 times slower.
+   // In case a delimiter is specified, the format "%lg %lg %lg" will read X,Y,EX.
 
    if (!CtorAllocate()) return;
    Double_t x, y, ex, ey;

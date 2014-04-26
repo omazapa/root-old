@@ -152,6 +152,13 @@ set(davixlibdir ${DAVIX_LIBRARY_DIR})
 set(davixlib ${DAVIX_LIBRARY})
 set(davixincdir ${DAVIX_INCLUDE_DIR})
 
+set(buildnetxng ${value${netxng}})
+if(netxng)
+  set(useoldnetx no)
+else()
+  set(useoldnetx yes)
+endif()
+
 set(builddcap ${value${dcap}})
 set(dcaplibdir ${DCAP_LIBRARY_DIR})
 set(dcaplib ${DCAP_LIBRARY})
@@ -358,20 +365,21 @@ set(hasxft ${has${xft}})
 set(hascling ${has${cling}})
 set(haslzmacompression ${has${lzma}})
 set(hascocoa ${has${cocoa}})
-set(usec++11 ${has${c++11}})
+set(hasvc ${has${vc}})
+set(usec++11 ${has${cxx11}})
 set(uselibc++ ${has${libcxx}})
 
 
 #---root-config----------------------------------------------------------------------------------------------
 ROOT_SHOW_OPTIONS(features)
-string(REPLACE "c++11" "cxx11" features ${features}) # change the name of the c++11 feature needed for root-config.in
 set(configfeatures ${features})
 set(configargs ${ROOT_CONFIGARGS})
 set(configoptions ${ROOT_CONFIGARGS})
-set(altcc ${CMAKE_C_COMPILER})
-set(altcxx ${CMAKE_CXX_COMPILER})
-set(altf77 ${CMAKE_Fortran_COMPILER})
-set(altld ${CMAKE_CXX_COMPILER})
+get_filename_component(altcc ${CMAKE_C_COMPILER} NAME)
+get_filename_component(altcxx ${CMAKE_CXX_COMPILER} NAME)
+get_filename_component(altf77 "${CMAKE_Fortran_COMPILER}" NAME)
+get_filename_component(altld ${CMAKE_CXX_COMPILER} NAME)
+
 set(pythonvers ${PYTHON_VERSION})
 
 #---CINT Configuration---------------------------------------------------------------------------------------
@@ -398,11 +406,7 @@ configure_file(${CMAKE_SOURCE_DIR}/config/RConfigOptions.in include/RConfigOptio
 if(ruby)
   file(APPEND ${CMAKE_BINARY_DIR}/include/RConfigOptions.h "\#define R__RUBY_MAJOR ${RUBY_MAJOR_VERSION}\n\#define R__RUBY_MINOR ${RUBY_MINOR_VERSION}\n")
 endif()
-if(WIN32)
-  configure_file(${CMAKE_SOURCE_DIR}/cmake/scripts/compiledata.win32.in include/compiledata.h)
-else()
-  configure_file(${CMAKE_SOURCE_DIR}/cmake/scripts/compiledata.in include/compiledata.h)
-endif()
+
 configure_file(${CMAKE_SOURCE_DIR}/config/Makefile-comp.in config/Makefile.comp)
 configure_file(${CMAKE_SOURCE_DIR}/config/Makefile.in config/Makefile.config)
 configure_file(${CMAKE_SOURCE_DIR}/config/mimes.unix.in ${CMAKE_BINARY_DIR}/etc/root.mimes)
@@ -472,6 +476,19 @@ if(prefix STREQUAL "$(ROOTSYS)")
   set(etcdir $ROOTSYS/etc)
   set(mandir $ROOTSYS/man/man1)
 endif()
+
+
+#---compiledata.h--------------------------------------------------------------------------------------------
+if(WIN32)
+  # We cannot use the compiledata.sh script for windows
+  configure_file(${CMAKE_SOURCE_DIR}/cmake/scripts/compiledata.win32.in include/compiledata.h)
+else()
+  execute_process(COMMAND ${CMAKE_SOURCE_DIR}/build/unix/compiledata.sh include/compiledata.h "${CXX}" ""
+       "${CMAKE_CXX_FLAGS_${uppercase_CMAKE_BUILD_TYPE}}"
+	     "${CMAKE_CXX_FLAGS}" "${CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS}" "${CMAKE_EXE_FLAGS}" "${LibSuffix}" "${SYSLIBS}"
+	     "${libdir}" "-lCore" "-Rint" "${incdir}" "" "" "${ROOT_ARCHITECTURE}" "" "${explicitlink}" )
+endif()
+
 configure_file(${CMAKE_SOURCE_DIR}/config/root-config.in ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/root-config @ONLY)
 configure_file(${CMAKE_SOURCE_DIR}/config/memprobe.in ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/memprobe @ONLY)
 configure_file(${CMAKE_SOURCE_DIR}/config/thisroot.sh ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/thisroot.sh @ONLY)

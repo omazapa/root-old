@@ -1,4 +1,4 @@
-// @(#)root/mathcore:$Id$
+// @(#)root/mathcore:$Id: 9ef2a4a7bd1b62c1293920c2af2f64791c75bdd8 $
 // Authors: W. Brown, M. Fischler, L. Moneta    2005  
 
 
@@ -58,8 +58,8 @@ namespace ROOT {
 	 \f[ \Delta \phi = \phi_2 - \phi_1 \f]
       */
       template <class Vector1, class Vector2> 
-      inline double DeltaPhi( const Vector1 & v1, const Vector2 & v2) { 
-	double dphi = v2.Phi() - v1.Phi(); 
+      inline typename Vector1::Scalar DeltaPhi( const Vector1 & v1, const Vector2 & v2) { 
+	typename Vector1::Scalar dphi = v2.Phi() - v1.Phi(); 
 	if ( dphi > M_PI ) {
 	  dphi -= 2.0*M_PI;
 	} else if ( dphi <= -M_PI ) {
@@ -79,9 +79,9 @@ namespace ROOT {
        \f[ \Delta R2 = ( \Delta \phi )^2 + ( \Delta \eta )^2  \f]
     */ 
       template <class Vector1, class Vector2> 
-      inline double DeltaR2( const Vector1 & v1, const Vector2 & v2) { 
-	double dphi = DeltaPhi(v1,v2); 
-	double deta = v2.Eta() - v1.Eta(); 
+      inline typename Vector1::Scalar DeltaR2( const Vector1 & v1, const Vector2 & v2) { 
+	typename Vector1::Scalar dphi = DeltaPhi(v1,v2); 
+	typename Vector1::Scalar deta = v2.Eta() - v1.Eta(); 
 	return dphi*dphi + deta*deta; 
       }
 
@@ -92,9 +92,9 @@ namespace ROOT {
        \param v2  Vector 2
        \return   Angle between the two vectors
        \f[ \Delta R = \sqrt{  ( \Delta \phi )^2 + ( \Delta \eta )^2 } \f]
-    */ 
+    */
       template <class Vector1, class Vector2> 
-      inline double DeltaR( const Vector1 & v1, const Vector2 & v2) { 
+      inline typename Vector1::Scalar DeltaR( const Vector1 & v1, const Vector2 & v2) { 
 	return std::sqrt( DeltaR2(v1,v2) ); 
       }
 
@@ -214,13 +214,28 @@ namespace ROOT {
        \f[ M_{12} = \sqrt{ (\vec{v1} + \vec{v2} ) \cdot (\vec{v1} + \vec{v2} ) } \f]
     */ 
       template <class Vector1, class Vector2> 
-      inline double InvariantMass( const Vector1 & v1, const Vector2 & v2) { 
-	double ee = (v1.E() + v2.E() );
-	double xx = (v1.X() + v2.X() );
-	double yy = (v1.Y() + v2.Y() );
-	double zz = (v1.Z() + v2.Z() );
-	double mm2 = ee*ee - xx*xx - yy*yy - zz*zz; 
+      inline typename Vector1::Scalar InvariantMass( const Vector1 & v1, const Vector2 & v2) { 
+         typedef typename  Vector1::Scalar Scalar;
+         Scalar ee = (v1.E() + v2.E() );
+         Scalar xx = (v1.X() + v2.X() );
+         Scalar yy = (v1.Y() + v2.Y() );
+         Scalar zz = (v1.Z() + v2.Z() );
+         Scalar mm2 = ee*ee - xx*xx - yy*yy - zz*zz; 
 	return mm2 < 0.0 ? -std::sqrt(-mm2) : std::sqrt(mm2);
+// 	PxPyPzE4D<double> q(xx,yy,zz,ee); 
+// 	return q.M();
+	//return ( v1 + v2).mag(); 
+      }
+
+      template <class Vector1, class Vector2> 
+      inline typename Vector1::Scalar InvariantMass2( const Vector1 & v1, const Vector2 & v2) { 
+         typedef typename  Vector1::Scalar Scalar;
+         Scalar ee = (v1.E() + v2.E() );
+         Scalar xx = (v1.X() + v2.X() );
+         Scalar yy = (v1.Y() + v2.Y() );
+         Scalar zz = (v1.Z() + v2.Z() );
+         Scalar mm2 = ee*ee - xx*xx - yy*yy - zz*zz; 
+         return mm2 ; // < 0.0 ? -std::sqrt(-mm2) : std::sqrt(mm2);
 // 	PxPyPzE4D<double> q(xx,yy,zz,ee); 
 // 	return q.M();
 	//return ( v1 + v2).mag(); 
@@ -291,9 +306,9 @@ namespace ROOT {
       */
       template<class Vector, class RotationMatrix> 
       Vector Rotate(const Vector &v, const RotationMatrix & rot) { 
-	register double xX = v.X();
-	register double yY = v.Y();
-	register double zZ = v.Z();
+	double xX = v.X();
+	double yY = v.Y();
+	double zZ = v.Z();
 	double x2 =  rot(0,0)*xX + rot(0,1)*yY + rot(0,2)*zZ;
 	double y2 =  rot(1,0)*xX + rot(1,1)*yY + rot(1,2)*zZ;
 	double z2 =  rot(2,0)*xX + rot(2,1)*yY + rot(2,2)*zZ;
@@ -312,17 +327,17 @@ namespace ROOT {
       */
       template <class LVector, class BoostVector> 
       LVector boost(const LVector & v, const BoostVector & b) { 
-        register double bx = b.X();
-        register double by = b.Y();
-        register double bz = b.Z();
+        double bx = b.X();
+        double by = b.Y();
+        double bz = b.Z();
 	double b2 = bx*bx + by*by + bz*bz;
 	if (b2 >= 1) {
            GenVector::Throw ( "Beta Vector supplied to set Boost represents speed >= c");
            return LVector();
 	}    
-	register double gamma = 1.0 / std::sqrt(1.0 - b2);
-	register double bp = bx*v.X() + by*v.Y() + bz*v.Z();
-	register double gamma2 = b2 > 0 ? (gamma - 1.0)/b2 : 0.0;
+	double gamma = 1.0 / std::sqrt(1.0 - b2);
+	double bp = bx*v.X() + by*v.Y() + bz*v.Z();
+	double gamma2 = b2 > 0 ? (gamma - 1.0)/b2 : 0.0;
 	double x2 = v.X() + gamma2*bp*bx + gamma*bx*v.T();
 	double y2 = v.Y() + gamma2*bp*by + gamma*by*v.T();
 	double z2 = v.Z() + gamma2*bp*bz + gamma*bz*v.T();
@@ -339,15 +354,16 @@ namespace ROOT {
 	  X(), Y(), Z(), T()  and SetXYZT methods.
 	  The beta of the boost must be <= 1 or a nul Lorentz Vector will be returned	  	  
       */
-      template <class LVector> 
-      LVector boostX(const LVector & v, double beta) { 
+       template <class LVector, class T> 
+      LVector boostX(const LVector & v, T beta) { 
          if (beta >= 1) {
             GenVector::Throw ("Beta Vector supplied to set Boost represents speed >= c");
             return LVector();
          }    
-	register double gamma = 1.0/ std::sqrt(1.0 - beta*beta); 
-	double x2 = gamma * v.X() + gamma * beta * v.T();
-	double t2 = gamma * beta * v.X() + gamma * v.T(); 
+	T gamma = 1.0/ std::sqrt(1.0 - beta*beta); 
+        typename LVector::Scalar x2 = gamma * v.X() + gamma * beta * v.T();
+        typename LVector::Scalar t2 = gamma * beta * v.X() + gamma * v.T(); 
+
 	LVector lv; 
 	lv.SetXYZT(x2,v.Y(),v.Z(),t2);
 	return lv; 
@@ -365,7 +381,7 @@ namespace ROOT {
            GenVector::Throw ("Beta Vector supplied to set Boost represents speed >= c");
            return LVector();
 	}    
-	register double gamma = 1.0/ std::sqrt(1.0 - beta*beta); 
+	double gamma = 1.0/ std::sqrt(1.0 - beta*beta); 
 	double y2 = gamma * v.Y() + gamma * beta * v.T();
 	double t2 = gamma * beta * v.Y() + gamma * v.T(); 
 	LVector lv; 
@@ -385,7 +401,7 @@ namespace ROOT {
            GenVector::Throw ( "Beta Vector supplied to set Boost represents speed >= c");
            return LVector();
 	}    
-	register double gamma = 1.0/ std::sqrt(1.0 - beta*beta); 
+	double gamma = 1.0/ std::sqrt(1.0 - beta*beta); 
 	double z2 = gamma * v.Z() + gamma * beta * v.T();
 	double t2 = gamma * beta * v.Z() + gamma * v.T(); 
 	LVector lv; 

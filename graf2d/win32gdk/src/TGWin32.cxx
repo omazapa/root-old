@@ -26,6 +26,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <limits.h>
 #include <process.h>
 #include <wchar.h>
 #include "gdk/gdkkeysyms.h"
@@ -2249,9 +2250,13 @@ void TGWin32::QueryPointer(int &ix, int &iy)
    // iy       : Y coordinate of pointer
    // (both coordinates are relative to the origin of the root window)
 
-   GdkModifierType mask;
-   GdkWindow *retw = gdk_window_get_pointer((GdkWindow *) gCws->window,
-                                             &ix, &iy, &mask);
+   //GdkModifierType mask;
+   //GdkWindow *retw = gdk_window_get_pointer((GdkWindow *) gCws->window,
+   //                                          &ix, &iy, &mask);
+   POINT cpt;
+   GetCursorPos(&cpt);
+   ix = cpt.x;
+   iy = cpt.y;
 }
 
 //______________________________________________________________________________
@@ -4470,6 +4475,9 @@ void TGWin32::ResizeWindow(Window_t id, UInt_t w, UInt_t h)
 
    if (!id) return;
 
+   // protect against potential negative values
+   if (w >= (UInt_t)INT_MAX || h >= (UInt_t)INT_MAX)
+      return;
    gdk_window_resize((GdkWindow *) id, w, h);
 }
 

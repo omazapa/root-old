@@ -98,6 +98,7 @@ protected:
    TStreamerInfoActions::TActionSequence *fReadActionSequence;  //! Set of actions to be executed to extract the data from the basket.
    TStreamerInfoActions::TActionSequence *fFillActionSequence; //! Set of actions to be executed to write the data to the basket.
    TVirtualCollectionIterators           *fIterators;     //! holds the iterators when the branch is of fType==4.
+   TVirtualCollectionIterators           *fWriteIterators;//! holds the read (non-staging) iterators when the branch is of fType==4 and associative containers.
    TVirtualCollectionPtrIterators        *fPtrIterators;  //! holds the iterators when the branch is of fType==4 and it is a split collection of pointers.
 
 // Not implemented
@@ -147,6 +148,7 @@ protected:
    void FillLeavesCollectionSplitVectorPtrMember(TBuffer& b);
    void FillLeavesCollectionSplitPtrMember(TBuffer& b);
    void FillLeavesCollectionMember(TBuffer& b);
+   void FillLeavesAssociativeCollectionMember(TBuffer& b);
    void FillLeavesClones(TBuffer& b);
    void FillLeavesClonesMember(TBuffer& b);
    void FillLeavesCustomStreamer(TBuffer& b);
@@ -195,7 +197,8 @@ public:
            Int_t            GetStreamerType() const { return fStreamerType; }
    virtual TClass          *GetTargetClass() { return fTargetClass; }
    virtual const char      *GetTypeName() const;
-           Double_t         GetValue(Int_t i, Int_t len, Bool_t subarr = kFALSE) const;
+           Double_t         GetValue(Int_t i, Int_t len, Bool_t subarr = kFALSE) const { return GetTypedValue<Double_t>(i, len, subarr); }
+   template<typename T > T  GetTypedValue(Int_t i, Int_t len, Bool_t subarr = kFALSE) const;
    virtual void            *GetValuePointer() const;
            Int_t            GetClassVersion() { return fClassVersion; }
            Bool_t           IsBranchFolder() const { return TestBit(kBranchFolder); }

@@ -2,7 +2,7 @@ from __future__ import generators
 # @(#)root/pyroot:$Id$
 # Author: Wim Lavrijsen (WLavrijsen@lbl.gov)
 # Created: 02/20/03
-# Last: 02/06/13
+# Last: 04/22/14
 
 """PyROOT user module.
 
@@ -262,9 +262,14 @@ _root.gInterpreter = _ExpandMacroFunction( "TInterpreter", "Instance" )
 ### special case pythonization --------------------------------------------------
 def _TTree__iter__( self ):
    i = 0
-   while self.GetEntry(i):
+   bytes_read = self.GetEntry(i)
+   while 0 < bytes_read:
       yield self                   # TODO: not sure how to do this w/ C-API ...
       i += 1
+      bytes_read = self.GetEntry(i)
+
+   if bytes_read == -1:
+      raise RuntimeError( "TTree I/O error" )
 
 _root.MakeRootClass( "TTree" ).__iter__    = _TTree__iter__
 
@@ -330,6 +335,22 @@ _orig_dhook = sys.displayhook
 def _displayhook( v ):
    _root.gInterpreter.EndOfLineAction()
    return _orig_dhook( v )
+
+
+### set import hook to be able to trigger auto-loading as appropriate
+import __builtin__
+_orig_ihook = __builtin__.__import__
+def _importhook( name, glbls = {}, lcls = {}, fromlist = [], level = -1 ):
+   if name[0:5] == 'ROOT.':
+      try:
+         sys.modules[ name ] = getattr( sys.modules[ 'ROOT' ], name[5:] )
+      except Exception:
+         pass
+   if 5 <= sys.version_info[1]:    # minor
+      return _orig_ihook( name, glbls, lcls, fromlist, level )
+   return _orig_ihook( name, glbls, lcls, fromlist )
+
+__builtin__.__import__ = _importhook
 
 
 ### helper to prevent GUIs from starving
@@ -589,6 +610,7 @@ def cleanup():
    sys.displayhook = sys.__displayhook__
    if not '__IPYTHON__' in __builtins__:
       sys.excepthook = sys.__excepthook__
+   __builtin__.__import__ = _orig_ihook
 
    facade = sys.modules[ __name__ ]
 

@@ -157,17 +157,29 @@ void TGLFont::BBox(const char* txt,
 }
 
 //______________________________________________________________________________
-void TGLFont::Render(const char* txt, Double_t x, Double_t y, Double_t angle, Double_t /*mgn*/) const
+void TGLFont::BBox(const wchar_t* txt,
+                   Float_t& llx, Float_t& lly, Float_t& llz,
+                   Float_t& urx, Float_t& ury, Float_t& urz) const
+{
+   // Get bounding box.
+
+   // FTGL is not const correct.
+   const_cast<FTFont*>(fFont)->BBox(txt, llx, lly, llz, urx, ury, urz);
+}
+
+//______________________________________________________________________________
+template<class Char>
+void TGLFont::RenderHelper(const Char *txt, Double_t x, Double_t y, Double_t angle, Double_t /*mgn*/) const
 {
    //mgn is simply ignored, because ROOT's TVirtualX TGX11 are complete mess with
    //painting attributes.
    glPushMatrix();
    //glLoadIdentity();
-   
+
    // FTGL is not const correct.
    Float_t llx = 0.f, lly = 0.f, llz = 0.f, urx = 0.f, ury = 0.f, urz = 0.f;
    BBox(txt, llx, lly, llz, urx, ury, urz);
-   
+
    /*
     V\H   | left | center | right
    _______________________________
@@ -181,50 +193,90 @@ void TGLFont::Render(const char* txt, Double_t x, Double_t y, Double_t angle, Do
    Double_t xc = 0., yc = 0.;
    const UInt_t align = gVirtualX->GetTextAlign();
 
-   switch (align) {
-   case 7:
-      xc += 0.5 * dx;
-      yc += 0.5 * dy;
-      break;
-   case 8:
-      yc += 0.5 * dy;
-      break;
-   case 9:
-      xc -= 0.5 * dx;
-      yc += 0.5 * dy;
-      break;
-   case 4:
-      xc += 0.5 * dx;
-      break;
-   case 5:
-      break;
-   case 6:
-      xc = -0.5 * dx;
-      break;
-   case 1:
-      xc += 0.5 * dx;
-      yc -= 0.5 * dy;
-      break;
-   case 2:
-      yc -= 0.5 * dy;
-      break;
-   case 3:
-      xc -= 0.5 * dx;
-      yc -= 0.5 * dy;
-      break;
+   //Here's the nice X11 bullshido: you call gVirtualX->SetTextAlign(11),
+   //later gVirtualX->GetTextAling() will give you 7. Brilliant!
+   //But with Cocoa you'll have 11. As it should be, of course.
+
+   if (gVirtualX->InheritsFrom("TGCocoa")) {
+      const UInt_t hAlign = UInt_t(align / 10);
+      switch (hAlign) {
+      case 1:
+         xc = 0.5 * dx;
+         break;
+      case 2:
+         break;
+      case 3:
+         xc = -0.5 * dy;
+         break;
+      }
+
+      const UInt_t vAlign = UInt_t(align % 10);
+      switch (vAlign) {
+      case 1:
+         yc = 0.5 * dy;
+         break;
+      case 2:
+         break;
+      case 3:
+         yc = -0.5 * dy;
+         break;
+      }
+   } else {
+      switch (align) {
+      case 7:
+         xc += 0.5 * dx;
+         yc += 0.5 * dy;
+         break;
+      case 8:
+         yc += 0.5 * dy;
+         break;
+      case 9:
+         xc -= 0.5 * dx;
+         yc += 0.5 * dy;
+         break;
+      case 4:
+         xc += 0.5 * dx;
+         break;
+      case 5:
+         break;
+      case 6:
+         xc = -0.5 * dx;
+         break;
+      case 1:
+         xc += 0.5 * dx;
+         yc -= 0.5 * dy;
+         break;
+      case 2:
+         yc -= 0.5 * dy;
+         break;
+      case 3:
+         xc -= 0.5 * dx;
+         yc -= 0.5 * dy;
+         break;
+      }
    }
-   
+
    glTranslated(x, y, 0.);
    glRotated(angle, 0., 0., 1.);
    glTranslated(xc, yc, 0.);
    glTranslated(-0.5 * dx, -0.5 * dy, 0.);
    //glScaled(mgn, mgn, 1.);
-      
+
    const_cast<FTFont*>(fFont)->Render(txt);
-   
+
    glPopMatrix();
-   
-   
+}
+
+//______________________________________________________________________________
+void TGLFont::Render(const wchar_t* txt, Double_t x, Double_t y, Double_t angle, Double_t mgn) const
+{
+   RenderHelper(txt, x, y, angle, mgn);
+}
+
+//______________________________________________________________________________
+void TGLFont::Render(const char* txt, Double_t x, Double_t y, Double_t angle, Double_t mgn) const
+{
+   RenderHelper(txt, x, y, angle, mgn);
 }
 
 //______________________________________________________________________________
@@ -361,6 +413,7 @@ void TGLFont::PostRender() const
 ClassImp(TGLFontManager);
 
 TObjArray   TGLFontManager::fgFontFileArray;
+Int_t TGLFontManager::fgExtendedFontStart;
 TGLFontManager::FontSizeVec_t TGLFontManager::fgFontSizeArray;
 Bool_t  TGLFontManager::fgStaticInitDone = kFALSE;
 
@@ -398,7 +451,10 @@ void TGLFontManager::RegisterFont(Int_t sizeIn, Int_t fileID, TGLFont::EMode mod
       ttpath = gEnv->GetValue("Root.TTGLFontPath", "$(ROOTSYS)/fonts");
 # endif
       {
-         char *fp = gSystem->Which(ttpath, ((TObjString*)fgFontFileArray[fileID])->String() + ".ttf");
+         //For extenede we have both ttf and otf.
+         char *fp = gSystem->Which(ttpath, fileID < fgExtendedFontStart ?
+                                   ((TObjString*)fgFontFileArray[fileID])->String() + ".ttf" :
+                                   ((TObjString*)fgFontFileArray[fileID])->String());
          file = fp;
          delete [] fp;
       }
@@ -426,7 +482,7 @@ void TGLFontManager::RegisterFont(Int_t sizeIn, Int_t fileID, TGLFont::EMode mod
             ftfont = new FTGLTextureFont(file);
             break;
          default:
-            Error("TGLFontManager::GetFont", "invalid FTGL type");
+            Error("TGLFontManager::RegisterFont", "invalid FTGL type");
             return;
             break;
       }
@@ -462,10 +518,10 @@ void TGLFontManager::RegisterFont(Int_t size, const char* name, TGLFont::EMode m
       cnt++;
    }
 
-   if (cnt < farr->GetSize())
+   if (cnt < farr->GetEntries())
       RegisterFont(size, cnt, mode, out);
    else
-      Error("TGLFontManager::GetFont", "unknown font name %s", name);
+      Error("TGLFontManager::RegisterFont", "unknown font name %s", name);
 }
 
 //______________________________________________________________________________
@@ -507,6 +563,16 @@ TGLFontManager::FontSizeVec_t* TGLFontManager::GetFontSizeArray()
 }
 
 //______________________________________________________________________________
+Int_t TGLFontManager::GetExtendedFontStartIndex()
+{
+   if (fgStaticInitDone == kFALSE) InitStatics();
+
+   assert(fgExtendedFontStart > 0 && "GetExtendedFontStartIndex, invalid index");
+   
+   return fgExtendedFontStart;
+}
+
+//______________________________________________________________________________
 Int_t TGLFontManager::GetFontSize(Int_t ds)
 {
    // Get availabe font size.
@@ -515,6 +581,7 @@ Int_t TGLFontManager::GetFontSize(Int_t ds)
 
    Int_t idx = TMath::BinarySearch(fgFontSizeArray.size(), &fgFontSizeArray[0],
                                    TMath::CeilNint(ds));
+
    if (idx < 0) idx = 0;
    return fgFontSizeArray[idx];
 }
@@ -533,10 +600,16 @@ Int_t TGLFontManager::GetFontSize(Int_t ds, Int_t min, Int_t max)
 const char* TGLFontManager::GetFontNameFromId(Int_t id)
 {
    // Get font name from TAttAxis font id.
-
    if (fgStaticInitDone == kFALSE) InitStatics();
 
-   TObjString* os = (TObjString*)fgFontFileArray[id / 10];
+   Int_t fontIndex = id / 10;
+
+   if (fontIndex > fgFontFileArray.GetEntries() || !fontIndex)
+      fontIndex = 5;//arialbd
+   else
+      fontIndex -= 1;
+
+   TObjString* os = (TObjString*)fgFontFileArray[fontIndex];
    return os->String().Data();
 }
 
@@ -544,9 +617,6 @@ const char* TGLFontManager::GetFontNameFromId(Int_t id)
 void TGLFontManager::InitStatics()
 {
    // Create a list of available font files and allowed font sizes.
-
-   fgFontFileArray.Add(new TObjString("arialbd"));  //   0
-
    fgFontFileArray.Add(new TObjString("timesi"));   //  10
    fgFontFileArray.Add(new TObjString("timesbd"));  //  20
    fgFontFileArray.Add(new TObjString("timesbi"));  //  30
@@ -564,10 +634,51 @@ void TGLFontManager::InitStatics()
    fgFontFileArray.Add(new TObjString("symbol"));   // 120
    fgFontFileArray.Add(new TObjString("times"));    // 130
    fgFontFileArray.Add(new TObjString("wingding")); // 140
+   fgFontFileArray.Add(new TObjString("symbol"));   // 150
 
+   fgExtendedFontStart = fgFontFileArray.GetEntries();
+   //"Extended" fonts for gl-pad.
+   //fgPadFontStart + ...
+   fgFontFileArray.Add(new TObjString("FreeSerifItalic.otf"));      //  10 (160)
+   fgFontFileArray.Add(new TObjString("FreeSerifBold.otf"));        //  20 (170)
+   fgFontFileArray.Add(new TObjString("FreeSerifBoldItalic.otf"));  //  30
 
-   // font sizes
-   for (Int_t i = 8; i <= 20; i+=2)
+   fgFontFileArray.Add(new TObjString("FreeSans.otf"));             //  40
+   fgFontFileArray.Add(new TObjString("FreeSansOblique.otf"));      //  50
+   fgFontFileArray.Add(new TObjString("FreeSansBold.otf"));         //  60
+   fgFontFileArray.Add(new TObjString("FreeSansBoldOblique.otf"));  //  70
+
+   fgFontFileArray.Add(new TObjString("FreeMono.otf"));             //  80
+   fgFontFileArray.Add(new TObjString("FreeMonoOblique.otf"));      //  90
+   fgFontFileArray.Add(new TObjString("FreeMonoBold.otf"));         // 100
+   fgFontFileArray.Add(new TObjString("FreeMonoBoldOblique.otf"));  // 110
+
+   fgFontFileArray.Add(new TObjString("symbol.ttf"));               // 120
+   fgFontFileArray.Add(new TObjString("FreeSerif.otf"));            // 130
+   fgFontFileArray.Add(new TObjString("wingding.ttf"));             // 140
+   fgFontFileArray.Add(new TObjString("symbol.ttf"));               // 150
+
+   fgFontFileArray.Add(new TObjString("STIXGeneral.otf"));          // 200
+   fgFontFileArray.Add(new TObjString("STIXGeneralItalic.otf"));    // 210
+   fgFontFileArray.Add(new TObjString("STIXGeneralBol.otf"));       // 220
+   fgFontFileArray.Add(new TObjString("STIXGeneralBolIta.otf"));    // 230
+
+   fgFontFileArray.Add(new TObjString("STIXSiz1Sym.otf"));          // 240
+   fgFontFileArray.Add(new TObjString("STIXSiz1SymBol.otf"));       // 250
+   fgFontFileArray.Add(new TObjString("STIXSiz2Sym.otf"));          // 260
+   fgFontFileArray.Add(new TObjString("STIXSiz2SymBol.otf"));       // 270
+
+   fgFontFileArray.Add(new TObjString("STIXSiz3Sym.otf"));          // 280
+   fgFontFileArray.Add(new TObjString("STIXSiz3SymBol.otf"));       // 290
+   fgFontFileArray.Add(new TObjString("STIXSiz4Sym.otf"));          // 300
+   fgFontFileArray.Add(new TObjString("STIXSiz4SymBol.otf"));       // 310
+
+   fgFontFileArray.Add(new TObjString("STIXSiz5Sym.otf"));          // 320
+   fgFontFileArray.Add(new TObjString("DroidSansFallback.ttf"));    // 330
+   fgFontFileArray.Add(new TObjString("DroidSansFallback.ttf"));    // 340
+   fgFontFileArray.Add(new TObjString("DroidSansFallback.ttf"));    // 350
+
+   for (Int_t i = 10; i <= 20; i+=2)
       fgFontSizeArray.push_back(i);
    for (Int_t i = 24; i <= 64; i+=4)
       fgFontSizeArray.push_back(i);

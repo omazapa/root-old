@@ -32,6 +32,7 @@
 #include "TMatrixFBase.h"
 #include "TVectorD.h"
 #include "TVectorF.h"
+#include "TCanvas.h"
 #include "TPad.h"
 #include "TPaveStats.h"
 #include "TFrame.h"
@@ -379,13 +380,6 @@ Draw histogram with a * at each bin.
 Draw histogram like with option "L" but with a fill area. Note that "L" draws
 also a fill area if the hist fill color is set but the fill area corresponds to
 the histogram contour.
-</td></tr>
-
-<tr><th valign=top>"9"</th><td>
-Force histogram to be drawn in high resolution mode. By default, the histogram
-is drawn in low resolution in case the number of bins is greater than the number
-of pixels in the current pad. This option should be combined with a "drawing
-option" like "H" or "L".
 </td></tr>
 
 </table>
@@ -1295,15 +1289,15 @@ Begin_Html
 
 
 A Candle plot (also known as a "box-and whisker plot" or simply "box plot")
-is a convenient way to describe graphically a data distribution (D) with 
+is a convenient way to describe graphically a data distribution (D) with
 only the five numbers. It was invented in 1977 by John Tukey.
 <p>
 With the option CANDLEX five numbers are:
 <ol>
 <li> The minimum value of the distribution D (bottom dashed line).
-<li> The lower quartile (Q1): 25% of the data points in D are less than 
-     Q1 (bottom of the box).    
-<li> The median (M): 50% of the data points in D are less than M 
+<li> The lower quartile (Q1): 25% of the data points in D are less than
+     Q1 (bottom of the box).
+<li> The median (M): 50% of the data points in D are less than M
      (thick line segment inside the box).
 <li> The upper quartile (Q3): 75% of the data points in D are less
      than Q3 (top of the box).
@@ -2376,12 +2370,21 @@ in <tt>colors[N]</tt>, etc. If the maximum cell content is greater than
 <p>If <tt> ncolors <= 0</tt>, a default palette (see below) of 50 colors is
 defined. This palette is recommended for pads, labels ...
 
-<p>If <tt>ncolors == 1 && colors == 0</tt>, a pretty palette with a violet to
-red spectrum is created. It is recommended you use this palette when drawing
-legos, surfaces or contours.
-
-<p>If ncolors > 50 and colors=0, the DeepSea palette is used.
-(see <tt>TColor::CreateGradientColorTable</tt> for more details)
+<tt>if ncolors == 1 && colors == 0</tt>, then a Pretty Palette with a
+Spectrum Violet->Red is created with 50 colors. That's the default rain bow
+palette.
+<p>
+Other prefined palettes with 255 colors are available when <tt>colors == 0</tt>.
+The following value of <tt>ncolors</tt> give access to:
+<p>
+<pre>
+if ncolors = 51 and colors=0, a Deep Sea palette is used.
+if ncolors = 52 and colors=0, a Grey Scale palette is used.
+if ncolors = 53 and colors=0, a Dark Body Radiator palette is used.
+if ncolors = 54 and colors=0, a two-color hue palette palette is used.(dark blue through neutral gray to bright yellow)
+if ncolors = 55 and colors=0, a Rain Bow palette is used.
+if ncolors = 56 and colors=0, an inverted Dark Body Radiator palette is used.
+</pre>
 
 <p> If <tt>ncolors > 0 && colors == 0</tt>, the default palette is used
 with a maximum of ncolors.
@@ -3152,7 +3155,11 @@ void THistPainter::ExecuteEvent(Int_t event, Int_t px, Int_t py)
    End_html */
 
    static Int_t bin, px1, py1, px2, py2, pyold;
+   static TBox *zoombox;
+
+   Int_t bin1, bin2;
    Double_t xlow, xup, ylow, binval, x, baroffset, barwidth, binwidth;
+   Bool_t opaque  = gPad->OpaqueMoving();
 
    if (!gPad->IsEditable()) return;
 
@@ -3168,6 +3175,10 @@ void THistPainter::ExecuteEvent(Int_t event, Int_t px, Int_t py)
       return;
    }
 
+   TAxis *xaxis    = fH->GetXaxis();
+   TAxis *yaxis    = fH->GetYaxis();
+   Int_t dimension = fH->GetDimension();
+
    Double_t factor = 1;
    if (fH->GetNormFactor() != 0) {
       factor = fH->GetNormFactor()/fH->GetSumOfWeights();
@@ -3177,62 +3188,137 @@ void THistPainter::ExecuteEvent(Int_t event, Int_t px, Int_t py)
 
    case kButton1Down:
 
-      gVirtualX->SetLineColor(-1);
+      if (!opaque) gVirtualX->SetLineColor(-1);
       fH->TAttLine::Modify();
 
+      if (opaque && dimension ==2) {
+         zoombox = new TBox(gPad->AbsPixeltoX(px), gPad->AbsPixeltoY(py),
+                            gPad->AbsPixeltoX(px), gPad->AbsPixeltoY(py));
+         Int_t ci = TColor::GetColor("#7d7dff");
+         TColor *zoomcolor = gROOT->GetColor(ci);
+         if (!TCanvas::SupportAlpha()) zoombox->SetFillStyle(3002);
+         else                          zoomcolor->SetAlpha(0.5);
+         zoombox->SetFillColor(ci);
+         zoombox->Draw();
+         gPad->Modified();
+         gPad->Update();
+      }
       // No break !!!
 
    case kMouseMotion:
 
       if (fShowProjection) {ShowProjection3(px,py); break;}
 
-      if (Hoption.Bar) {
-         baroffset = fH->GetBarOffset();
-         barwidth  = fH->GetBarWidth();
-      } else {
-         baroffset = 0;
-         barwidth  = 1;
+      gPad->SetCursor(kPointer);
+      if (dimension ==1) {
+         if (Hoption.Bar) {
+            baroffset = fH->GetBarOffset();
+            barwidth  = fH->GetBarWidth();
+         } else {
+            baroffset = 0;
+            barwidth  = 1;
+         }
+         x        = gPad->AbsPixeltoX(px);
+         bin      = fXaxis->FindFixBin(gPad->PadtoX(x));
+         binwidth = fXaxis->GetBinWidth(bin);
+         xlow     = gPad->XtoPad(fXaxis->GetBinLowEdge(bin) + baroffset*binwidth);
+         xup      = gPad->XtoPad(xlow + barwidth*binwidth);
+         ylow     = gPad->GetUymin();
+         px1      = gPad->XtoAbsPixel(xlow);
+         px2      = gPad->XtoAbsPixel(xup);
+         py1      = gPad->YtoAbsPixel(ylow);
+         py2      = py;
+         pyold    = py;
+         if (gROOT->GetEditHistograms()) gPad->SetCursor(kArrowVer);
       }
-      x        = gPad->AbsPixeltoX(px);
-      bin      = fXaxis->FindFixBin(gPad->PadtoX(x));
-      binwidth = fXaxis->GetBinWidth(bin);
-      xlow     = gPad->XtoPad(fXaxis->GetBinLowEdge(bin) + baroffset*binwidth);
-      xup      = gPad->XtoPad(xlow + barwidth*binwidth);
-      ylow     = gPad->GetUymin();
-      px1      = gPad->XtoAbsPixel(xlow);
-      px2      = gPad->XtoAbsPixel(xup);
-      py1      = gPad->YtoAbsPixel(ylow);
-      py2      = py;
-      pyold    = py;
-      if (gROOT->GetEditHistograms()) gPad->SetCursor(kArrowVer);
-      else                            gPad->SetCursor(kPointer);
 
       break;
 
    case kButton1Motion:
 
-   if (gROOT->GetEditHistograms()) {
-         gVirtualX->DrawBox(px1, py1, px2, py2,TVirtualX::kHollow);  //    Draw the old box
-         py2 += py - pyold;
-         gVirtualX->DrawBox(px1, py1, px2, py2,TVirtualX::kHollow);  //    Draw the new box
-         pyold = py;
-   }
+      if (dimension ==1) {
+         if (gROOT->GetEditHistograms()) {
+            if (!opaque) {
+               gVirtualX->DrawBox(px1, py1, px2, py2,TVirtualX::kHollow);  // Draw the old box
+               py2 += py - pyold;
+               gVirtualX->DrawBox(px1, py1, px2, py2,TVirtualX::kHollow);  // Draw the new box
+               pyold = py;
+            } else {
+               py2 += py - pyold;
+               pyold = py;
+               binval = gPad->PadtoY(gPad->AbsPixeltoY(py2))/factor;
+               fH->SetBinContent(bin,binval);
+               gPad->Modified(kTRUE);
+            }
+         }
+      }
+
+      if (opaque && dimension ==2) {
+         zoombox->SetX2(gPad->AbsPixeltoX(px));
+         zoombox->SetY2(gPad->AbsPixeltoY(py));
+         gPad->Modified();
+         gPad->Update();
+      }
+
+      break;
+
+   case kWheelUp:
+
+      if (dimension ==2) {
+         bin1 = xaxis->GetFirst()+1;
+         bin2 = xaxis->GetLast()-1;
+         if (bin2>bin1) xaxis->SetRange(bin1,bin2);
+         bin1 = yaxis->GetFirst()+1;
+         bin2 = yaxis->GetLast()-1;
+         if (bin2>bin1) yaxis->SetRange(bin1,bin2);
+      }
+      gPad->Modified();
+      gPad->Update();
+
+      break;
+
+   case kWheelDown:
+
+      if (dimension == 2) {
+         bin1 = xaxis->GetFirst()-1;
+         bin2 = xaxis->GetLast()+1;
+         if (bin2>bin1) xaxis->SetRange(bin1,bin2);
+         bin1 = yaxis->GetFirst()-1;
+         bin2 = yaxis->GetLast()+1;
+         if (bin2>bin1) yaxis->SetRange(bin1,bin2);
+      }
+      gPad->Modified();
+      gPad->Update();
 
       break;
 
    case kButton1Up:
+      if (dimension ==1) {
+         if (gROOT->GetEditHistograms()) {
+            binval = gPad->PadtoY(gPad->AbsPixeltoY(py2))/factor;
+            fH->SetBinContent(bin,binval);
+            PaintInit();   // recalculate Hparam structure and recalculate range
+         }
 
-      if (gROOT->GetEditHistograms()) {
-         binval = gPad->PadtoY(gPad->AbsPixeltoY(py2))/factor;
-         fH->SetBinContent(bin,binval);
-         PaintInit();   // recalculate Hparam structure and recalculate range
+         // might resize pad pixmap so should be called before any paint routine
+         RecalculateRange();
       }
-
-      // might resize pad pixmap so should be called before any paint routine
-      RecalculateRange();
-
+      if (opaque && dimension ==2) {
+         if (zoombox) {
+            Double_t x1 = TMath::Min(zoombox->GetX1(), zoombox->GetX2());
+            Double_t x2 = TMath::Max(zoombox->GetX1(), zoombox->GetX2());
+            Double_t y1 = TMath::Min(zoombox->GetY1(), zoombox->GetY2());
+            Double_t y2 = TMath::Max(zoombox->GetY1(), zoombox->GetY2());
+            if (x1<x2 && y1<y2) {
+               xaxis->SetRangeUser(x1, x2);
+               yaxis->SetRangeUser(y1, y2);
+            }
+            zoombox->Delete();
+            zoombox = 0;
+         }
+      }
       gPad->Modified(kTRUE);
-      gVirtualX->SetLineColor(-1);
+      if (opaque) gVirtualX->SetLineColor(-1);
 
       break;
 
@@ -3454,8 +3540,6 @@ Int_t THistPainter::MakeChopt(Option_t *choptin)
    Hoption.BackBox  = 1;
    Hoption.System   = kCARTESIAN;
 
-   Hoption.HighRes  = 0;
-
    Hoption.Zero     = 0;
 
    //check for graphical cuts
@@ -3522,7 +3606,7 @@ Int_t THistPainter::MakeChopt(Option_t *choptin)
       Hoption.Pie = 1;
       strncpy(l,"   ",3);
    }
-   
+
    l = strstr(chopt,"CANDLE");
    if (l) {
       Hoption.Scat = 0;
@@ -3754,8 +3838,6 @@ Int_t THistPainter::MakeChopt(Option_t *choptin)
       }
    }
 
-   if (strstr(chopt,"9"))  Hoption.HighRes = 1;
-
    if (Hoption.Surf == 15) {
       if (Hoption.System == kPOLAR || Hoption.System == kCARTESIAN) {
          Hoption.Surf = 13;
@@ -3854,8 +3936,12 @@ void THistPainter::Paint(Option_t *option)
    }
 
    if (Hoption.Pie) {
-      if (!fPie) fPie = new TPie(fH);
-      fPie->Paint(option);
+      if (fH->GetDimension() == 1) {
+         if (!fPie) fPie = new TPie(fH);
+         fPie->Paint(option);
+      } else {
+         Error("Paint", "Option PIE is for 1D histograms only");
+      }
       return;
    } else {
       if (fPie) delete fPie;
@@ -4413,6 +4499,7 @@ void THistPainter::PaintBar(Option_t *)
    Double_t width  = fH->GetBarWidth();
    TBox box;
    Int_t hcolor = fH->GetFillColor();
+   if (hcolor == gPad->GetFrameFillColor()) ++hcolor;
    Int_t hstyle = fH->GetFillStyle();
    box.SetFillColor(hcolor);
    box.SetFillStyle(hstyle);
@@ -4473,6 +4560,7 @@ void THistPainter::PaintBarH(Option_t *)
    Double_t width  = fH->GetBarWidth();
    TBox box;
    Int_t hcolor = fH->GetFillColor();
+   if (hcolor == gPad->GetFrameFillColor()) ++hcolor;
    Int_t hstyle = fH->GetFillStyle();
    box.SetFillColor(hcolor);
    box.SetFillStyle(hstyle);
@@ -4708,19 +4796,19 @@ void THistPainter::PaintCandlePlot(Option_t *)
    /* Begin_html
    <a href="#HP14">Control function to draw a 2D histogram as a candle (box) plot.</a>
    End_html */
-      
+
    Double_t x,y,w;
    Double_t m1 = 0.055, m2 = 0.25;
    Double_t xpm[1], ypm[1];
-   
+
    TH1D *hp;
    TH2D *h2 = (TH2D*)fH;
-   
+
    Double_t *quantiles = new Double_t[5];
    quantiles[0]=0.; quantiles[1]=0.; quantiles[2] = 0.; quantiles[3] = 0.; quantiles[4] = 0.;
    Double_t *prob = new Double_t[5];
    prob[0]=1E-15; prob[1]=0.25; prob[2]=0.5; prob[3]=0.75; prob[4]=1-1E-15;
-   
+
    Style_t fillsav   = h2->GetFillStyle();
    Style_t colsav    = h2->GetFillColor();
    Style_t linesav   = h2->GetLineStyle();
@@ -4733,7 +4821,7 @@ void THistPainter::PaintCandlePlot(Option_t *)
    h2->TAttLine::Modify();
    h2->TAttFill::Modify();
    h2->TAttMarker::Modify();
-   
+
    // Candle plot along X
    if (Hoption.Candle == 1) {
       for (Int_t i=Hparam.xfirst; i<=Hparam.xlast; i++) {
@@ -4743,7 +4831,7 @@ void THistPainter::PaintCandlePlot(Option_t *)
          if (hp->GetEntries() !=0) {
             hp->GetQuantiles(5, quantiles, prob);
             ypm[0] = hp->GetMean();
-      
+
             h2->SetLineStyle(1);
             h2->TAttLine::Modify();
             gPad->PaintBox(x+m1*w,  quantiles[1], x+(1-m1)*w, quantiles[3]);
@@ -4759,7 +4847,7 @@ void THistPainter::PaintCandlePlot(Option_t *)
             h2->TAttLine::Modify();
             gPad->PaintLine(x+w/2., quantiles[3], x+w/2., quantiles[4]);
             gPad->PaintLine(x+w/2., quantiles[0], x+w/2., quantiles[1]);
-      
+
             xpm[0] = x+w/2;
             gPad->PaintPolyMarker(1,xpm,ypm);
          }
@@ -4773,7 +4861,7 @@ void THistPainter::PaintCandlePlot(Option_t *)
          if (hp->GetEntries() !=0) {
             hp->GetQuantiles(5, quantiles, prob);
             xpm[0] = hp->GetMean();
-      
+
             h2->SetLineStyle(1);
             h2->TAttLine::Modify();
             gPad->PaintBox(quantiles[1],  y+m1*w, quantiles[3], y+(1-m1)*w);
@@ -4789,7 +4877,7 @@ void THistPainter::PaintCandlePlot(Option_t *)
             h2->TAttLine::Modify();
             gPad->PaintLine(quantiles[3], y+w/2., quantiles[4], y+w/2.);
             gPad->PaintLine(quantiles[0], y+w/2., quantiles[1], y+w/2.);
-      
+
             ypm[0] = y+w/2;
             gPad->PaintPolyMarker(1,xpm,ypm);
          }
@@ -4808,7 +4896,7 @@ void THistPainter::PaintCandlePlot(Option_t *)
    delete [] prob;
    delete [] quantiles;
 }
-   
+
 
 //______________________________________________________________________________
 void THistPainter::PaintColorLevels(Option_t *)
@@ -5834,6 +5922,7 @@ void THistPainter::PaintFunction(Option_t *)
                TF2 *f2 = (TF2*)obj;
                f2->SetMinimum(fH->GetMinimum());
                f2->SetMaximum(fH->GetMaximum());
+               f2->SetRange(fH->GetXaxis()->GetXmin(), fH->GetYaxis()->GetXmin(), fH->GetXaxis()->GetXmax(), fH->GetYaxis()->GetXmax() );
                f2->Paint("surf same");
             } else {
                obj->Paint("cont3 same");
@@ -5959,7 +6048,6 @@ void THistPainter::PaintHist(Option_t *)
    }
 
    if (Hoption.Fill == 2)    chopth[13] = '2';
-   if (Hoption.HighRes != 0) chopth[14] = '9';
 
    //         Option LOGX
 

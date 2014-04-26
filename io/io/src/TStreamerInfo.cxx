@@ -546,7 +546,7 @@ void TStreamerInfo::Build()
 }
 
 //______________________________________________________________________________
-void TStreamerInfo::BuildCheck()
+void TStreamerInfo::BuildCheck(TFile *file /* = 0 */)
 {
    // Check if built and consistent with the class dictionary.
    // This method is called by TFile::ReadStreamerInfo.
@@ -847,7 +847,7 @@ void TStreamerInfo::BuildCheck()
          TString origin;
          if (!match && !fClass->TestBit(TClass::kWarned)) {
             if (oldIsNonVersioned) {
-               if (gDirectory && gDirectory->GetFile()) {
+               if (file) {
                   Warning("BuildCheck", "\n\
    The class %s transitioned from not having a specified class version\n\
    to having a specified class version (the current class version is %d).\n\
@@ -856,7 +856,7 @@ void TStreamerInfo::BuildCheck()
    the class layout version %d, in particular from the file:\n\
    %s.\n\
    To work around this issue, load fewer 'old' files in the same ROOT session.",
-                          GetName(),fClass->GetClassVersion(),fClassVersion,gDirectory->GetFile()->GetName());
+                          GetName(),fClass->GetClassVersion(),fClassVersion,file->GetName());
                } else {
                   Warning("BuildCheck", "\n\
    The class %s transitioned from not having a specified class version\n\
@@ -868,7 +868,7 @@ void TStreamerInfo::BuildCheck()
                           GetName(),fClass->GetClassVersion(),fClassVersion);
                }
             } else {
-               if (gDirectory && gDirectory->GetFile()) {
+               if (file) {
                   if (done) {
                      Warning("BuildCheck", "\n\
    The StreamerInfo for version %d of class %s read from the file %s\n\
@@ -877,7 +877,7 @@ void TStreamerInfo::BuildCheck()
    (and potentially other files) might not work correctly.\n\
    Most likely the version number of the class was not properly\n\
    updated [See ClassDef(%s,%d)].",
-                             fClassVersion, GetName(), gDirectory->GetFile()->GetName(), GetName(), gDirectory->GetFile()->GetName(), GetName(), fClassVersion);
+                             fClassVersion, GetName(), file->GetName(), GetName(), file->GetName(), GetName(), fClassVersion);
                   } else {
                      Warning("BuildCheck", "\n\
    The StreamerInfo from %s does not match existing one (%s:%d)\n\
@@ -885,7 +885,7 @@ void TStreamerInfo::BuildCheck()
    Reading the file %s will work properly, however writing object of\n\
    type %s will not work properly.  Most likely the version number\n\
    of the class was not properly updated [See ClassDef(%s,%d)].",
-                             gDirectory->GetFile()->GetName(), GetName(), fClassVersion,gDirectory->GetFile()->GetName(),GetName(), GetName(), fClassVersion);
+                             file->GetName(), GetName(), fClassVersion,file->GetName(),GetName(), GetName(), fClassVersion);
                   }
                } else {
                   if (done) {
@@ -904,7 +904,7 @@ void TStreamerInfo::BuildCheck()
    Reading should work properly, however writing object of\n\
    type %s will not work properly.  Most likely the version number\n\
    of the class was not properly updated [See ClassDef(%s,%d)].",
-                             gDirectory->GetFile()->GetName(), GetName(), fClassVersion, GetName(), GetName(), fClassVersion);
+                             file->GetName(), GetName(), fClassVersion, GetName(), GetName(), fClassVersion);
                   }
                }
             }
@@ -948,13 +948,13 @@ void TStreamerInfo::BuildCheck()
                }
             }
             if (warn) {
-               if (gDirectory && gDirectory->GetFile()) {
+               if (file) {
                   Warning("BuildCheck", "\n\
    The StreamerInfo of class %s read from file %s\n\
    has the same version (=%d) as the active class but a different checksum.\n\
    You should update the version to ClassDef(%s,%d).\n\
    Do not try to write objects with the current class definition,\n\
-   the files will not be readable.\n", GetName(), gDirectory->GetFile()->GetName(), fClassVersion, GetName(), fClassVersion + 1);
+   the files will not be readable.\n", GetName(), file->GetName(), fClassVersion, GetName(), fClassVersion + 1);
                } else {
                   Warning("BuildCheck", "\n\
    The StreamerInfo of class %s \n\
@@ -1325,7 +1325,7 @@ void TStreamerInfo::BuildOld()
          element->SetNewType( element->GetType() );
          element->SetNewClass( fClass );
       } else if (((TStreamerElement*)fElements->At(0))->GetType() == TStreamerInfo::kSTL && 
-                 !strcmp( ((TStreamerElement*)fElements->At(0))->GetTypeName(),GetName()) == 0) {
+                 strcmp( ((TStreamerElement*)fElements->At(0))->GetTypeName(),GetName()) != 0) {
          // We have a collection that was proxied but does not have a collection proxy,
          // let's put one in place just for fun ... humm however we have no clue what is the value
          // type ....
@@ -3485,7 +3485,8 @@ TStreamerElement* TStreamerInfo::GetStreamerElementReal(Int_t i, Int_t j) const
 }
 
 //______________________________________________________________________________
-Double_t  TStreamerInfo::GetValueAux(Int_t type, void *ladd, Int_t k, Int_t len)
+template <typename T>
+T TStreamerInfo::GetTypedValueAux(Int_t type, void *ladd, Int_t k, Int_t len)
 {
    // Get the value from inside a collection.
 
@@ -3494,46 +3495,46 @@ Double_t  TStreamerInfo::GetValueAux(Int_t type, void *ladd, Int_t k, Int_t len)
    }
    switch (type) {
       // basic types
-      case kBool:              {Bool_t *val   = (Bool_t*)ladd;   return Double_t(*val);}
-      case kChar:              {Char_t *val   = (Char_t*)ladd;   return Double_t(*val);}
-      case kShort:             {Short_t *val  = (Short_t*)ladd;  return Double_t(*val);}
-      case kInt:               {Int_t *val    = (Int_t*)ladd;    return Double_t(*val);}
-      case kLong:              {Long_t *val   = (Long_t*)ladd;   return Double_t(*val);}
-      case kLong64:            {Long64_t *val = (Long64_t*)ladd; return Double_t(*val);}
-      case kFloat:             {Float_t *val  = (Float_t*)ladd;  return Double_t(*val);}
-      case kFloat16:           {Float_t *val  = (Float_t*)ladd;  return Double_t(*val);}
-      case kDouble:            {Double_t *val = (Double_t*)ladd; return Double_t(*val);}
-      case kDouble32:          {Double_t *val = (Double_t*)ladd; return Double_t(*val);}
-      case kUChar:             {UChar_t *val  = (UChar_t*)ladd;  return Double_t(*val);}
-      case kUShort:            {UShort_t *val = (UShort_t*)ladd; return Double_t(*val);}
-      case kUInt:              {UInt_t *val   = (UInt_t*)ladd;   return Double_t(*val);}
-      case kULong:             {ULong_t *val  = (ULong_t*)ladd;  return Double_t(*val);}
+      case kBool:              {Bool_t *val   = (Bool_t*)ladd;   return T(*val);}
+      case kChar:              {Char_t *val   = (Char_t*)ladd;   return T(*val);}
+      case kShort:             {Short_t *val  = (Short_t*)ladd;  return T(*val);}
+      case kInt:               {Int_t *val    = (Int_t*)ladd;    return T(*val);}
+      case kLong:              {Long_t *val   = (Long_t*)ladd;   return T(*val);}
+      case kLong64:            {Long64_t *val = (Long64_t*)ladd; return T(*val);}
+      case kFloat:             {Float_t *val  = (Float_t*)ladd;  return T(*val);}
+      case kFloat16:           {Float_t *val  = (Float_t*)ladd;  return T(*val);}
+      case kDouble:            {Double_t *val = (Double_t*)ladd; return T(*val);}
+      case kDouble32:          {Double_t *val = (Double_t*)ladd; return T(*val);}
+      case kUChar:             {UChar_t *val  = (UChar_t*)ladd;  return T(*val);}
+      case kUShort:            {UShort_t *val = (UShort_t*)ladd; return T(*val);}
+      case kUInt:              {UInt_t *val   = (UInt_t*)ladd;   return T(*val);}
+      case kULong:             {ULong_t *val  = (ULong_t*)ladd;  return T(*val);}
 #if defined(_MSC_VER) && (_MSC_VER <= 1200)
-      case kULong64:           {Long64_t *val = (Long64_t*)ladd;  return Double_t(*val);}
+      case kULong64:           {Long64_t *val = (Long64_t*)ladd;  return T(*val);}
 #else
-      case kULong64:           {ULong64_t *val= (ULong64_t*)ladd; return Double_t(*val);}
+      case kULong64:           {ULong64_t *val= (ULong64_t*)ladd; return T(*val);}
 #endif
-      case kBits:              {UInt_t *val   = (UInt_t*)ladd;   return Double_t(*val);}
+      case kBits:              {UInt_t *val   = (UInt_t*)ladd;   return T(*val);}
 
          // array of basic types  array[8]
-      case kOffsetL + kBool:    {Bool_t *val   = (Bool_t*)ladd;   return Double_t(val[k]);}
-      case kOffsetL + kChar:    {Char_t *val   = (Char_t*)ladd;   return Double_t(val[k]);}
-      case kOffsetL + kShort:   {Short_t *val  = (Short_t*)ladd;  return Double_t(val[k]);}
-      case kOffsetL + kInt:     {Int_t *val    = (Int_t*)ladd;    return Double_t(val[k]);}
-      case kOffsetL + kLong:    {Long_t *val   = (Long_t*)ladd;   return Double_t(val[k]);}
-      case kOffsetL + kLong64:  {Long64_t *val = (Long64_t*)ladd; return Double_t(val[k]);}
-      case kOffsetL + kFloat:   {Float_t *val  = (Float_t*)ladd;  return Double_t(val[k]);}
-      case kOffsetL + kFloat16: {Float_t *val  = (Float_t*)ladd;  return Double_t(val[k]);}
-      case kOffsetL + kDouble:  {Double_t *val = (Double_t*)ladd; return Double_t(val[k]);}
-      case kOffsetL + kDouble32:{Double_t *val = (Double_t*)ladd; return Double_t(val[k]);}
-      case kOffsetL + kUChar:   {UChar_t *val  = (UChar_t*)ladd;  return Double_t(val[k]);}
-      case kOffsetL + kUShort:  {UShort_t *val = (UShort_t*)ladd; return Double_t(val[k]);}
-      case kOffsetL + kUInt:    {UInt_t *val   = (UInt_t*)ladd;   return Double_t(val[k]);}
-      case kOffsetL + kULong:   {ULong_t *val  = (ULong_t*)ladd;  return Double_t(val[k]);}
+      case kOffsetL + kBool:    {Bool_t *val   = (Bool_t*)ladd;   return T(val[k]);}
+      case kOffsetL + kChar:    {Char_t *val   = (Char_t*)ladd;   return T(val[k]);}
+      case kOffsetL + kShort:   {Short_t *val  = (Short_t*)ladd;  return T(val[k]);}
+      case kOffsetL + kInt:     {Int_t *val    = (Int_t*)ladd;    return T(val[k]);}
+      case kOffsetL + kLong:    {Long_t *val   = (Long_t*)ladd;   return T(val[k]);}
+      case kOffsetL + kLong64:  {Long64_t *val = (Long64_t*)ladd; return T(val[k]);}
+      case kOffsetL + kFloat:   {Float_t *val  = (Float_t*)ladd;  return T(val[k]);}
+      case kOffsetL + kFloat16: {Float_t *val  = (Float_t*)ladd;  return T(val[k]);}
+      case kOffsetL + kDouble:  {Double_t *val = (Double_t*)ladd; return T(val[k]);}
+      case kOffsetL + kDouble32:{Double_t *val = (Double_t*)ladd; return T(val[k]);}
+      case kOffsetL + kUChar:   {UChar_t *val  = (UChar_t*)ladd;  return T(val[k]);}
+      case kOffsetL + kUShort:  {UShort_t *val = (UShort_t*)ladd; return T(val[k]);}
+      case kOffsetL + kUInt:    {UInt_t *val   = (UInt_t*)ladd;   return T(val[k]);}
+      case kOffsetL + kULong:   {ULong_t *val  = (ULong_t*)ladd;  return T(val[k]);}
 #if defined(_MSC_VER) && (_MSC_VER <= 1200)
-      case kOffsetL + kULong64: {Long64_t *val = (Long64_t*)ladd;  return Double_t(val[k]);}
+      case kOffsetL + kULong64: {Long64_t *val = (Long64_t*)ladd;  return T(val[k]);}
 #else
-      case kOffsetL + kULong64:{ULong64_t *val= (ULong64_t*)ladd; return Double_t(val[k]);}
+      case kOffsetL + kULong64:{ULong64_t *val= (ULong64_t*)ladd; return T(val[k]);}
 #endif
 
 #define READ_ARRAY(TYPE_t)                               \
@@ -3548,7 +3549,7 @@ Double_t  TStreamerInfo::GetValueAux(Int_t type, void *ladd, Int_t k, Int_t len)
                sub_instance = 0;                         \
             }                                            \
             TYPE_t **val =(TYPE_t**)(ladd);              \
-            return Double_t((val[sub_instance])[index]); \
+            return T((val[sub_instance])[index]); \
          }
 
          // pointer to an array of basic types  array[n]
@@ -3573,13 +3574,18 @@ Double_t  TStreamerInfo::GetValueAux(Int_t type, void *ladd, Int_t k, Int_t len)
 #endif
 
           // array counter //[n]
-      case kCounter:           {Int_t *val    = (Int_t*)ladd;    return Double_t(*val);}
+      case kCounter:           {Int_t *val    = (Int_t*)ladd;    return T(*val);}
    }
    return 0;
 }
 
 //______________________________________________________________________________
-Double_t TStreamerInfo::GetValue(char *pointer, Int_t i, Int_t j, Int_t len) const
+template Double_t TStreamerInfo::GetTypedValue(char *pointer, Int_t i, Int_t j, Int_t len) const;
+template Long64_t TStreamerInfo::GetTypedValue(char *pointer, Int_t i, Int_t j, Int_t len) const;
+template LongDouble_t TStreamerInfo::GetTypedValue(char *pointer, Int_t i, Int_t j, Int_t len) const;
+
+template <typename T>
+T TStreamerInfo::GetTypedValue(char *pointer, Int_t i, Int_t j, Int_t len) const
 {
    //  return value of element i in object at pointer.
    //  The function may be called in two ways:
@@ -3615,15 +3621,20 @@ Double_t TStreamerInfo::GetValue(char *pointer, Int_t i, Int_t j, Int_t len) con
             Int_t nc = proxy->Size();
             if (j >= nc) return 0;
             char *element_ptr = (char*)proxy->At(j);
-            return GetValueAux(atype,element_ptr,0,1);
+            return GetTypedValueAux<T>(atype,element_ptr,0,1);
          }
       }
    }
-   return GetValueAux(atype,ladd,j,len);
+   return GetTypedValueAux<T>(atype,ladd,j,len);
 }
 
 //______________________________________________________________________________
-Double_t TStreamerInfo::GetValueClones(TClonesArray *clones, Int_t i, Int_t j, int k, Int_t eoffset) const
+template Double_t TStreamerInfo::GetTypedValueClones<Double_t>(TClonesArray *clones, Int_t i, Int_t j, int k, Int_t eoffset) const;
+template Long64_t TStreamerInfo::GetTypedValueClones(TClonesArray *clones, Int_t i, Int_t j, int k, Int_t eoffset) const;
+template LongDouble_t TStreamerInfo::GetTypedValueClones(TClonesArray *clones, Int_t i, Int_t j, int k, Int_t eoffset) const;
+
+template <typename T>
+T TStreamerInfo::GetTypedValueClones(TClonesArray *clones, Int_t i, Int_t j, int k, Int_t eoffset) const
 {
    //  return value of element i in object number j in a TClonesArray and eventually
    // element k in a sub-array.
@@ -3633,11 +3644,16 @@ Double_t TStreamerInfo::GetValueClones(TClonesArray *clones, Int_t i, Int_t j, i
 
    char *pointer = (char*)clones->UncheckedAt(j);
    char *ladd    = pointer + eoffset + fOffset[i];
-   return GetValueAux(fType[i],ladd,k,((TStreamerElement*)fElem[i])->GetArrayLength());
+   return GetTypedValueAux<T>(fType[i],ladd,k,((TStreamerElement*)fElem[i])->GetArrayLength());
 }
 
 //______________________________________________________________________________
-Double_t TStreamerInfo::GetValueSTL(TVirtualCollectionProxy *cont, Int_t i, Int_t j, int k, Int_t eoffset) const
+template Double_t TStreamerInfo::GetTypedValueSTL(TVirtualCollectionProxy *cont, Int_t i, Int_t j, int k, Int_t eoffset) const;
+template Long64_t TStreamerInfo::GetTypedValueSTL(TVirtualCollectionProxy *cont, Int_t i, Int_t j, int k, Int_t eoffset) const;
+template LongDouble_t TStreamerInfo::GetTypedValueSTL(TVirtualCollectionProxy *cont, Int_t i, Int_t j, int k, Int_t eoffset) const;
+
+template <typename T>
+T TStreamerInfo::GetTypedValueSTL(TVirtualCollectionProxy *cont, Int_t i, Int_t j, int k, Int_t eoffset) const
 {
    //  return value of element i in object number j in a TClonesArray and eventually
    // element k in a sub-array.
@@ -3647,11 +3663,16 @@ Double_t TStreamerInfo::GetValueSTL(TVirtualCollectionProxy *cont, Int_t i, Int_
 
    char *pointer = (char*)cont->At(j);
    char *ladd    = pointer + eoffset + fOffset[i];
-   return GetValueAux(fType[i],ladd,k,((TStreamerElement*)fElem[i])->GetArrayLength());
+   return GetTypedValueAux<T>(fType[i],ladd,k,((TStreamerElement*)fElem[i])->GetArrayLength());
 }
 
 //______________________________________________________________________________
-Double_t TStreamerInfo::GetValueSTLP(TVirtualCollectionProxy *cont, Int_t i, Int_t j, int k, Int_t eoffset) const
+template Double_t TStreamerInfo::GetTypedValueSTLP(TVirtualCollectionProxy *cont, Int_t i, Int_t j, int k, Int_t eoffset) const;
+template Long64_t TStreamerInfo::GetTypedValueSTLP(TVirtualCollectionProxy *cont, Int_t i, Int_t j, int k, Int_t eoffset) const;
+template LongDouble_t TStreamerInfo::GetTypedValueSTLP(TVirtualCollectionProxy *cont, Int_t i, Int_t j, int k, Int_t eoffset) const;
+
+template <typename T>
+T TStreamerInfo::GetTypedValueSTLP(TVirtualCollectionProxy *cont, Int_t i, Int_t j, int k, Int_t eoffset) const
 {
    //  return value of element i in object number j in a TClonesArray and eventually
    // element k in a sub-array.
@@ -3663,7 +3684,7 @@ Double_t TStreamerInfo::GetValueSTLP(TVirtualCollectionProxy *cont, Int_t i, Int
    char *pointer = *ptr;
 
    char *ladd    = pointer + eoffset + fOffset[i];
-   return GetValueAux(fType[i],ladd,k,((TStreamerElement*)fElem[i])->GetArrayLength());
+   return GetTypedValueAux<T>(fType[i],ladd,k,((TStreamerElement*)fElem[i])->GetArrayLength());
 }
 
 //______________________________________________________________________________

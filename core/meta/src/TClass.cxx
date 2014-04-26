@@ -30,7 +30,6 @@
 #include "TBaseClass.h"
 #include "TBrowser.h"
 #include "TBuffer.h"
-#include "TClassAttributeMap.h"
 #include "TClassGenerator.h"
 #include "TClassEdit.h"
 #include "TClassMenuItem.h"
@@ -784,14 +783,13 @@ TClass::TClass() :
    fCanSplit(-1), fProperty(0),fVersionUsed(kFALSE), 
    fIsOffsetStreamerSet(kFALSE), fOffsetStreamer(0), fStreamerType(TClass::kDefault),
    fCurrentInfo(0), fRefStart(0), fRefProxy(0),
-   fSchemaRules(0), fAttributeMap(0), fStreamerImpl(&TClass::StreamerDefault)
+   fSchemaRules(0), fStreamerImpl(&TClass::StreamerDefault)
 
 {
    // Default ctor.
 
    R__LOCKGUARD2(gCINTMutex);
    fDeclFileLine   = -2;    // -2 for standalone TClass (checked in dtor)
-   fAttributeMap = 0;
 }
 
 //______________________________________________________________________________
@@ -810,7 +808,7 @@ TClass::TClass(const char *name, Bool_t silent) :
    fCanSplit(-1), fProperty(0),fVersionUsed(kFALSE), 
    fIsOffsetStreamerSet(kFALSE), fOffsetStreamer(0), fStreamerType(TClass::kDefault),
    fCurrentInfo(0), fRefStart(0), fRefProxy(0),
-   fSchemaRules(0), fAttributeMap(0), fStreamerImpl(&TClass::StreamerDefault)
+   fSchemaRules(0), fStreamerImpl(&TClass::StreamerDefault)
 {
    // Create a TClass object. This object contains the full dictionary
    // of a class. It has list to baseclasses, datamembers and methods.
@@ -860,7 +858,7 @@ TClass::TClass(const char *name, Version_t cversion,
    fCanSplit(-1), fProperty(0),fVersionUsed(kFALSE), 
    fIsOffsetStreamerSet(kFALSE), fOffsetStreamer(0), fStreamerType(TClass::kDefault),
    fCurrentInfo(0), fRefStart(0), fRefProxy(0),
-   fSchemaRules(0), fAttributeMap(0), fStreamerImpl(&TClass::StreamerDefault)
+   fSchemaRules(0), fStreamerImpl(&TClass::StreamerDefault)
 {
    // Create a TClass object. This object contains the full dictionary
    // of a class. It has list to baseclasses, datamembers and methods.
@@ -889,7 +887,7 @@ TClass::TClass(const char *name, Version_t cversion,
    fCanSplit(-1), fProperty(0),fVersionUsed(kFALSE), 
    fIsOffsetStreamerSet(kFALSE), fOffsetStreamer(0), fStreamerType(TClass::kDefault),
    fCurrentInfo(0), fRefStart(0), fRefProxy(0),
-   fSchemaRules(0), fAttributeMap(0), fStreamerImpl(&TClass::StreamerDefault)
+   fSchemaRules(0), fStreamerImpl(&TClass::StreamerDefault)
 {
    // Create a TClass object. This object contains the full dictionary
    // of a class. It has list to baseclasses, datamembers and methods.
@@ -1165,7 +1163,6 @@ TClass::TClass(const TClass& cl) :
   fRefStart(cl.fRefStart),
   fRefProxy(cl.fRefProxy),
   fSchemaRules(cl.fSchemaRules),
-  fAttributeMap(cl.fAttributeMap ? (TClassAttributeMap*)cl.fAttributeMap->Clone() : 0 ),
   fStreamerImpl(cl.fStreamerImpl)
 {
    //copy constructor
@@ -1283,8 +1280,6 @@ TClass::~TClass()
       }
       delete fConversionStreamerInfo;
    }
-
-   delete fAttributeMap;
 }
 
 //------------------------------------------------------------------------------
@@ -1748,14 +1743,16 @@ void TClass::BuildEmulatedRealData(const char *name, Long_t offset, TClass *cl)
                  etype == TVirtualStreamerInfo::kObject || 
                  etype == TVirtualStreamerInfo::kAny) {
          //member class
-         TRealData *rd = new TRealData(Form("%s%s",name,element->GetFullName()),offset+eoffset,0);
+         TString rdname; rdname.Form("%s%s",name,element->GetFullName());
+         TRealData *rd = new TRealData(rdname,offset+eoffset,0);
          if (gDebug > 0) printf(" Class: %s, adding TRealData=%s, offset=%ld\n",cl->GetName(),rd->GetName(),rd->GetThisOffset());
          cl->GetListOfRealData()->Add(rd);
-         TString rdname(Form("%s%s.",name,element->GetFullName()));
+         // Now we a dot
+         rdname.Form("%s%s.",name,element->GetFullName());
          if (cle) cle->BuildEmulatedRealData(rdname,offset+eoffset,cl);
       } else {
          //others
-         TString rdname(Form("%s%s",name,element->GetFullName()));
+         TString rdname; rdname.Form("%s%s",name,element->GetFullName());
          TRealData *rd = new TRealData(rdname,offset+eoffset,0);
          if (gDebug > 0) printf(" Class: %s, adding TRealData=%s, offset=%ld\n",cl->GetName(),rd->GetName(),rd->GetThisOffset());
          cl->GetListOfRealData()->Add(rd);
@@ -2102,17 +2099,6 @@ void TClass::CopyCollectionProxy(const TVirtualCollectionProxy &orig)
    fCollectionProxy = orig.Generate();
 }
 
-
-//______________________________________________________________________________
-void TClass::CreateAttributeMap()
-{
-   //Create a TClassAttributeMap for a TClass to be able to add attribute pairs
-   //key-value to the TClass.
-
-   if (!fAttributeMap)
-      fAttributeMap = new TClassAttributeMap;
-}
-
 //______________________________________________________________________________
 void TClass::Draw(Option_t *option)
 {
@@ -2180,22 +2166,22 @@ char *TClass::EscapeChars(const char *text) const
    // Introduce an escape character (@) in front of a special chars.
    // You need to use the result immediately before it is being overwritten.
 
-   static char name[128];
-   Int_t nch = strlen(text);
-   if (nch > 127) nch = 127;
-   Int_t icur = -1;
-   for (Int_t i = 0; i < nch; i++) {
-      icur++;
+   static const UInt_t maxsize = 255;
+   static char name[maxsize+2]; //One extra if last char needs to be escaped
+
+   UInt_t nch = strlen(text);
+   UInt_t icur = 0;
+   for (UInt_t i = 0; i < nch && icur < maxsize; ++i, ++icur) {
       if (text[i] == '\"' || text[i] == '[' || text[i] == '~' ||
           text[i] == ']'  || text[i] == '&' || text[i] == '#' ||
           text[i] == '!'  || text[i] == '^' || text[i] == '<' ||
           text[i] == '?'  || text[i] == '>') {
          name[icur] = '@';
-         icur++;
+         ++icur;
       }
       name[icur] = text[i];
    }
-   name[icur+1] = 0;
+   name[icur] = 0;
    return name;
 }
 
@@ -2525,6 +2511,7 @@ TClass *TClass::GetClass(const char *name, Bool_t load, Bool_t silent)
    // Returns 0 in case class is not found.
 
    if (!name || !strlen(name)) return 0;
+   R__LOCKGUARD(gCINTMutex);
    if (!gROOT->GetListOfClasses())    return 0;
 
    TClass *cl = (TClass*)gROOT->GetListOfClasses()->FindObject(name);
@@ -3738,7 +3725,7 @@ TVirtualStreamerInfo* TClass::GetStreamerInfoAbstractEmulated(Int_t version /* =
 }
 
 //______________________________________________________________________________
-void TClass::IgnoreTObjectStreamer(Bool_t ignore)
+void TClass::IgnoreTObjectStreamer(Bool_t ignr)
 {
    //  When the class kIgnoreTObjectStreamer bit is set, the automatically
    //  generated Streamer will not call TObject::Streamer.
@@ -3754,8 +3741,8 @@ void TClass::IgnoreTObjectStreamer(Bool_t ignore)
    //  To be effective for object streamed member-wise or split in a TTree,
    //  this function must be called for the most derived class (i.e. BigTrack).
 
-   if ( ignore &&  TestBit(kIgnoreTObjectStreamer)) return;
-   if (!ignore && !TestBit(kIgnoreTObjectStreamer)) return;
+   if ( ignr &&  TestBit(kIgnoreTObjectStreamer)) return;
+   if (!ignr && !TestBit(kIgnoreTObjectStreamer)) return;
    TVirtualStreamerInfo *sinfo = GetCurrentStreamerInfo();
    if (sinfo) {
       if (sinfo->IsCompiled()) {
@@ -3772,20 +3759,22 @@ void TClass::IgnoreTObjectStreamer(Bool_t ignore)
          return;
       }
    }
-   if (ignore) SetBit  (kIgnoreTObjectStreamer);
-   else        ResetBit(kIgnoreTObjectStreamer);
+   if (ignr) SetBit  (kIgnoreTObjectStreamer);
+   else      ResetBit(kIgnoreTObjectStreamer);
 }
 
 //______________________________________________________________________________
 Bool_t TClass::InheritsFrom(const char *classname) const
 {
    // Return kTRUE if this class inherits from a class with name "classname".
-   // note that the function returns KTRUE in case classname is the class itself
+   // note that the function returns kTRUE in case classname is the class itself
 
    if (strcmp(GetName(), classname) == 0) return kTRUE;
 
-   if (!fClassInfo) return InheritsFrom(TClass::GetClass("classname"));
+   if (!fClassInfo) return InheritsFrom(TClass::GetClass(classname));
 
+   // This is faster that calling TClass::GetClass as the search in only in
+   // the 'small' list of base class (rather than the list of classes).
    // cast const away (only for member fBase which can be set in GetListOfBases())
    if (((TClass *)this)->GetBaseClass(classname)) return kTRUE;
    return kFALSE;

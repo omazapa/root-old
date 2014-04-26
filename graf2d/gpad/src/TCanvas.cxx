@@ -752,8 +752,16 @@ void TCanvas::Close(Option_t *option)
    if (!IsBatch()) {
       gVirtualX->SelectWindow(fCanvasID);    //select current canvas
 
-      if (fGLDevice != -1)
+      if (fGLDevice != -1) {
+         gGLManager->MakeCurrent(fGLDevice);
+         //fPainter has a font manager.
+         //Font manager will delete textures.
+         //If context is wrong (we can have several canvases) -
+         //wrong texture will be deleted, damaging some of our fonts.
+         delete fPainter;
+         fPainter = 0;
          gGLManager->DeleteGLContext(fGLDevice);//?
+      }
 
       if (fCanvasImp) fCanvasImp->Close();
    }
@@ -1175,7 +1183,7 @@ void TCanvas::HandleInput(EEventType event, Int_t px, Int_t py)
       // mouse enters canvas
       if (!fDoubleBuffer) FeedbackMode(kTRUE);
       break;
-
+      
    case kMouseLeave:
       // mouse leaves canvas
       {
@@ -1212,6 +1220,8 @@ void TCanvas::HandleInput(EEventType event, Int_t px, Int_t py)
 
       break;
 
+   case kArrowKeyPress:
+   case kArrowKeyRelease:
    case kButton1Motion:
    case kButton1ShiftMotion: //8 == kButton1Motion + shift modifier
       if (fSelected) {
@@ -2099,6 +2109,18 @@ void TCanvas::ToggleToolTips()
 
    if (fCanvasImp) fCanvasImp->ShowToolTips(showToolTips);
 }
+
+
+//______________________________________________________________________________
+Bool_t TCanvas::SupportAlpha()
+{
+   // Static function returning "true" if transparency is supported.
+   //gPad must exist (otherwise this call has no sense), and
+   //either it's a gl-pad or we are on OS X with --enable-cocoa.
+   return gPad && (gVirtualX->InheritsFrom("TGQuartz") ||
+                   gPad->GetGLDevice() != -1);
+}
+
 
 //______________________________________________________________________________
 void TCanvas::Update()

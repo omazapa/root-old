@@ -6,7 +6,9 @@
 #
 # Author: Fons Rademakers, 29/2/2000
 
+ifeq ($(ROOTSYS),)
 ROOTSYS = ../../../..
+endif
 include $(ROOTSYS)/etc/Makefile.arch
 
 #------------------------------------------------------------------------------
@@ -31,6 +33,10 @@ DEMOGAUSSSIM       = test_Minuit2_DemoGaussSim$(ExeSuf)
 DEMOFUMILISRC     = DemoFumili.$(SrcSuf) GaussDataGen.$(SrcSuf) 
 DEMOFUMILIOBJ     = DemoFumili.$(ObjSuf) GaussDataGen.$(ObjSuf) 
 DEMOFUMILI        = test_Minuit2_DemoFumili$(ExeSuf)
+
+DEMOMINIMIZERSRC     = demoMinimizer.$(SrcSuf)
+DEMOMINIMIZEROBJ     = demoMinimizer.$(ObjSuf)
+DEMOMINIMIZER        = test_Minuit2_DemoMinimizer$(ExeSuf)
 
 PTESTSRC    = PaulTest.$(SrcSuf) GaussFcn.$(SrcSuf)
 PTESTOBJ    = PaulTest.$(ObjSuf) GaussFcn.$(ObjSuf)
@@ -57,14 +63,19 @@ PARATESTOBJ    = ParallelTest.$(ObjSuf) GaussDataGen.$(ObjSuf)
 PARATEST       = test_Minuit2_Parallel$(ExeSuf)
 
 
-OBJS          = $(DEMOGAUSSSIMOBJ) $(DEMOFUMILIOBJ) $(PTESTOBJ) $(PTEST2OBJ) $(PTEST3OBJ) $(PTEST4OBJ) $(RTESTOBJ) $(PARATESTOBJ)
+OBJS          = $(DEMOGAUSSSIMOBJ) $(DEMOFUMILIOBJ) $(PTESTOBJ) $(PTEST2OBJ) $(PTEST3OBJ) $(PTEST4OBJ) $(RTESTOBJ) $(PARATESTOBJ) $(DEMOMINIMIZEROBJ)
 
-PROGRAMS      = $(DEMOGAUSSSIM) $(DEMOFUMILI) $(PTEST) $(PTEST2) $(PTEST3) $(PTEST4) $(RTEST) $(PARATEST)
+PROGRAMS      = $(DEMOGAUSSSIM) $(DEMOFUMILI) $(PTEST) $(PTEST2) $(PTEST3) $(PTEST4) $(RTEST) $(PARATEST) $(DEMOMINIMIZER)
 
 .SUFFIXES: .$(SrcSuf) .$(ObjSuf) $(ExeSuf)
 
 
 all:            $(PROGRAMS)
+
+$(DEMOMINIMIZER): 	$(DEMOMINIMIZEROBJ) 
+			$(LD) $(LDFLAGS) $^ $(LIBS) $(OutPutOpt)$@
+			@echo "$@ done"
+
 
 $(DEMOGAUSSSIMOBJ) : GaussFunction.h GaussRandomGen.h GaussDataGen.h FlatRandomGen.h GaussFcn.h
 $(DEMOGAUSSSIM): 	$(DEMOGAUSSSIMOBJ)

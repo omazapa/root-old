@@ -30,8 +30,12 @@
 #include "TTree.h"
 #include "TGListBox.h"
 #include "TGedPatternSelect.h"
+#include "TPad.h"
+#include "TCanvas.h"
 
 #include "Riostream.h"
+
+#include "TROOT.h"
 
 ClassImp(TParallelCoordEditor)
 
@@ -65,6 +69,8 @@ enum EParallelWid {
    kGlobalLineWidth,
    kDotsSpacing,
    kDotsSpacingField,
+   kAlpha,
+   kAlphaField,
    kSelectionSelect,
    kSelectLineColor,
    kSelectLineWidth,
@@ -113,19 +119,37 @@ TParallelCoordEditor::TParallelCoordEditor(const TGWindow* /*p*/,
    f1->AddFrame(fGlobalLineWidth, new TGLayoutHints(kLHintsLeft, 3, 1, 1, 1));
    AddFrame(f1, new TGLayoutHints(kLHintsLeft | kLHintsTop));
 
-   AddFrame(new TGLabel(this,"Dots spacing"),
-            new TGLayoutHints(kLHintsLeft | kLHintsCenterY));
+   if (!TCanvas::SupportAlpha()) {
 
-   TGHorizontalFrame *f2 = new TGHorizontalFrame(this);
-   fDotsSpacing = new TGHSlider(f2,100,kSlider1|kScaleBoth,kDotsSpacing);
-   fDotsSpacing->SetRange(0,60);
-   f2->AddFrame(fDotsSpacing,new TGLayoutHints(kLHintsLeft | kLHintsCenterY));
-   fDotsSpacingField = new TGNumberEntryField(f2, kDotsSpacingField, 0,
-                                              TGNumberFormat::kNESInteger,
-                                              TGNumberFormat::kNEANonNegative);
-   fDotsSpacingField->Resize(40,20);
-   f2->AddFrame(fDotsSpacingField,new TGLayoutHints(kLHintsLeft | kLHintsCenterY));
-   AddFrame(f2, new TGLayoutHints(kLHintsLeft | kLHintsCenterY));
+      AddFrame(new TGLabel(this,"Dots spacing"),
+               new TGLayoutHints(kLHintsLeft | kLHintsCenterY));
+      
+      TGHorizontalFrame *f2 = new TGHorizontalFrame(this);
+      fDotsSpacing = new TGHSlider(f2,100,kSlider2|kScaleNo,kDotsSpacing);
+      fDotsSpacing->SetRange(0,60);
+      f2->AddFrame(fDotsSpacing,new TGLayoutHints(kLHintsLeft | kLHintsCenterY));
+      fDotsSpacingField = new TGNumberEntryField(f2, kDotsSpacingField, 0,
+                                                 TGNumberFormat::kNESInteger,
+                                                 TGNumberFormat::kNEANonNegative);
+      fDotsSpacingField->Resize(40,20);
+      f2->AddFrame(fDotsSpacingField,new TGLayoutHints(kLHintsLeft | kLHintsCenterY));
+      AddFrame(f2, new TGLayoutHints(kLHintsLeft | kLHintsCenterY));
+   }
+   else {
+      TGLabel *AlphaLabel = new TGLabel(this,"Opacity");
+      AddFrame(AlphaLabel,
+               new TGLayoutHints(kLHintsLeft | kLHintsCenterY));
+      TGHorizontalFrame *f2a = new TGHorizontalFrame(this);
+      fAlpha = new TGHSlider(f2a,100,kSlider2|kScaleNo,kAlpha);
+      fAlpha->SetRange(0,1000);
+      f2a->AddFrame(fAlpha,new TGLayoutHints(kLHintsLeft | kLHintsCenterY));
+      fAlphaField = new TGNumberEntryField(f2a, kAlphaField, 0,
+                                           TGNumberFormat::kNESReal,
+                                           TGNumberFormat::kNEANonNegative);
+      fAlphaField->Resize(40,20);
+      f2a->AddFrame(fAlphaField,new TGLayoutHints(kLHintsLeft | kLHintsCenterY));
+      AddFrame(f2a, new TGLayoutHints(kLHintsLeft | kLHintsCenterY));
+   }
 
    fLineTypeBgroup = new TGButtonGroup(this,2,1,0,0, "Line type");
    fLineTypeBgroup->SetRadioButtonExclusive(kTRUE);
@@ -190,7 +214,7 @@ TParallelCoordEditor::TParallelCoordEditor(const TGWindow* /*p*/,
    fDelayDrawing = new TGCheckButton(this,"Delay Drawing", kDelayDrawing);
    AddFrame(fDelayDrawing);
 
-   fEntriesToDraw = new TGDoubleHSlider(this,140,kDoubleScaleBoth,kEntriesToDraw);
+   fEntriesToDraw = new TGDoubleHSlider(this,140,kDoubleScaleNo,kEntriesToDraw);
    AddFrame(fEntriesToDraw);
 
    TGHorizontalFrame *f6 = new TGHorizontalFrame(this);
@@ -215,7 +239,7 @@ TParallelCoordEditor::TParallelCoordEditor(const TGWindow* /*p*/,
    AddFrame(new TGLabel(this,"Weight cut:"));
 
    TGHorizontalFrame *f8 = new TGHorizontalFrame(this);
-   fWeightCut = new TGHSlider(f8,100,kSlider1|kScaleBoth,kDotsSpacing);
+   fWeightCut = new TGHSlider(f8,100,kSlider2|kScaleNo,kDotsSpacing);
    fWeightCutField = new TGNumberEntryField(f8,kDotsSpacingField, 0,
                                             TGNumberFormat::kNESInteger,
                                             TGNumberFormat::kNEANonNegative);
@@ -283,9 +307,9 @@ void TParallelCoordEditor::MakeVariablesTab()
 
    fHistShowBoxes = new TGCheckButton(fVarTab,"Show box histograms");
    fVarTab->AddFrame(fHistShowBoxes);
-   
+
    fVarTab->AddFrame(new TGLabel(fVarTab,"Bar histograms style:"));
-   
+
    TGCompositeFrame *f13 = new TGCompositeFrame(fVarTab, 80, 20, kHorizontalFrame);
    fHistColorSelect = new TGColorSelect(f13, 0, kHistColorSelect);
    f13->AddFrame(fHistColorSelect, new TGLayoutHints(kLHintsLeft, 1, 1, 1, 1));
@@ -352,7 +376,7 @@ void TParallelCoordEditor::CleanUpSelections()
 void TParallelCoordEditor::CleanUpVariables()
 {
    // Clean up the variables combo box.
-   
+
    TList *list = fParallel->GetVarList();
    fVariables->RemoveAll();
    Bool_t enable = list->GetSize() > 0;
@@ -387,12 +411,22 @@ void TParallelCoordEditor::ConnectSignals2Slots()
                              this, "DoGlobalLineColor(Pixel_t)");
    fGlobalLineWidth->Connect("Selected(Int_t)","TParallelCoordEditor",
                              this, "DoGlobalLineWidth(Int_t)");
-   fDotsSpacing->Connect("Released()","TParallelCoordEditor",
-                        this, "DoDotsSpacing()");
-   fDotsSpacing->Connect("PositionChanged(Int_t)","TParallelCoordEditor",
-                        this, "DoLiveDotsSpacing(Int_t)");
-   fDotsSpacingField->Connect("ReturnPressed()","TParallelCoordEditor",
-                              this, "DoDotsSpacingField()");
+   if (!TCanvas::SupportAlpha()) {
+      fDotsSpacing->Connect("Released()","TParallelCoordEditor",
+                           this, "DoDotsSpacing()");
+      fDotsSpacing->Connect("PositionChanged(Int_t)","TParallelCoordEditor",
+                           this, "DoLiveDotsSpacing(Int_t)");
+      fDotsSpacingField->Connect("ReturnPressed()","TParallelCoordEditor",
+                                 this, "DoDotsSpacingField()");
+   }
+   else {
+      fAlpha->Connect("Released()","TParallelCoordEditor",
+                           this, "DoAlpha()");
+      fAlpha->Connect("PositionChanged(Int_t)","TParallelCoordEditor",
+                           this, "DoLiveAlpha(Int_t)");
+      fAlphaField->Connect("ReturnPressed()","TParallelCoordEditor",
+                           this, "DoAlphaField()");
+   }
    fLineTypeBgroup->Connect("Clicked(Int_t)", "TParallelCoordEditor",
                             this, "DoLineType()");
    fSelectionSelect->Connect("Selected(const char*)","TParallelCoordEditor",
@@ -477,12 +511,12 @@ void TParallelCoordEditor::DoAddSelection()
    // Slot to add a selection.
 
    TString title = fAddSelectionField->GetText();
-   if(title == "") title = "Selection";
+   if (title == "") title = "Selection";
    TString titlebis = title;
    Bool_t found = kTRUE;
    Int_t i=1;
    while (found){
-      if(fSelectionSelect->FindEntry(titlebis)) {
+      if (fSelectionSelect->FindEntry(titlebis)) {
          titlebis = title;
          titlebis.Append(Form("(%d)",i));
       }
@@ -516,7 +550,7 @@ void TParallelCoordEditor::DoApplySelect()
 
    //FIXME I forgot to update the slider over the entries
    //      (nentries and firstentry might have changed after applying the selection)
-   
+
    if (fAvoidSignal) return;
 
    fParallel->ApplySelectionToTree();
@@ -560,7 +594,7 @@ void TParallelCoordEditor::DoDeleteVar()
 
    TParallelCoordVar* var = fParallel->RemoveVariable(((TGTextLBEntry*)fVariables->GetSelectedEntry())->GetTitle());
    CleanUpVariables();
-   if(var) Update();
+   if (var) Update();
 }
 
 
@@ -589,6 +623,33 @@ void TParallelCoordEditor::DoDotsSpacingField()
    Update();
 }
 
+//______________________________________________________________________________
+void TParallelCoordEditor::DoAlphaField()
+{
+   // Slot to set the alpha value from the entry field.
+
+   if (fAvoidSignal) return;
+
+   if (TColor *color = gROOT->GetColor(fParallel->GetLineColor())) {
+      color->SetAlpha((Float_t)fAlphaField->GetNumber());
+      fAlpha->SetPosition((Int_t)fAlphaField->GetNumber()*1000);
+   }
+   Update();
+}
+
+//______________________________________________________________________________
+void TParallelCoordEditor::DoAlpha()
+{
+   // Slot to set the alpha value
+
+   if (fAvoidSignal) return;
+
+   if (TColor *color = gROOT->GetColor(fParallel->GetLineColor())) {
+      color->SetAlpha((Float_t)fAlpha->GetPosition()/1000);
+      fAlphaField->SetNumber((Float_t)fAlpha->GetPosition()/1000);
+   }
+   Update();
+}
 
 //______________________________________________________________________________
 void TParallelCoordEditor::DoEntriesToDraw()
@@ -627,7 +688,12 @@ void TParallelCoordEditor::DoGlobalLineColor(Pixel_t a)
 
    if (fAvoidSignal) return;
 
-   fParallel->SetLineColor(TColor::GetColor(a));
+   if (TColor *color = gROOT->GetColor(fParallel->GetLineColor())) {
+      color->SetAlpha(1);
+      color = gROOT->GetColor(TColor::GetColor(a));
+      color->SetAlpha((Float_t)fAlphaField->GetNumber());
+      fParallel->SetLineColor(color->GetNumber());
+   }
    Update();
 }
 
@@ -679,7 +745,7 @@ void TParallelCoordEditor::DoHistColorSelect(Pixel_t p)
    // Slot to set the histograms color.
 
    if (fAvoidSignal) return;
-   
+
    Color_t col = TColor::GetColor(p);
    TIter next(fParallel->GetVarList());
    TParallelCoordVar *var = NULL;
@@ -708,7 +774,7 @@ void TParallelCoordEditor::DoHistPatternSelect(Style_t sty)
    // Slot to set the histograms fill style.
 
    if (fAvoidSignal) return;
-   
+
    TIter next(fParallel->GetVarList());
    TParallelCoordVar *var = NULL;
    while ((var = (TParallelCoordVar*)next())) var->SetFillStyle(sty);
@@ -735,7 +801,7 @@ void TParallelCoordEditor::DoLineType()
 
    if (fAvoidSignal) return;
 
-   if(fLineTypePoly->GetState() == kButtonDown) fParallel->SetCurveDisplay(kFALSE);
+   if (fLineTypePoly->GetState() == kButtonDown) fParallel->SetCurveDisplay(kFALSE);
    else fParallel->SetCurveDisplay(kTRUE);
    Update();
 }
@@ -749,9 +815,21 @@ void TParallelCoordEditor::DoLiveDotsSpacing(Int_t a)
    if (fAvoidSignal) return;
    fDotsSpacingField->SetNumber(a);
    fParallel->SetDotsSpacing(a);
-   if(!fDelay) Update();
+   if (!fDelay) Update();
 }
 
+
+//______________________________________________________________________________
+void TParallelCoordEditor::DoLiveAlpha(Int_t a)
+{
+   // Slot to set alpha value online.
+
+   if (fAvoidSignal) return;
+   fAlphaField->SetNumber((Float_t)a/1000);
+
+   if (TColor *color = gROOT->GetColor(fParallel->GetLineColor())) color->SetAlpha((Float_t)a/1000);
+   if (!fDelay) Update();
+}
 
 //______________________________________________________________________________
 void TParallelCoordEditor::DoLiveEntriesToDraw()
@@ -818,7 +896,7 @@ void TParallelCoordEditor::DoPaintEntries(Bool_t on)
 //______________________________________________________________________________
 void TParallelCoordEditor::DoSelectLineColor(Pixel_t a)
 {
-   // Slot to set the global line color.
+   // Slot to set the line color of selection.
 
    if (fAvoidSignal) return;
 
@@ -832,7 +910,7 @@ void TParallelCoordEditor::DoSelectLineColor(Pixel_t a)
 //______________________________________________________________________________
 void TParallelCoordEditor::DoSelectLineWidth(Int_t wid)
 {
-   // Slot to set the global line width.
+   // Slot to set the line width of selection.
 
    if (fAvoidSignal) return;
 
@@ -896,8 +974,6 @@ void TParallelCoordEditor::DoUnApply()
 void TParallelCoordEditor::DoVariableSelect(const char* /*var*/)
 {
    // Slot to select a variable.
-
-   //cout<<((TGTextLBEntry*)fVariables->GetSelectedEntry())->GetTitle()<<endl;
 }
 
 
@@ -932,16 +1008,23 @@ void TParallelCoordEditor::SetModel(TObject* obj)
 
    fPaintEntries->SetOn(fParallel->TestBit(TParallelCoord::kPaintEntries));
 
-   fDotsSpacing->SetPosition(fParallel->GetDotsSpacing());
-
-   fDotsSpacingField->SetNumber(fParallel->GetDotsSpacing());
+   if (!TCanvas::SupportAlpha()) {
+      fDotsSpacing->SetPosition(fParallel->GetDotsSpacing());
+      fDotsSpacingField->SetNumber(fParallel->GetDotsSpacing());
+   }
+   else {
+      if (TColor *color = gROOT->GetColor(fParallel->GetLineColor())) {
+         fAlpha->SetPosition((Int_t)color->GetAlpha()*1000);
+         fAlphaField->SetNumber(color->GetAlpha());
+      }
+   }
 
    Bool_t cur = fParallel->GetCurveDisplay();
    if (cur) fLineTypeBgroup->SetButton(kLineTypeCurves,kTRUE);
    else     fLineTypeBgroup->SetButton(kLineTypePoly,kTRUE);
 
-   if(fInit) fHideAllRanges->SetOn(kFALSE);
-   
+   if (fInit) fHideAllRanges->SetOn(kFALSE);
+
    CleanUpSelections();
    CleanUpVariables();
 
@@ -956,10 +1039,10 @@ void TParallelCoordEditor::SetModel(TObject* obj)
    fWeightCut->SetRange(0,(Int_t)(fParallel->GetNentries()/10)); // Maybe search here for better boundaries.
    fWeightCut->SetPosition(fParallel->GetWeightCut());
    fWeightCutField->SetNumber(fParallel->GetWeightCut());
-   
+
    fHistColorSelect->SetColor(TColor::Number2Pixel(((TParallelCoordVar*)fParallel->GetVarList()->Last())->GetFillColor()), kFALSE);
    fHistPatternSelect->SetPattern(((TParallelCoordVar*)fParallel->GetVarList()->Last())->GetFillStyle(),kFALSE);
-   
+
    if (fInit) ConnectSignals2Slots();
 
    fAvoidSignal = kFALSE;

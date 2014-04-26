@@ -21,6 +21,7 @@
 #include "CocoaUtils.h"
 #include "TVirtualX.h"
 #include "TError.h"
+#include "TROOT.h"
 
 //The special class to perform a selector to stop a -run: method.
 @interface RunStopper : NSObject
@@ -28,19 +29,23 @@
 
 @implementation RunStopper
 
-//We attach this delegate only once, when trying to initialize NSApplication (by calling its -run method).
+//We attach this delegate only once, when trying to initialize
+//NSApplication (by calling its -run method).
 //______________________________________________________________________________
 - (void) stopRun
 {
    [NSApp stop : nil];
    //This is not enough to stop, from docs:
-   //This method notifies the application that you want to exit the current run loop as soon as it finishes processing the current NSEvent object.
-   //This method does not forcibly exit the current run loop. Instead it sets a flag that the application checks only after it finishes dispatching an actual event object.
+   //This method notifies the application that you want to exit the current run loop
+   //as soon as it finishes processing the current NSEvent object.
+   //This method does not forcibly exit the current run loop. Instead it sets a flag
+   //that the application checks only after it finishes dispatching an actual event object.
 
 
    //I'm sending a fake event, to stop.
-   NSEvent* stopEvent = [NSEvent otherEventWithType: NSApplicationDefined location: NSMakePoint(0,0) modifierFlags: 0 timestamp: 0.0
-                                 windowNumber: 0 context: nil subtype: 0 data1: 0 data2: 0];
+   NSEvent* stopEvent = [NSEvent otherEventWithType : NSApplicationDefined
+                         location : NSMakePoint(0., 0.) modifierFlags : 0 timestamp : 0.
+                                 windowNumber : 0 context : nil subtype: 0 data1 : 0 data2 : 0];
    [NSApp postEvent : stopEvent atStart : true];
 }
 
@@ -71,7 +76,13 @@ private:
 public:
    TFdSet() { memset(fds_bits, 0, sizeof(fds_bits)); }
    TFdSet(const TFdSet &org) { memcpy(fds_bits, org.fds_bits, sizeof(org.fds_bits)); }
-   TFdSet &operator=(const TFdSet &rhs) { if (this != &rhs) { memcpy(fds_bits, rhs.fds_bits, sizeof(rhs.fds_bits));} return *this; }
+   TFdSet &operator=(const TFdSet &rhs)
+   {
+      if (this != &rhs) {
+         memcpy(fds_bits, rhs.fds_bits, sizeof(rhs.fds_bits));
+      }
+      return *this;
+   }
    void   Zero() { memset(fds_bits, 0, sizeof(fds_bits)); }
    void   Set(Int_t n)
    {
@@ -112,10 +123,7 @@ public:
 
    void InitializeCocoa();
 
-   void AddFileHandler(TFileHandler *fh);
-   void RemoveFileHandler(TFileHandler *fh);
-
-   bool SetFileDescriptors();
+   bool SetFileDescriptors(const TSeqCollection *fileHandlers);
    void UnregisterFileDescriptor(CFFileDescriptorRef fd);
    void CloseFileDescriptors();
 
@@ -125,15 +133,7 @@ public:
    };
 
    //Before I had C++11 and auto, now I have ugly typedefs.
-   typedef std::map<int, unsigned> fd_map_type;
-   typedef fd_map_type::iterator fd_map_iterator;
-   typedef fd_map_type::const_iterator const_fd_map_iterator;
-   
-   fd_map_type fReadFds;
-   fd_map_type fWriteFds;
-   
-   static void RemoveFileDescriptor(fd_map_type &fdTable, int fd);
-   void SetFileDescriptors(const fd_map_type &fdTable, DescriptorType fdType);
+   void SetFileDescriptor(int fd, DescriptorType fdType);
 
    std::set<CFFileDescriptorRef> fCFFileDescriptors;
 
@@ -160,8 +160,10 @@ void TMacOSXSystem_ReadCallback(CFFileDescriptorRef fdref, CFOptionFlags /*callB
    CFFileDescriptorInvalidate(fdref);
    CFRelease(fdref);
 
-   NSEvent *fdEvent = [NSEvent otherEventWithType : NSApplicationDefined location : NSMakePoint(0, 0) modifierFlags : 0
-                       timestamp: 0. windowNumber : 0 context : nil subtype : 0 data1 : nativeFD data2 : 0];
+   NSEvent *fdEvent = [NSEvent otherEventWithType : NSApplicationDefined
+                       location : NSMakePoint(0, 0) modifierFlags : 0
+                       timestamp: 0. windowNumber : 0 context : nil
+                       subtype : 0 data1 : nativeFD data2 : 0];
    [NSApp postEvent : fdEvent atStart : NO];
 }
 
@@ -178,8 +180,10 @@ void TMacOSXSystem_WriteCallback(CFFileDescriptorRef fdref, CFOptionFlags /*call
    CFFileDescriptorInvalidate(fdref);
    CFRelease(fdref);
 
-   NSEvent *fdEvent = [NSEvent otherEventWithType : NSApplicationDefined location : NSMakePoint(0, 0) modifierFlags : 0
-                       timestamp: 0. windowNumber : 0 context : nil subtype : 0 data1 : nativeFD data2 : 0];
+   NSEvent *fdEvent = [NSEvent otherEventWithType : NSApplicationDefined
+                       location : NSMakePoint(0, 0) modifierFlags : 0
+                       timestamp: 0. windowNumber : 0 context : nil
+                       subtype : 0 data1 : nativeFD data2 : 0];
    [NSApp postEvent : fdEvent atStart : NO];
 }
 
@@ -212,50 +216,29 @@ void MacOSXSystem::InitializeCocoa()
 }
 
 //______________________________________________________________________________
-void MacOSXSystem::AddFileHandler(TFileHandler *fh)
-{
-   //Can throw std::bad_alloc. I'm not allocating any resources here.
-   assert(fh != 0 && "AddFileHandler, fh parameter is null");
-   
-   if (fh->HasReadInterest())
-      fReadFds[fh->GetFd()]++;
-   
-   //Can we have "duplex" fds?
-
-   if (fh->HasWriteInterest())
-      fWriteFds[fh->GetFd()]++;
-}
-
-//______________________________________________________________________________
-void MacOSXSystem::RemoveFileHandler(TFileHandler *fh)
-{
-   //Can not throw.
-
-   //ROOT has obvious bugs somewhere: the same fd can be removed MORE times,
-   //than it was added.
-
-   assert(fh != 0 && "RemoveFileHandler, fh parameter is null");
-
-   if (fh->HasReadInterest())
-      RemoveFileDescriptor(fReadFds, fh->GetFd());
-   
-   if (fh->HasWriteInterest())
-      RemoveFileDescriptor(fWriteFds, fh->GetFd());
-}
-
-//______________________________________________________________________________
-bool MacOSXSystem::SetFileDescriptors()
+bool MacOSXSystem::SetFileDescriptors(const TSeqCollection *fileHandlers)
 {
    //Allocates some resources and can throw.
    //So, make sure resources are freed correctly
    //in case of exception (std::bad_alloc) and
    //return false. Return true if everything is ok.
 
+   assert(fileHandlers != 0 && "SetFileDescriptors, parameter 'fileHandlers' is null");
+
    try {
-      if (fReadFds.size())
-         SetFileDescriptors(fReadFds, kDTRead);
-      if (fWriteFds.size())
-         SetFileDescriptors(fWriteFds, kDTWrite);
+      //This iteration is really stupid: add a null pointer into the middle of collection
+      //and it will stop in the middle! AddFileHandler has a check for this.
+
+      TIter next(fileHandlers);
+      while (TFileHandler * const handler = static_cast<TFileHandler *>(next())) {
+         assert(handler->GetFd() != -1 && "SetFileDescriptors, invalid file descriptor");
+         
+         if (handler->HasReadInterest())
+            SetFileDescriptor(handler->GetFd(), kDTRead);
+         
+         if (handler->HasWriteInterest())
+            SetFileDescriptor(handler->GetFd(), kDTWrite);
+      }
    } catch (const std::exception &) {
       CloseFileDescriptors();
       return false;
@@ -281,7 +264,9 @@ void MacOSXSystem::CloseFileDescriptors()
    //While Core Foundation is not Cocoa, it still should not be used if we are not initializing Cocoa.
    assert(fCocoaInitialized == true && "CloseFileDescriptors, Cocoa was not initialized");
 
-   for (std::set<CFFileDescriptorRef>::iterator fdIter = fCFFileDescriptors.begin(), end = fCFFileDescriptors.end(); fdIter != end; ++fdIter) {
+   std::set<CFFileDescriptorRef>::iterator fdIter = fCFFileDescriptors.begin(), end = fCFFileDescriptors.end();
+
+   for (; fdIter != end; ++fdIter) {
       CFFileDescriptorInvalidate(*fdIter);
       CFRelease(*fdIter);
    }   
@@ -290,49 +275,32 @@ void MacOSXSystem::CloseFileDescriptors()
 }
 
 //______________________________________________________________________________
-void MacOSXSystem::RemoveFileDescriptor(fd_map_type &fdTable, int fd)
-{
-   fd_map_iterator fdIter = fdTable.find(fd);
-
-   if (fdIter != fdTable   .end()) {
-      assert(fdIter->second != 0 && "RemoveFD, 'dead' descriptor in a table");
-      if (!(fdIter->second - 1))
-         fdTable.erase(fdIter);
-      else
-         --fdIter->second;
-   } else {
-      //I had to comment warning, many thanks to ROOT for this bizarre thing.
-      //::Warning("RemoveFileDescriptor", "Descriptor %d was not found in a table", fd);
-   }
-}
-
-//______________________________________________________________________________
-void MacOSXSystem::SetFileDescriptors(const fd_map_type &fdTable, DescriptorType fdType)
+void MacOSXSystem::SetFileDescriptor(int fd, DescriptorType fdType)
 {
    //While CoreFoundation is not Cocoa, it still should not be used if we are not initializing Cocoa.
    assert(fCocoaInitialized == true && "SetFileDescriptors, Cocoa was not initialized");
+   //-1 can come from TSysEvtHandler's ctor.
+   assert(fd != -1 && "SetFileDescriptor, invalid file descriptor");
 
-   for (const_fd_map_iterator fdIter = fdTable.begin(), end = fdTable.end(); fdIter != end; ++fdIter) {
-      const bool read = fdType == kDTRead;
-      CFFileDescriptorRef fdref = CFFileDescriptorCreate(kCFAllocatorDefault, fdIter->first, false, read ? TMacOSXSystem_ReadCallback : TMacOSXSystem_WriteCallback, 0);
+   const bool read = fdType == kDTRead;
+   CFFileDescriptorRef fdref = CFFileDescriptorCreate(kCFAllocatorDefault, fd, false,
+                               read ? TMacOSXSystem_ReadCallback : TMacOSXSystem_WriteCallback, 0);
 
-      if (!fdref)
-         throw std::runtime_error("MacOSXSystem::SetFileDescriptors: CFFileDescriptorCreate failed");
+   if (!fdref)
+      throw std::runtime_error("MacOSXSystem::SetFileDescriptors: CFFileDescriptorCreate failed");
 
-      CFFileDescriptorEnableCallBacks(fdref, read ? kCFFileDescriptorReadCallBack : kCFFileDescriptorWriteCallBack);
-   
-      CFRunLoopSourceRef runLoopSource = CFFileDescriptorCreateRunLoopSource(kCFAllocatorDefault, fdref, 0);
+   CFFileDescriptorEnableCallBacks(fdref, read ? kCFFileDescriptorReadCallBack : kCFFileDescriptorWriteCallBack);
+   CFRunLoopSourceRef runLoopSource = CFFileDescriptorCreateRunLoopSource(kCFAllocatorDefault, fdref, 0);
       
-      if (!runLoopSource) {
-         CFRelease(fdref);
-         throw std::runtime_error("MacOSXSystem::SetFileDescriptors: CFFileDescriptorCreateRunLoopSource failed");
-      }
-
-      CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, kCFRunLoopDefaultMode);
-      CFRelease(runLoopSource);
-
-      fCFFileDescriptors.insert(fdref);
+   if (!runLoopSource) {
+      CFRelease(fdref);
+      throw std::runtime_error("MacOSXSystem::SetFileDescriptors: CFFileDescriptorCreateRunLoopSource failed");
    }
+
+   CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, kCFRunLoopDefaultMode);
+   CFRelease(runLoopSource);
+
+   fCFFileDescriptors.insert(fdref);
 }
 
 }//Detail
@@ -346,9 +314,9 @@ ClassImp(TMacOSXSystem)
 //______________________________________________________________________________
 TMacOSXSystem::TMacOSXSystem()
                   : fPimpl(new Private::MacOSXSystem),
-                    fCocoaInitialized(false)
+                    fCocoaInitialized(false),
+                    fFirstDispatch(true)
 {
-   InitializeCocoa();
 }
 
 //______________________________________________________________________________
@@ -361,6 +329,13 @@ void TMacOSXSystem::DispatchOneEvent(Bool_t pendingOnly)
 {
    //Here I try to emulate TUnixSystem's behavior, which is quite twisted.
    //I'm not even sure, I need all this code :)
+   
+   if (fFirstDispatch) {
+      if (!fCocoaInitialized && !gROOT->IsBatch())
+         InitializeCocoa();
+
+      fFirstDispatch = false;
+   }
    
    if (!fCocoaInitialized)//We are in a batch mode (or 'batch').
       return TUnixSystem::DispatchOneEvent(pendingOnly);
@@ -465,7 +440,8 @@ void TMacOSXSystem::InitializeCocoa()
   
    const ROOT::MacOSX::Util::NSScopeGuard<RunStopper> stopper([[RunStopper alloc] init]);
 
-   [stopper.Get() performSelector : @selector(stopRun) withObject : nil afterDelay : 0.05];//Delay? What it should be?
+   //Delay? What it should be?
+   [stopper.Get() performSelector : @selector(stopRun) withObject : nil afterDelay : 0.05];
    [NSApp run];
    
    fCocoaInitialized = true;
@@ -477,7 +453,8 @@ bool TMacOSXSystem::ProcessPendingEvents()
    assert(fCocoaInitialized == true && "ProcessPendingEvents, called while Cocoa was not initialized");
 
    bool processed = false;
-   while (NSEvent *event = [NSApp nextEventMatchingMask : NSAnyEventMask untilDate : nil inMode : NSDefaultRunLoopMode dequeue : YES]) {
+   while (NSEvent *event = [NSApp nextEventMatchingMask : NSAnyEventMask
+                            untilDate : nil inMode : NSDefaultRunLoopMode dequeue : YES]) {
       [NSApp sendEvent : event];
       processed = true;
    }
@@ -491,7 +468,7 @@ void TMacOSXSystem::WaitEvents(Long_t nextto)
    
    assert(fCocoaInitialized == true && "WaitEvents, called while Cocoa was not initialized");
 
-   if (!fPimpl->SetFileDescriptors()) {
+   if (fFileHandler && !fPimpl->SetFileDescriptors(fFileHandler)) {
       //I consider this error as fatal.
       Fatal("WaitForAllEvents", "SetFileDesciptors failed");
    }
@@ -506,14 +483,18 @@ void TMacOSXSystem::WaitEvents(Long_t nextto)
    fWriteready->Zero();
    fNfd = 0;
 
-   NSEvent *event = [NSApp nextEventMatchingMask : NSAnyEventMask untilDate : untilDate inMode : NSDefaultRunLoopMode dequeue : YES];
+   NSEvent *event = [NSApp nextEventMatchingMask : NSAnyEventMask
+                     untilDate : untilDate inMode : NSDefaultRunLoopMode dequeue : YES];
+   if (event) {
+      if (event.type == NSApplicationDefined)
+         ProcessApplicationDefinedEvent(event);
+      else
+         [NSApp sendEvent : event];
+   }
 
-   if (event.type == NSApplicationDefined)
-      ProcessApplicationDefinedEvent(event);
-   else
-      [NSApp sendEvent : event];
-
-   while ((event = [NSApp nextEventMatchingMask : NSAnyEventMask untilDate : nil inMode : NSDefaultRunLoopMode dequeue : YES])) {
+   while ((event = [NSApp nextEventMatchingMask : NSAnyEventMask
+          untilDate : nil inMode : NSDefaultRunLoopMode dequeue : YES]))
+   {
       if (event.type == NSApplicationDefined)
          ProcessApplicationDefinedEvent(event);
       else
@@ -529,15 +510,21 @@ void TMacOSXSystem::WaitEvents(Long_t nextto)
 //______________________________________________________________________________
 void TMacOSXSystem::AddFileHandler(TFileHandler *fh)
 {
-   fPimpl->AddFileHandler(fh);
-   TUnixSystem::AddFileHandler(fh);
+   if (fh) {
+      if (fh->GetFd() == -1)//I do not need this crap!
+         Error("AddFileHandler", "invalid file descriptor");
+      else
+         TUnixSystem::AddFileHandler(fh);
+   }
 }
 
 //______________________________________________________________________________
 TFileHandler *TMacOSXSystem::RemoveFileHandler(TFileHandler *fh)
 {
-   fPimpl->RemoveFileHandler(fh);
-   return TUnixSystem::RemoveFileHandler(fh);
+   if (fh)
+      return TUnixSystem::RemoveFileHandler(fh);
+
+   return 0;
 }
 
 //______________________________________________________________________________
@@ -546,22 +533,23 @@ void TMacOSXSystem::ProcessApplicationDefinedEvent(void *e)
    //Right now I have app. defined events only
    //for file descriptors. This can change in a future.
    
-   assert(fCocoaInitialized == true && "ProcessApplicationDefinedEvent, called while Cocoa was not initialized");
+   assert(fCocoaInitialized == true &&
+          "ProcessApplicationDefinedEvent, called while Cocoa was not initialized");
    
    NSEvent *event = (NSEvent *)e;
-   assert(event != nil && "ProcessApplicationDefinedEvent, event parameter is nil");
-   assert(event.type == NSApplicationDefined && "ProcessApplicationDefinedEvent, event parameter has wrong type");
-   
-   Private::MacOSXSystem::fd_map_iterator fdIter = fPimpl->fReadFds.find(event.data1);
-   bool descriptorFound = false;
+   assert(event != nil &&
+          "ProcessApplicationDefinedEvent, event parameter is nil");
+   assert(event.type == NSApplicationDefined &&
+          "ProcessApplicationDefinedEvent, event parameter has wrong type");
 
-   if (fdIter != fPimpl->fReadFds.end()) {
+   bool descriptorFound = false;
+   
+   if (fReadmask->IsSet(event.data1)) {
       fReadready->Set(event.data1);
       descriptorFound = true;
    }
-   
-   fdIter = fPimpl->fWriteFds.find(event.data1);
-   if (fdIter != fPimpl->fWriteFds.end()) {
+
+   if (fWritemask->IsSet(event.data1)) {
       fWriteready->Set(event.data1);
       descriptorFound = true;
    }

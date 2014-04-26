@@ -916,12 +916,63 @@ Double_t TGeoSphere::DistToSphere(const Double_t *point, const Double_t *dir, Do
 }
 
 //_____________________________________________________________________________
-TGeoVolume *TGeoSphere::Divide(TGeoVolume * /*voldiv*/, const char * /*divname*/, Int_t /*iaxis*/, Int_t /*ndiv*/,
-                               Double_t /*start*/, Double_t /*step*/) 
+TGeoVolume *TGeoSphere::Divide(TGeoVolume * voldiv, const char * divname, Int_t iaxis, Int_t ndiv,
+                               Double_t start, Double_t step) 
 {
-// Divide all range of iaxis in range/step cells 
-   Error("Divide", "Division of a sphere not implemented");
-   return 0;
+   TGeoShape *shape;           //--- shape to be created
+   TGeoVolume *vol;            //--- division volume to be created
+   TGeoVolumeMulti *vmulti;    //--- generic divided volume
+   TGeoPatternFinder *finder;  //--- finder to be attached
+   TString opt = "";           //--- option to be attached
+   Int_t id;
+   Double_t end = start+ndiv*step;
+   switch (iaxis) {
+      case 1:  //---                R division
+         finder = new TGeoPatternSphR(voldiv, ndiv, start, end);
+         vmulti = gGeoManager->MakeVolumeMulti(divname, voldiv->GetMedium());
+         voldiv->SetFinder(finder);
+         finder->SetDivIndex(voldiv->GetNdaughters());
+         for (id=0; id<ndiv; id++) {
+            shape = new TGeoSphere(start+id*step, start+(id+1)*step, fTheta1,fTheta2,fPhi1,fPhi2);
+            vol = new TGeoVolume(divname, shape, voldiv->GetMedium());
+            vmulti->AddVolume(vol);
+            opt = "R";
+            voldiv->AddNodeOffset(vol, id, 0, opt.Data());
+            ((TGeoNodeOffset*)voldiv->GetNodes()->At(voldiv->GetNdaughters()-1))->SetFinder(finder);  
+         }
+         return vmulti;
+      case 2:  //---                Phi division
+         finder = new TGeoPatternSphPhi(voldiv, ndiv, start, end);
+         voldiv->SetFinder(finder);
+         finder->SetDivIndex(voldiv->GetNdaughters());
+         shape = new TGeoSphere(fRmin, fRmax, fTheta1, fTheta2, -step/2, step/2);
+         vol = new TGeoVolume(divname, shape, voldiv->GetMedium());
+         vmulti = gGeoManager->MakeVolumeMulti(divname, voldiv->GetMedium());
+         vmulti->AddVolume(vol);
+         opt = "Phi";
+         for (id=0; id<ndiv; id++) {
+            voldiv->AddNodeOffset(vol, id, start+id*step+step/2, opt.Data());
+            ((TGeoNodeOffset*)voldiv->GetNodes()->At(voldiv->GetNdaughters()-1))->SetFinder(finder);
+         }
+         return vmulti;
+      case 3:  //---                Theta division
+         finder = new TGeoPatternSphTheta(voldiv, ndiv, start, end);
+         vmulti = gGeoManager->MakeVolumeMulti(divname, voldiv->GetMedium());
+         voldiv->SetFinder(finder);
+         finder->SetDivIndex(voldiv->GetNdaughters());
+         for (id=0; id<ndiv; id++) {
+            shape = new TGeoSphere(fRmin,fRmax,start+id*step, start+(id+1)*step,fPhi1,fPhi2);
+            vol = new TGeoVolume(divname, shape, voldiv->GetMedium());
+            vmulti->AddVolume(vol);
+            opt = "Theta";
+            voldiv->AddNodeOffset(vol, id, 0, opt.Data());
+            ((TGeoNodeOffset*)voldiv->GetNodes()->At(voldiv->GetNdaughters()-1))->SetFinder(finder);
+         }
+         return vmulti;
+      default:
+         Error("Divide", "In shape %s wrong axis type for division", GetName());
+         return 0;
+   }
 }      
 
 //_____________________________________________________________________________
@@ -932,9 +983,9 @@ const char *TGeoSphere::GetAxisName(Int_t iaxis) const
       case 1:
          return "R";
       case 2:
-         return "THETA";
-      case 3:
          return "PHI";
+      case 3:
+         return "THETA";
       default:
          return "UNDEFINED";
    }

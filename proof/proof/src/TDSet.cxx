@@ -800,7 +800,7 @@ TDSet::TDSet(const TChain &chain, Bool_t withfriends)
    while ((elem = (TChainElement *)next())) {
       TString file(elem->GetTitle());
       TString tree(elem->GetName());
-      Int_t isl = tree.Index("/");
+      Int_t isl = tree.Last('/');
       TString dir = "/";
       if (isl >= 0) {
          // Copy the tree name specification
@@ -1025,7 +1025,7 @@ Bool_t TDSet::Add(const char *file, const char *objname, const char *dir,
    if (gProof && gProof->IsLite()) {
       TUrl u(file, kTRUE);
       if (!strcmp(u.GetProtocol(), "file")) {
-         fn = u.GetFile();
+         fn = u.GetFileAndOptions();
          gSystem->ExpandPathName(fn);
          if (!gSystem->IsAbsoluteFileName(fn))
             gSystem->PrependPathName(gSystem->WorkingDirectory(), fn);

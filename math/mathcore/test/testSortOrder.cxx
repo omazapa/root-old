@@ -8,12 +8,7 @@
 
 using namespace std;
 
-const int npass = 100000;
 const int maxint = 20;
-const int minsize = 20;
-const int maxsize = 500;
-const int increment = 10;
-const int arraysize = (maxsize-minsize)/10 + 1;
 
 #ifndef ROOT_TMath
 
@@ -69,7 +64,7 @@ template <typename T> bool testSort(const int n)
    cout << endl;
 
    for(Int_t i = 0; i < n; i++) { indexS[i] = i; }
-   std::sort(&indexS[0],&indexS[n], CompareDesc<const T*>(&k[0]) );
+   std::sort(&indexS[0],&indexS[0]+n, CompareDesc<const T*>(&k[0]) );
 
    cout << "std::sort[CompareDesc]\n\tindex = ";
    for ( Int_t i = 0; i < n; ++i )
@@ -90,7 +85,7 @@ template <typename T> bool testSort(const int n)
    cout << endl;
 
    for(Int_t i = 0; i < n; i++) { indexS[i] = i; }
-   std::sort(&indexS[0],&indexS[n], CompareAsc<const T*>(&k[0]) );
+   std::sort(&indexS[0],&indexS[0]+n, CompareAsc<const T*>(&k[0]) );
 
    cout << "std::sort[CompareAsc]\n\tindex = ";
    for ( Int_t i = 0; i < n; ++i )

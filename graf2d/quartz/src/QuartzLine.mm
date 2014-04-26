@@ -30,7 +30,11 @@ Bool_t SetLineColor(CGContextRef ctx, Color_t colorIndex)
 {
    assert(ctx != 0 && "SetLineColor, ctx parameter is null");
 
-   const TColor * const color = gROOT->GetColor(colorIndex);
+   const TColor *color = gROOT->GetColor(colorIndex);
+   //Do as TGX11 does.
+   if (!color)
+      color = gROOT->GetColor(kWhite);
+   
    if (!color)
       return kFALSE;
 
@@ -112,7 +116,7 @@ void SetLineWidth(CGContextRef ctx, Int_t width)
    if (width < 0)
       return;
 
-   CGContextSetLineWidth(ctx, width);
+   CGContextSetLineWidth(ctx, width ? width : 1);
 }
 
 //______________________________________________________________________________

@@ -162,6 +162,9 @@ namespace TMath {
    inline Double_t Exp(Double_t x);
    inline Double_t Ldexp(Double_t x, Int_t exp);
           Double_t Factorial(Int_t i);
+   inline LongDouble_t Power(LongDouble_t x, LongDouble_t y);
+   inline LongDouble_t Power(LongDouble_t x, Long64_t y);
+   inline LongDouble_t Power(Long64_t x, Long64_t y);
    inline Double_t Power(Double_t x, Double_t y);
    inline Double_t Power(Double_t x, Int_t y);
    inline Double_t Log(Double_t x);
@@ -489,6 +492,19 @@ inline Double_t TMath::Exp(Double_t x)
 inline Double_t TMath::Ldexp(Double_t x, Int_t exp)
    { return ldexp(x, exp); }
 
+inline LongDouble_t TMath::Power(LongDouble_t x, LongDouble_t y)
+   { return std::pow(x,y); }
+
+inline LongDouble_t TMath::Power(LongDouble_t x, Long64_t y)
+   { return std::pow(x,(LongDouble_t)y); }
+
+inline LongDouble_t TMath::Power(Long64_t x, Long64_t y)
+#if __cplusplus >= 201103 /*C++11*/
+   { return std::pow(x,y); }
+#else
+   { return std::pow((LongDouble_t)x,(LongDouble_t)y); }
+#endif
+
 inline Double_t TMath::Power(Double_t x, Double_t y)
    { return pow(x, y); }
 
@@ -499,6 +515,7 @@ inline Double_t TMath::Power(Double_t x, Int_t y) {
    return pow(x, (Double_t) y); 
 #endif
 }
+
 
 inline Double_t TMath::Log(Double_t x)
    { return log(x); }
@@ -771,20 +788,24 @@ Double_t TMath::RMS(Iterator first, Iterator last)
    // Note that this function returns the sigma(standard deviation) and
    // not the root mean square of the array.
 
+   // Use the two pass algorithm, which is slower (! a factor of 2) but much more 
+   // precise.  Since we have a vector the 2 pass algorithm is still faster than the 
+   // Welford algorithm. (See also ROOT-5545)
+
    Double_t n = 0;
 
-   Double_t tot = 0, tot2 =0, adouble;
+   Double_t tot = 0;
+   Double_t mean = TMath::Mean(first,last);
    while ( first != last ) {
-      adouble=Double_t(*first);
-      tot += adouble; tot2 += adouble*adouble;
+      Double_t x = Double_t(*first);
+      tot += (x - mean)*(x - mean); 
       ++first;
       ++n;
    }
-   Double_t n1 = 1./n;
-   Double_t mean = tot*n1;
-   Double_t rms = TMath::Sqrt(TMath::Abs(tot2*n1 -mean*mean));
+   Double_t rms = (n > 1) ? TMath::Sqrt(tot/(n-1)) : 0.0;
    return rms;
 }
+
 
 template <typename T>
 Double_t TMath::RMS(Long64_t n, const T *a)

@@ -37,6 +37,7 @@ class TProofMgr;
 class TProofQueryResult;
 class TServerSocket;
 class TSelector;
+class TPMERegexp;
 
 class TProofLite : public TProof {
 
@@ -60,6 +61,9 @@ private:
    TQueryResultManager *fQMgr; // Query-result manager
 
    TDataSetManager *fDataSetManager; // Dataset manager
+   TDataSetManagerFile *fDataSetStgRepo; // Dataset manager for staging requests
+
+   TPMERegexp *fReInvalid;  // Regular expression matching invalid dataset URIs
 
    static Int_t fgWrksMax; // Max number of workers
 
@@ -73,7 +77,7 @@ private:
    Int_t SetProofServEnv(const char *ord);
    Int_t InitDataSetManager();
 
-   void  ResolveKeywords(TString &s, const char *logfile);
+   void  ResolveKeywords(TString &s, const char *ord, const char *logfile);
 
    void  SendInputDataFile();
    void  ShowDataDir(const char *dirname);
@@ -148,6 +152,9 @@ public:
    void     ShowDataSets(const char *uri = "", const char * = 0);
    TFileCollection *GetDataSet(const char *uri, const char * = 0);
    Int_t    RemoveDataSet(const char *uri, const char * = 0);
+   Bool_t   RequestStagingDataSet(const char *dataset);
+   Bool_t   CancelStagingDataSet(const char *dataset);
+   TFileCollection *GetStagingStatusDataSet(const char *dataset);
    Int_t    VerifyDataSet(const char *uri, const char * = 0);
    Int_t    SetDataSetTreeName( const char *dataset, const char *treename);
    void     ShowDataSetCache(const char *dataset = 0);

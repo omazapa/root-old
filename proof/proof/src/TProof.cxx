@@ -1046,6 +1046,7 @@ void TProof::ParseConfigField(const char *config)
 
    TString sconf(config), opt;
    Ssiz_t from = 0;
+   Bool_t cpuPin = kFALSE;
 
    // Analysise the field
    const char *cq = (IsLite()) ? "\"" : "";
@@ -1169,6 +1170,33 @@ void TProof::ParseConfigField(const char *config)
 
          TProof::AddEnvVar("PROOF_ADDITIONALLOG", addLogExt.Data());
 
+      } else if (opt.BeginsWith("cpupin=")) {
+         // Enable CPU pinning. Takes as argument the list of processor IDs
+         // that will be used in order. Processor IDs are numbered from 0,
+         // use likwid to see how they are organized. A possible parameter
+         // format would be:
+         //
+         //   cpupin=3+4+0+9+10+22+7
+         //
+         // Only the specified processor IDs will be used in a round-robin
+         // fashion, dealing with the fact that you can request more workers
+         // than the number of processor IDs you have specified.
+         //
+         // To use all available processors in their order:
+         //
+         //   cpupin=*
+
+         opt.Remove(0, 7);
+
+         // Remove any char which is neither a number nor a plus '+'
+         for (Ssiz_t i=0; i<opt.Length(); i++) {
+            Char_t c = opt[i];
+            if ((c != '+') && ((c < '0') || (c > '9')))
+               opt[i] = '_';
+         }
+         opt.ReplaceAll("_", "");
+         TProof::AddEnvVar("PROOF_SLAVE_CPUPIN_ORDER", opt);
+         cpuPin = kTRUE;
       } else if (opt.BeginsWith("workers=")) {
 
          // Request for a given number of workers (within the max) or worker
@@ -1179,6 +1207,26 @@ void TProof::ParseConfigField(const char *config)
          TProof::AddEnvVar("PROOF_NWORKERS", opt);
       }
    }
+
+   // In case of PROOF-Lite, enable CPU pinning when requested (Linux only)
+   #ifdef R__LINUX
+   if (IsLite() && cpuPin) {
+      Printf("*** Requested CPU pinning ***");
+      const TList *ev = GetEnvVars();
+      const char *pinCmd = "taskset -c <cpupin>";
+      TString val;
+      TNamed *p;
+      if (ev && (p = dynamic_cast<TNamed *>(ev->FindObject("PROOF_SLAVE_WRAPPERCMD")))) {
+         val = p->GetTitle();
+         val.Insert(val.Length()-1, " ");
+         val.Insert(val.Length()-1, pinCmd);
+      }
+      else {
+         val.Form("\"%s\"", pinCmd);
+      }
+      TProof::AddEnvVar("PROOF_SLAVE_WRAPPERCMD", val.Data());
+   }
+   #endif
 }
 
 //______________________________________________________________________________
@@ -1701,6 +1749,7 @@ void TProof::Close(Option_t *opt)
          fAllUniqueSlaves->Clear("nodelete");
          fNonUniqueMasters->Clear("nodelete");
          fBadSlaves->Clear("nodelete");
+         fInactiveSlaves->Clear("nodelete");
          fSlaves->Delete();
       }
    }
@@ -5213,6 +5262,13 @@ Long64_t TProof::Process(TDSet *dset, const char *selector, Option_t *option,
    // Finalise output file settings (opt is ignored in here)
    if (HandleOutputOptions(opt, outfile, 1) != 0) return -1;
 
+   // Retrieve status from the output list
+   if (rv >= 0) {
+      TParameter<Long64_t> *sst =
+        (TParameter<Long64_t> *) fOutputList.FindObject("PROOF_SelectorStatus");
+      if (sst) rv = sst->GetVal();
+   }
+
    if (fSync) {
       // reactivate the default application interrupt handler
       if (sh)
@@ -5535,6 +5591,7 @@ Long64_t TProof::Process(const char *dsetname, const char *selector,
    } else {
       delete dset;
    }
+
    return retval;
 }
 
@@ -11463,7 +11520,7 @@ TFileCollection *TProof::GetStagingStatusDataSet(const char *dataset)
 //______________________________________________________________________________
 void TProof::ShowStagingStatusDataSet(const char *dataset, const char *opt)
 {
-   // Like GetStagingStatusDataSet, but displays results immediately
+   // Like GetStagingStatusDataSet, but displays results immediately.
 
    TFileCollection *fc = GetStagingStatusDataSet(dataset);
    if (fc) {

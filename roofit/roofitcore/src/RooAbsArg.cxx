@@ -366,6 +366,11 @@ void RooAbsArg::addServer(RooAbsArg& server, Bool_t valueProp, Bool_t shapeProp)
   }
 
 
+  // LM: use hash tables for larger lists
+  if (_serverList.GetSize() > 999 && _serverList.getHashTableSize() == 0) _serverList.setHashTableSize(1000);
+  if (server._clientList.GetSize() > 999 && server._clientList.getHashTableSize() == 0) server._clientList.setHashTableSize(1000);
+  if (server._clientListValue.GetSize() >  999 && server._clientListValue.getHashTableSize() == 0) server._clientListValue.setHashTableSize(1000);
+
   // Add server link to given server
   _serverList.Add(&server) ;
 
@@ -1661,6 +1666,10 @@ Bool_t RooAbsArg::findConstantNodes(const RooArgSet& observables, RooArgSet& cac
   }
   delete paramSet ;
 
+  if (getAttribute("NeverConstant")) {
+    canOpt = kFALSE ;
+  }
+
   if (canOpt) {
     setAttribute("ConstantExpression") ;
   }
@@ -1673,6 +1682,7 @@ Bool_t RooAbsArg::findConstantNodes(const RooArgSet& observables, RooArgSet& cac
       // Add to cache list
       cxcoutD(Optimization) << "RooAbsArg::findConstantNodes(" << GetName() << ") adding self to list of constant nodes" << endl ;
 
+      if (canOpt) setAttribute("ConstantExpressionCached") ;
       cacheList.add(*this,kFALSE) ;
     }
   }

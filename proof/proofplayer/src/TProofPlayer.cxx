@@ -1176,9 +1176,11 @@ Long64_t TProofPlayer::Process(TDSet *dset, const char *selector_file,
 
    TRY {
 
+      Int_t mrc = -1;
       // Get the frequency for checking memory consumption and logging information
-      TParameter<Long64_t> *par = (TParameter<Long64_t>*)fInput->FindObject("PROOF_MemLogFreq");
-      Long64_t singleshot = 1, memlogfreq = (par) ? par->GetVal() : 1000000;
+      Long64_t memlogfreq = -1;
+      if (((mrc = TProof::GetParameter(fInput, "PROOF_MemLogFreq", memlogfreq))) != 0) memlogfreq = -1;
+      Long64_t singleshot = 1;
       Bool_t warnHWMres = kTRUE, warnHWMvir = kTRUE;
       TString lastMsg("(unfortunately no detailed info is available about current packet)");
 
@@ -1470,6 +1472,11 @@ Long64_t TProofPlayer::Process(TDSet *dset, const char *selector_file,
             }
          }
       }
+
+      // Add Selector status in the output list so it can be returned to the client as done
+      // by Tree::Process (see ROOT-748). The status from the various workers will be added.
+      fOutput->Add(new TParameter<Long64_t>("PROOF_SelectorStatus", (Long64_t) fSelector->GetStatus()));
+
       if (gProofServ && !gProofServ->IsParallel()) {  // put all the canvases onto the output list
          TIter nxc(gROOT->GetListOfCanvases());
          while (TObject *c = nxc())
@@ -2214,12 +2221,23 @@ Long64_t TProofPlayerRemote::Process(TDSet *dset, const char *selector_file,
 
       // Reset start, this is now managed by the packetizer
       first = 0;
-      // Try to have 100 messages about memory, unless a different number is given by the user
-      if (!fProof->GetParameter("PROOF_MemLogFreq")){
-         Long64_t memlogfreq = fPacketizer->GetTotalEntries()/(fProof->GetParallel()*100);
-         memlogfreq = (memlogfreq > 0) ? memlogfreq : 1;
-         fProof->SetParameter("PROOF_MemLogFreq", memlogfreq);
+
+      // Negative memlogfreq disable checks.
+      // If 0 is passed we try to have 100 messages about memory
+      // Otherwise we use the frequency passed.
+      Int_t mrc = -1;
+      Long64_t memlogfreq = -1, mlf;
+      if (gSystem->Getenv("PROOF_MEMLOGFREQ")) {
+         TString clf(gSystem->Getenv("PROOF_MEMLOGFREQ"));
+         if (clf.IsDigit()) { memlogfreq = clf.Atoi(); mrc = 0; }
       }
+      if ((mrc = TProof::GetParameter(fProof->GetInputList(), "PROOF_MemLogFreq", mlf)) == 0) memlogfreq = mlf;
+      if (memlogfreq == 0) {
+         memlogfreq = fPacketizer->GetTotalEntries()/(fProof->GetParallel()*100);
+         if (memlogfreq <= 0) memlogfreq = 1;
+      }
+      if (mrc == 0) fProof->SetParameter("PROOF_MemLogFreq", memlogfreq);
+
 
       // Send input data, if any
       TString emsg;
@@ -2485,8 +2503,11 @@ Long64_t TProofPlayerRemote::Process(TDSet *dset, TSelector *selector,
    }
 
    fCreateSelObj = kFALSE;
+   Long64_t rc = Process(dset, selector->ClassName(), option, nentries, first);
+   fCreateSelObj = kTRUE;
 
-   return Process(dset, selector->ClassName(), option, nentries, first);
+   // Done
+   return rc;
 }
 
 //______________________________________________________________________________

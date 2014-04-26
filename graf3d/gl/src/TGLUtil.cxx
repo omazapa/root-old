@@ -10,6 +10,7 @@
  *************************************************************************/
 
 #include <algorithm>
+#include <cassert>
 #include <string>
 #include <map>
 
@@ -3084,6 +3085,50 @@ void DrawBoxFrontTextured(Double_t xMin, Double_t xMax, Double_t yMin,
    glEnd();
 }
 
+//______________________________________________________________________________
+void DrawBoxWithGradientFill(Double_t y1, Double_t y2, Double_t x1, Double_t x2,
+                             const Double_t *rgba1, const Double_t *rgba2)
+{
+   assert(rgba1 != 0 && "DrawBoxWithGradientFill, parameter 'rgba1' is null");
+   assert(rgba2 != 0 && "DrawBoxWithGradientFill, parameter 'rgba2' is null");
+
+   glBegin(GL_POLYGON);
+   glColor4dv(rgba1);
+   glVertex2d(x1, y1);
+   glVertex2d(x2, y1);
+   glColor4dv(rgba2);
+   glVertex2d(x2, y2);
+   glVertex2d(x1, y2);
+   glEnd();
+}
+
+//______________________________________________________________________________
+void DrawQuadStripWithRadialGradientFill(unsigned nPoints, const Double_t *inner, const Double_t *innerRGBA,
+                                         const Double_t *outer, const Double_t *outerRGBA)
+{
+   //TODO: is it possible to use GLdouble to avoid problems with Double_t/GLdouble if they
+   //are not the same type?
+
+   assert(nPoints != 0 &&
+          "DrawQuadStripWithRadialGradientFill, invalid number of points");
+   assert(inner != 0 &&
+          "DrawQuadStripWithRadialGradientFill, parameter 'inner' is null");
+   assert(innerRGBA != 0 &&
+          "DrawQuadStripWithRadialGradientFill, parameter 'innerRGBA' is null");
+   assert(outer != 0 &&
+          "DrawQuadStripWithRadialGradientFill, parameter 'outer' is null");
+   assert(outerRGBA != 0 &&
+          "DrawQuadStripWithRadialGradientFill, parameter 'outerRGBA' is null");
+
+   glBegin(GL_QUAD_STRIP);
+   for (UInt_t j = 0; j < nPoints; ++j) {
+      glColor4dv(innerRGBA);
+      glVertex2dv(inner + j * 2);
+      glColor4dv(outerRGBA);
+      glVertex2dv(outer + j * 2);
+   }
+   glEnd();
+}
 
 //______________________________________________________________________________
 void DrawCylinder(TGLQuadric *quadric, Double_t xMin, Double_t xMax, Double_t yMin,

@@ -48,6 +48,8 @@
 #include "TGedEditor.h"
 #include "TBaseClass.h"
 
+#include "RConfigure.h"
+
 #ifdef WIN32
 const char rootdir[] = "\\";
 #else
@@ -1313,6 +1315,12 @@ void TGFileBrowser::DoubleClicked(TGListTreeItem *item, Int_t /*btn*/)
                }
             }
          }
+         else if (obj->InheritsFrom("TCanvas") &&
+                  fNewBrowser->GetTabRight()->GetTabTab(obj->GetName())) {
+            // avoid potential crash when drawing a canvas with the same name
+            // than a canvas already embedded in one of the browser's tab
+            obj->DrawClone();
+         }
          else obj->Browse(fBrowser);
          fDblClick = kFALSE;
          fNKeys = 0;
@@ -1518,7 +1526,15 @@ Long_t TGFileBrowser::XXExecuteDefaultAction(TObject *obj)
          // special case for remote object: remote process
          if (obj->InheritsFrom("TRemoteObject"))
             gApplication->SetBit(TApplication::kProcessRemotely);
-         return gApplication->ProcessLine(act.Data());
+
+         const Long_t res = gApplication->ProcessLine(act.Data());
+#ifdef R__HAS_COCOA
+         if (act.Contains(".x") || act.Contains(".X")) {
+            if (gPad) gPad->Update();
+         }
+#endif
+         return res;
+
       }
    }
    return 0;

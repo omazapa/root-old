@@ -11,6 +11,7 @@
 
 #include "Riostream.h"
 #include <stdexcept>
+#include <cassert>
 
 #include "TVirtualPad.h"
 #include "TVirtualX.h"
@@ -102,6 +103,9 @@ PolygonStippleSet::PolygonStippleSet()
 //______________________________________________________________________________
 UInt_t PolygonStippleSet::SwapBits(UInt_t b)
 {
+#ifdef WIN32
+   b = ~b & 0xff;
+#endif
    b &= k16Bits;
 
    const UInt_t low = fgBitSwap[b & kLow4] << 4;
@@ -131,7 +135,7 @@ FillAttribSet::FillAttribSet(const PolygonStippleSet &set, Bool_t ignoreStipple)
 
    // Color and transparency
    Float_t rgba[] = {0.f, 0.f, 0.f, 1.f};
-   ExtractRGB(gVirtualX->GetFillColor(), rgba);
+   ExtractRGBA(gVirtualX->GetFillColor(), rgba);
    fAlpha = rgba[3];
    if (fAlpha<1.) {
       glEnable(GL_BLEND);
@@ -188,7 +192,7 @@ LineAttribSet::LineAttribSet(Bool_t smooth, UInt_t stipple, Double_t maxWidth, B
 
    //Color and transparency
    Float_t rgba[] = {0.f, 0.f, 0.f, 0.8f};
-   ExtractRGB(gVirtualX->GetLineColor(), rgba);
+   ExtractRGBA(gVirtualX->GetLineColor(), rgba);
    fAlpha = rgba[3];
    if (fAlpha<0.8) {
       glEnable(GL_BLEND);
@@ -666,14 +670,51 @@ Double_t GLLimits::GetMaxPointSize()const
 
 
 //______________________________________________________________________________
-void ExtractRGB(Color_t colorIndex, Float_t *rgb)
+void ExtractRGBA(Color_t colorIndex, Float_t *rgba)
 {
    const TColor *color = gROOT->GetColor(colorIndex);
    if (color) {
-      color->GetRGB(rgb[0], rgb[1], rgb[2]);
-      rgb[3] = color->GetAlpha();
+      color->GetRGB(rgba[0], rgba[1], rgba[2]);
+      rgba[3] = color->GetAlpha();
    }
 }
+
+//______________________________________________________________________________
+template<class ValueType>
+BoundingRect<ValueType> FindBoundingRect(Int_t nPoints, const ValueType *xs, const ValueType *ys)
+{
+   assert(nPoints > 0 && "FindBoundingRect, invalind number of points");
+   assert(xs != nullptr && "FindBoundingRect, parameter 'xs' is null");
+   assert(ys != nullptr && "FindBoundingRect, parameter 'ys' is null");
+   
+   ValueType xMin = xs[0], xMax = xMin;
+   ValueType yMin = ys[0], yMax = yMin;
+   
+   for (Int_t i = 1; i < nPoints; ++i) {
+      xMin = TMath::Min(xMin, xs[i]);
+      xMax = TMath::Max(xMax, xs[i]);
+
+      yMin = TMath::Min(yMin, ys[i]);
+      yMax = TMath::Max(yMax, ys[i]);
+   }
+   
+   BoundingRect<ValueType> box;
+   box.fXMin = xMin;
+   box.fXMax = xMax;
+   box.fWidth = xMax - xMin;
+   
+   box.fYMin = yMin;
+   box.fYMax = yMax;
+   box.fHeight = yMax - yMin;
+   
+   return box;
+}
+
+template BoundingRect<Double_t> FindBoundingRect(Int_t nPoints, const Double_t *xs, const Double_t *ys);
+template BoundingRect<Float_t> FindBoundingRect(Int_t nPoints, const Float_t *xs, const Float_t *ys);
+template BoundingRect<Long_t> FindBoundingRect(Int_t nPoints, const Long_t *xs, const Long_t *ys);
+template BoundingRect<Int_t> FindBoundingRect(Int_t nPoints, const Int_t *xs, const Int_t *ys);
+template BoundingRect<SCoord_t> FindBoundingRect(Int_t nPoints, const SCoord_t *xs, const SCoord_t *ys);
 
 namespace {
 

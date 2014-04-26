@@ -103,6 +103,9 @@ options="                    \
    enable_table              \
    enable_tmva               \
    enable_unuran             \
+   enable_vc                 \
+   enable_vdt                \
+   enable_werror             \
    enable_winrtdebug         \
    enable_x11                \
    enable_xft                \
@@ -144,7 +147,7 @@ for c in $options ; do eval ${c}_explicit="" ; done
 enable_cxx11=no
 enable_libcxx=no
 enable_cling=no
-enable_cocoa=no
+enable_cocoa=
 enable_afs=no
 enable_alloc=no
 enable_gdml=no
@@ -163,6 +166,8 @@ enable_soversion=no
 enable_table=no
 enable_thread=yes        # cannot be disabled (not in above options list)
 enable_unuran=no
+enable_vc=no
+enable_werror=no
 enable_winrtdebug=
 enable_builtin_freetype=no
 enable_builtin_ftgl=no
@@ -181,6 +186,8 @@ if test "x$ENABLEALL" = "xyes"; then
     enable_ruby=yes
     enable_table=yes
     enable_unuran=yes
+    enable_vc=yes
+    enable_vdt=yes
 fi
 
 # Remove old log file
@@ -230,6 +237,7 @@ MINUIT2          \
 TABLE            \
 XMLDIR           \
 ROOTDICTTYPE     \
+VC               \
 DAVIX            \
 "
 configenvvars=
@@ -1225,6 +1233,11 @@ check_comp() {
                 altldtmp="$altld"
                 altld="$altldorg"
             fi
+            if test "x$arch" = "xwin64gcc" ; then
+                altldorg="g++"
+                altldtmp="$altld"
+                altld="$altldorg"
+            fi
         fi
         altld1=`echo "$altld" | awk '{print $1}'`
         if `$cwhich $altld1 > /dev/null 2>&1` ; then
@@ -1283,6 +1296,34 @@ check_explicit()
         result $emsg
         exit 1
     fi
+}
+
+#_____________________________________________________________________
+invoke_preprocessor() {
+    # This function will try to preprocess a given file. The result is stored in
+    # preprocessor_output, which should be immediately copied, since the
+    # variable will be overwritten at next invocation of this function.
+
+    cat > conftest.h
+    preprocessor_output=
+
+    logmsg " preprocessing"
+    cat <<EOF > conftest.mk
+include ${ac_srcdir}/config/Makefile.${arch}
+CXX = ${altcxx}
+conftest.out: conftest.h
+	\$(CXX) -E \$< -o \$@
+EOF
+
+    $gnumake -f conftest.mk >> $logfile 2>&1
+    if test $? -eq 0 ; then
+        preprocessor_output="`grep '^[^#]' conftest.out`"
+        logmsg " Preprocessing OK"
+    else
+        logmsg " Failed code was"
+        cat conftest.mk $1 >> $logfile
+    fi
+    rm -rf conftest.mk conftest.out conftest.h
 }
 
 #_____________________________________________________________________
@@ -1606,7 +1647,7 @@ enable/disable options, prefix with either --enable- or --disable-
   krb5               Kerberos5 support, requires Kerberos libs
   ldap               LDAP support, requires (Open)LDAP libs
   genvector          Build the new libGenVector library
-  mathmore           Build the new libMathMore extended math library, requires GSL (vers. >= 1.8)
+  mathmore           Build the new libMathMore extended math library, requires GSL (vers. >= 1.10)
   memstat            A memory statistics utility, helps to detect memory leaks
   minuit2            Build the new libMinuit2 minimizer library
   monalisa           Monalisa monitoring support, requires libapmoncpp
@@ -1635,7 +1676,9 @@ enable/disable options, prefix with either --enable- or --disable-
   ssl                SSL encryption support, requires openssl
   table              Build libTable contrib library
   tmva               Build TMVA multi variate analysis library
+  vc                 Vc adds a few new types for portable and intuitive SIMD programming
   unuran             UNURAN - package for generating non-uniform random numbers
+  werror             Turn on -Werror on most systems to force warnings to be errors
   winrtdebug         Link against the Windows debug runtime library
   x11                X11 support
   xml                XML parser interface
@@ -1889,7 +1932,7 @@ ios*)
       ios7=yes
    fi
    xcodepath=`/usr/bin/xcode-select -print-path`
-   if test "x$arch" = "xios"; then
+   if test "x$arch" = "xios" || test "x$arch" = "xios64"; then
       iossdk=$xcodepath/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS$iosvers.sdk
    else
       iossdk=$xcodepath/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator$iosvers.sdk
@@ -1908,6 +1951,7 @@ ios*)
    enable_reflex="no"
    enable_genvector="no"
    enable_tmva="no"
+   enable_vdt="no"
    ;;
 win32)
    logmsg "Will use by default builtin versions of libraries on Win32"
@@ -1947,6 +1991,9 @@ if test "x$platform" = "xmacosx" ; then
    fi
    if [ `sw_vers | sed -n 's/ProductVersion://p' | cut -d . -f 2` -ge 6 ]; then
       macosx106=yes
+   fi
+   if [ `sw_vers | sed -n 's/ProductVersion://p' | cut -d . -f 2` -ge 7 ]; then
+      macosx107=yes
    fi
    if [ `sw_vers | sed -n 's/ProductVersion://p' | cut -d . -f 2` -ge 8 ]; then
       macosx108=yes
@@ -2231,6 +2278,14 @@ if test $# -gt 0 ; then
       esac
       shift
    done
+fi
+
+# sanity check, prefix must be an absolute path
+if test ! "x$haveconfig" = "x" ; then
+   case $prefix in
+      /*) ;;
+      *)  echo "`basename $0`: --prefix argument must be an absolute path, not $prefix"; exit 1;;
+   esac
 fi
 
 ######################################################################
@@ -2518,6 +2573,12 @@ fi
 if test ! "x$platform" = "xmacosx"; then
     enable_cocoa="no"
 fi
+if test "x$macosx107" = "xyes" && test "x$enable_cocoa" = "x"; then
+   enable_cocoa="yes"
+fi
+if test "x$enable_cocoa" = "x"; then
+   enable_cocoa="no"
+fi
 
 hascocoa="undef"
 if test "x$enable_cocoa" = "xyes"; then
@@ -2733,7 +2794,7 @@ linux|fbsd)
     ;;
 esac
 case $arch in
-win32gcc)
+win32gcc | win64gcc)
     # if it was not set it was turned on in the above "linux" case
     if test "x$enable_thread" = "xyes"; then
         threadflag=
@@ -2963,8 +3024,8 @@ if test ! "x$enable_opengl" = "xno" && test ! "x$platform" = "xwin32" ; then
     opengllibdir=$found_dir
 
     if test ! "x$macosx105" = "x" && test "x$macosx106" = "x" ; then
-	# Mac OS X 10.5 problem
-	opengllib="-dylib_file /usr/X11R6/lib/libGL.dylib:/usr/X11R6/lib/libGL.dylib -lGL"
+       # Mac OS X 10.5 problem
+       opengllib="-dylib_file /usr/X11R6/lib/libGL.dylib:/usr/X11R6/lib/libGL.dylib -lGL"
     fi
 
     skipchecklibcxxcompat="yes"
@@ -3010,7 +3071,7 @@ check_explicit "$enable_opengl" "$enable_opengl_explicit" \
 # (see http://homepages.paradise.net.nz/henryj/code/index.html#FTGL)
 #
 if test ! "x$enable_opengl" = "xno" && test ! "x$platform" = "xwin32" ; then
-   ftglincdir=include
+   ftglincdir=
    ftgllibdir=-Llib
    ftgllibs=-lFTGL
    if test "x$enable_builtin_ftgl" = "x" || \
@@ -3069,7 +3130,7 @@ if test "x$platform" = "xwin32"; then
    glewlibs=lib/libGLEW.lib
 
    enable_builtin_ftgl="yes"
-   ftglincdir=include
+   ftglincdir=
    ftgllibdir=
    ftgllibs=lib/libFTGL.lib
 fi
@@ -3256,6 +3317,9 @@ if test ! "x$enable_pgsql" = "xno"; then
         enable_pgsql="no"
     else
         if test "x$arch" = xwin32gcc; then
+            pgsqllib="$pgsqllib -lssl -lldap -lcrypto -lintl"
+        fi
+        if test "x$arch" = xwin64gcc; then
             pgsqllib="$pgsqllib -lssl -lldap -lcrypto -lintl"
         fi
     fi
@@ -4088,7 +4152,7 @@ if test ! "x$enable_davix" = "xno" ; then
     davixincdir=$found_dir
 
     check_library "libdavix" "$enable_shared" "$davixlibdir" \
-        $DAVIX ${DAVIX:+$DAVIX/lib} \
+        $DAVIX ${DAVIX:+$DAVIX/lib} ${DAVIX:+$DAVIX/lib64} \
         /usr/lib /usr/local
     davixlib=$found_lib
     davixlibdir=$found_dir
@@ -4721,7 +4785,7 @@ if test ! "x$enable_xml" = "xno" ; then
           enable_xml="no"
        else
           case $arch in
-             win32gcc)  xmllib="$xmllib -liconv"              ;;
+             win32gcc | win64gcc)  xmllib="$xmllib -liconv"   ;;
           esac
           case $platform in
              linux)     xmllib="$xmllib -lpthread"            ;;
@@ -5990,6 +6054,161 @@ result $enable_shadowpw
 check_explicit "$enable_shadowpw" "$enable_shadowpw_explicit" \
      "Explicitly required Shadow passwords dependencies not fulfilled"
 
+##########################################################################
+#
+### echo %%% check for Vc Library compile flags
+#
+avxcxxflag=""
+ssecxxflags=""
+abiversioncxxflag=""
+vcflags=""
+if test "x$enable_vc" = "xyes"; then
+    message "Checking required compiler/assembler workarounds"
+    # with GCC and Open64 check the binutils version. If it's less than 2.18.93 the assembler doesn't know xgetbv
+    case $arch in
+	macos*)
+	    ;;
+	*)
+	    as=`${altcxx} -print-prog-name=as`
+            as_version=`${as} --version|head -n1|sed -e 's/^.*)//' -e 's/^.* \([0-9]\+\.[0-9]\+\.[0-9]\+\).*$/\1/'|awk -F. '{print ($1*1000+$2)*1000+$3}'`
+	    if test $as_version -lt 2018093; then
+		vcflags="$vcflags -DVC_NO_XGETBV"
+	    fi
+	    ;;
+    esac
+    invoke_preprocessor <<EOF
+#define _MAKE_VERSION(A, B, C) A##.##B##.##C
+#define MAKE_VERSION(A, B, C) _MAKE_VERSION(A, B, C)
+#ifdef __INTEL_COMPILER
+ICC
+__INTEL_COMPILER_BUILD_DATE
+#elif defined(__OPENCC__)
+Open64
+#elif defined(__clang__)
+clang
+MAKE_VERSION(__clang_major__, __clang_minor__, __clang_patchlevel__)
+#elif defined(__GNUC__)
+GCC
+MAKE_VERSION(__GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__)
+#elif defined(_MSC_VER)
+MSVC
+_MSC_FULL_VER
+#else
+UNSUPPORTED_COMPILER
+#endif
+EOF
+    compiler=`echo "$preprocessor_output"|sed '1!d'`
+    compiler_version=`echo "$preprocessor_output"|sed '2!d'|awk -F. '{ print ($1*100+$2)*100+$3 }'`
+    avx_broken=false
+    sse_broken=false
+    xop_broken=false
+    fma4_broken=false
+    case $compiler in
+        ICC)
+            vcflags="$vcflags -diag-disable 913"
+            ;;
+        Open64)
+            avx_broken=true
+            ;;
+        clang)
+            if test $compiler_version -lt 30100; then
+                echo
+                echo "Clang before version 3.1 is unable to compile Vc correctly. Please update clang or disable Vc."
+                exit 1
+            fi
+            ;;
+        GCC)
+            vcflags="$vcflags -Wno-unused-function"
+            if test $compiler_version -lt 40500; then
+                vcflags="$vcflags -Wno-parentheses  -Wno-strict-aliasing -Wno-uninitialized"
+                if test $compiler_version -lt 40406; then
+                    avx_broken=true
+                    if test $compiler_version -lt 40300; then
+                        sse_broken=true
+                        if test $compiler_version -lt 40200; then
+                            vcflags="$vcflags -fno-strict-aliasing"
+                        fi
+                    fi
+                fi
+            elif test $compiler_version -eq 40600; then
+                avx_broken=true
+            elif test $compiler_version -eq 40700; then
+                vcflags="$vcflags -fno-predictive-commoning"
+            fi
+            if test "x$platform" = "xmacosx" ; then
+                avx_broken=true
+                vcflags="$vcflags -DVC_NO_XGETBV"
+            fi
+            ;;
+        MSVC)
+            vcflags="$vcflags -DNOMINMAX"
+            xop_broken=true
+            fma4_broken=true
+            ;;
+        UNSUPPORTED_COMPILER)
+            ;;
+    esac
+
+    test -n "$vcflags" && result "$vcflags" || result ''
+
+    # check for SIMD compiler flags
+    message "Checking SIMD specific compiler flags"
+    $avx_broken || for flag in '-xAVX' '-mavx' '/arch:AVX'; do
+        check_cxxopt $flag
+        if test $cxxopt_result -eq 1; then
+            avxcxxflag=$flag
+            break;
+        fi
+    done
+    $sse_broken || for tuples in '-xSSE4.1;-msse4.1' '-xSSSE3;-mssse3' '-xSSE3;-msse3' '-xSSE2;-msse2;/arch:SSE2'; do
+        save_IFS="$IFS"
+        IFS=';'
+        for flag in $tuples; do
+            IFS="$save_IFS"
+            check_cxxopt $flag
+            if test $cxxopt_result -eq 1; then
+                ssecxxflags="$ssecxxflags $flag"
+                break;
+            fi
+        done
+    done
+    if test -n "$avxcxxflag" && ! $xop_broken && ! $fma4_broken; then
+        for flag in '-mxop -mfma4'; do
+            check_cxxopt $flag
+            if test $cxxopt_result -eq 1; then
+                flag=`echo $flag|tr ' ' '~'`
+                ssecxxflags="$ssecxxflags -DVC_IMPL=SSE+XOP+FMA4~$flag $avxcxxflag~$flag"
+                break;
+            fi
+        done
+    fi
+    ssecxxflags="${ssecxxflags# }"
+    result "$avxcxxflag $ssecxxflags"
+
+    # check for ABI version compiler flags
+    case $compiler in
+	GCC)
+	    message "Checking ABI version compiler flags"
+	    abiversioncxxflag=""
+	    for flag in '-fabi-version=0' '-fabi-version=4'; do
+		check_cxxopt $flag
+		if test $cxxopt_result -eq 1; then
+		    abiversioncxxflag="$flag"
+		    break;
+		fi
+	    done
+	    test -n "$abiversioncxxflag" && result "$abiversioncxxflag" || result 'N/A'
+    esac
+fi
+
+sed -e "s|@avxcxxflag@|$avxcxxflag|"               \
+    -e "s|@ssecxxflags@|$ssecxxflags|"             \
+    -e "s|@abiversioncxxflag@|$abiversioncxxflag|" \
+    -e "s|@vcflags@|$vcflags|"                     \
+    < Makefile.tmp > Makefile.tmpp
+mv Makefile.tmpp Makefile.tmp
+
+
 ######################################################################
 #
 ### echo %%% MathMore Library - Contributed library
@@ -6008,11 +6227,11 @@ if test ! "x$enable_mathmore" = "xno"; then
         ${finkdir:+$finkdir/include} \
         /usr/local/include /usr/include /opt/gsl/include
 
-    # check for gsl version >= 1.8
+    # check for gsl version >= 1.10
     if test ! "x$found_dir" = "x"; then
-        message "Checking for GSL version >= 1.8"
-        gsl_version=`grep "define GSL" $found_dir/gsl/gsl_version.h | sed 's/^.*"\([0-9]\..*[0-9]\)"/\1/' |  awk 'BEGIN { FS="." } { printf "%d", $1 * 1000 + $2 }'`
-        if test $gsl_version -lt 1008; then
+        message "Checking for GSL version >= 1.10"
+        gsl_version=`grep "define GSL_VERSION" $found_dir/gsl/gsl_version.h | sed 's/^.*"\([0-9]\..*[0-9]\)"/\1/' |  awk 'BEGIN { FS="." } { printf "%d", $1 * 1000 + $2 }'`
+        if test $gsl_version -lt 1010; then
             gslskip="skip"
             result "no"
             enable_mathmore="no"
@@ -6256,6 +6475,37 @@ else
     enable_unuran=""
     result "no"
 fi
+
+######################################################################
+#
+### echo %%% Vc Library - Contributed library
+#
+message "Checking whether to build libVc"
+if test "x$enable_vc" = "xyes" || test ! "x$VC" = "x"; then
+    enable_vc="yes"
+    result "yes"
+    hasvc="define"
+else
+    enable_vc=""
+    result "no"
+    hasvc="undef"
+fi
+
+######################################################################
+#
+### echo %%% VDT Library - Contributed library
+#
+message "Checking whether to install VDT"
+if test "x$enable_vdt" = "xyes" || test ! "x$VC" = "x"; then
+    enable_vdt="yes"
+    result "yes"
+    hasvdt="define"
+else
+    enable_vdt=""
+    result "no"
+    hasvdt="undef"
+fi
+
 
 ######################################################################
 #
@@ -6514,6 +6764,8 @@ if test "x$show_pkglist" = "xyes" ; then
     test "x$enable_xml"      = "xyes" && pl="$pl libroot-io-xmlparser"
     test "x$enable_mathmore" = "xyes" && pl="$pl libroot-math-mathmore"
     test "x$enable_unuran"   = "xyes" && pl="$pl libroot-math-unuran"
+    test "x$enable_vc"       = "xyes" && pl="$pl libroot-math-vc"
+    test "x$enable_vdt"      = "xyes" && pl="$pl libroot-math-vdt"
     test "x$enable_table"    = "xyes" && pl="$pl libroot-misc-table"
     test "x$enable_ldap"     = "xyes" && pl="$pl libroot-net-ldap"
     test "x$enable_roofit"   = "xyes" && pl="$pl libroot-roofit"
@@ -6979,6 +7231,8 @@ sed -e "s|@aclocaldir@|$aclocaldir|"            \
     -e "s|@buildroofit@|$enable_roofit|"        \
     -e "s|@buildminuit2@|$enable_minuit2|"      \
     -e "s|@buildunuran@|$enable_unuran|"        \
+    -e "s|@buildvc@|$enable_vc|"                \
+    -e "s|@buildvdt@|$enable_vdt|"              \
     -e "s|@buildgdml@|$enable_gdml|"            \
     -e "s|@buildmonalisa@|$enable_monalisa|"    \
     -e "s|@buildtable@|$enable_table|"          \
@@ -7175,6 +7429,7 @@ sed -e "s|@srcdir@|$ac_srcdir|"                 \
     -e "s|@buildnetxng@|$buildnetxng|"          \
     -e "s|@c++11@|$enable_cxx11|"               \
     -e "s|@libc++@|$enable_libcxx|"             \
+    -e "s|@werror@|$enable_werror|"             \
     < Makefile.tmp > $MAKEOUT
 rm -f Makefile.tmp
 
@@ -7227,6 +7482,7 @@ sed \
     -e "s|@hasxft@|$hasxft|"               \
     -e "s|@hascling@|$hascling|"           \
     -e "s|@hascocoa@|$hascocoa|"           \
+    -e "s|@hasvc@|$hasvc|"                 \
     -e "s|@usec++11@|$usecxx11|"           \
     -e "s|@uselibc++@|$uselibcxx|"         \
     < RConfigure.tmp > RConfigure-out.tmp

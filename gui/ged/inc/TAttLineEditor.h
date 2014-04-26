@@ -24,10 +24,13 @@
 #include "TGedFrame.h"
 #endif
 
+#include "TGSlider.h"
+
 class TGLineStyleComboBox;
 class TGLineWidthComboBox;
 class TGColorSelect;
 class TAttLine;
+class TGNumberEntryField;
 
 class TAttLineEditor : public TGedFrame {
 
@@ -36,6 +39,8 @@ protected:
    TGLineStyleComboBox  *fStyleCombo;       // line style combo box
    TGLineWidthComboBox  *fWidthCombo;       // line width combo box
    TGColorSelect        *fColorSelect;      // line color widget
+   TGHSlider            *fAlpha;            // fill opacity
+   TGNumberEntryField   *fAlphaField;
 
    virtual void   ConnectSignals2Slots();
 
@@ -48,8 +53,13 @@ public:
 
    virtual void   SetModel(TObject* obj);
    virtual void   DoLineColor(Pixel_t color);
+   virtual void   DoLineAlphaColor(ULong_t p);
    virtual void   DoLineStyle(Int_t style);
    virtual void   DoLineWidth(Int_t width);
+   virtual void   DoAlpha();
+   virtual void   DoAlphaField();
+   virtual void   DoLiveAlpha(Int_t a);
+   virtual void   GetCurAlpha();
 
    ClassDef(TAttLineEditor,0)  // GUI for editing line attributes
 };

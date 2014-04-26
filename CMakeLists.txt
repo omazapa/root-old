@@ -35,6 +35,10 @@ include(MacroEnsureVersion)
 
 #---Enable CTest package -----------------------------------------------------------------------
 #include(CTest)
+if(testing)
+  enable_testing()
+endif()
+
 #---Check if the user wants to build the project in the source directory------------------------
 ROOT_CHECK_OUT_OF_SOURCE_BUILD()
 
@@ -71,6 +75,7 @@ endif()
 if(roofit)
   add_subdirectory(roofit)
 endif()
+ROOT_ADD_TEST_SUBDIRECTORY(test)
 
 include(PostInstalledSoftware)
 
@@ -90,7 +95,7 @@ if(NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_INSTALL_PREFIX)
   install(DIRECTORY macros/ DESTINATION ${CMAKE_INSTALL_MACRODIR} PATTERN ".svn" EXCLUDE)
   install(DIRECTORY man/    DESTINATION ${CMAKE_INSTALL_MANDIR} PATTERN ".svn" EXCLUDE)
   install(DIRECTORY test/      DESTINATION ${CMAKE_INSTALL_TESTDIR} COMPONENT tests PATTERN ".svn" EXCLUDE)
-  install(DIRECTORY tutorials/ DESTINATION ${CMAKE_INSTALL_TUTDIR} COMPONENT tests PATTERN ".svn" EXCLUDE)
+  install(DIRECTORY tutorials/ DESTINATION ${CMAKE_INSTALL_TUTDIR} COMPONENT tutorials PATTERN ".svn" EXCLUDE)
   install(DIRECTORY cmake/modules DESTINATION ${CMAKE_INSTALL_CMAKEDIR} PATTERN ".svn" EXCLUDE)
   install(FILES build/misc/root.m4 DESTINATION ${CMAKE_INSTALL_ACLOCALDIR})
 endif()
@@ -98,7 +103,6 @@ endif()
 #---Configure Testing using CTest----------------------------------------------------------------
 if(testing)
   include(RootCTest)
-  add_subdirectory(test)
 endif()
 
 #---Packaging-------------------------------------------------------------------------------------

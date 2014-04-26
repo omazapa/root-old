@@ -70,7 +70,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR
   set(CMAKE_C_FLAGS_PROFILE          "-g3 -fno-inline -ftest-coverage -fprofile-arcs")
  
   #Settings for cint
-  set(CPPPREP "${CMAKE_CXX_COMPILER} -E -C")  
+  set(CPPPREP "${CXX} -E -C")
   set(CXXOUT "-o ")
   set(EXPLICITLINK "no") #TODO
 
@@ -101,38 +101,36 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL Intel)
   if(ICC_MAJOR EQUAL 9)  
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -wd1572")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -wd1572")
-    set(ICC_GE_9  9)
   endif()  
 
   if(ICC_MAJOR EQUAL 10)  
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -wd1572")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -wd1572")
-    set(ICC_GE_9  10)
-    if(ICC_MINOR GREATER 0)  
-      set(ICC_GE_101 101)
-    endif()  
   endif()  
 
   if(ICC_MAJOR EQUAL 11)  
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${BIT_ENVIRONMENT} -wd1572 -wd279")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${BIT_ENVIRONMENT} -wd1572 -wd279")
     set(CMAKE_SHARED_LINKER_FLAGS "${BIT_ENVIRONMENT} -Wl,--no-undefined")
-    #set(CMAKE_C_LINK_FLAGS "${CMAKE_C_LINK_FLAGS} ${BIT_ENVIRONMENT}")
-    #set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} ${BIT_ENVIRONMENT}")
-    set(ICC_GE_9  11)
-    set(ICC_GE_101 110)
   endif()  
 
   if(ICC_MAJOR EQUAL 12)  
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${BIT_ENVIRONMENT} -wd1572 -wd279")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${BIT_ENVIRONMENT} -wd1572 -wd279")
     set(CMAKE_SHARED_LINKER_FLAGS "${BIT_ENVIRONMENT} -Wl,--no-undefined")
-    #set(CMAKE_C_LINK_FLAGS "${CMAKE_C_LINK_FLAGS} ${BIT_ENVIRONMENT}")
-    #set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} ${BIT_ENVIRONMENT}")
-    set(ICC_GE_9  12)
-    set(ICC_GE_101 120)
   endif()  
 
+  if(ICC_MAJOR EQUAL 13)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${BIT_ENVIRONMENT} -wd1572 -wd279")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${BIT_ENVIRONMENT} -wd1572 -wd279")
+    set(CMAKE_SHARED_LINKER_FLAGS "${BIT_ENVIRONMENT} -Wl,--no-undefined")
+  endif()
+
+  if(ICC_MAJOR EQUAL 14)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${BIT_ENVIRONMENT} -wd1572 -wd279 -wd2536")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${BIT_ENVIRONMENT} -wd1572 -wd279 -wd2536")
+    set(CMAKE_SHARED_LINKER_FLAGS "${BIT_ENVIRONMENT} -Wl,--no-undefined")
+  endif()
 
   set(CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS "${CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS}")
   set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS "${CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS}")
@@ -147,7 +145,7 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL Intel)
   set(CMAKE_C_FLAGS_DEBUG            "-g -O2")
 
   #Settings for cint
-  set(CPPPREP "${CMAKE_CXX_COMPILER} -E -C")  
+  set(CPPPREP "${CXX} -E -C")  
   set(CXXOUT "-o ")
   set(EXPLICITLINK "no") #TODO
 

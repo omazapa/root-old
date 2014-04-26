@@ -79,7 +79,9 @@ public:
    
    virtual void      GetTextExtent(UInt_t &w, UInt_t &h, char *text);
    virtual Int_t     GetFontAscent() const;
-   virtual Int_t     GetFontDescent() const ;
+   virtual Int_t     GetFontAscent(const char *text) const;
+   virtual Int_t     GetFontDescent() const;
+   virtual Int_t     GetFontDescent(const char *text) const;
    virtual Float_t   GetTextMagnitude();
 
 private:
@@ -88,12 +90,20 @@ private:
    //top-left to bottom-left corner system.
    std::vector<TPoint> fConvertedPoints;
 
+   //Lines with AA can be quite different
+   //from what we always had with X11.
+   //Now this is a switch in our configuration file (system.rootrc),
+   //so it can be disabled. This flag affects _only_ pad's graphics,
+   //GUI graphics is special and different.
+   bool fUseAA;
+
    void AlignTTFString();
    Bool_t IsTTFStringVisible(Int_t x, Int_t y, UInt_t w, UInt_t h);
    void RenderTTFString(Int_t x, Int_t y, ETextMode mode);
    //I have to use void * instead of QuartzPixmap * because of CINT :(
    void DrawFTGlyphIntoPixmap(void *pixmap, FT_Bitmap *source, ULong_t fore, ULong_t back, Int_t bx, Int_t by);
 
+   void SetAA();
    void *GetSelectedDrawableChecked(const char *calledFrom) const;
 
    TGQuartz(const TGQuartz &rhs);

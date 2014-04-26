@@ -22,6 +22,19 @@
 #include "TFile.h"
 #include "TError.h"
 
+
+
+//______________________________________________________________________________
+void TChainIndex::TChainIndexEntry::SetMinMaxFrom(const TTreeIndex *index )
+{
+   fMinIndexValue    = index->GetIndexValues()[0];
+   fMinIndexValMinor = index->GetIndexValuesMinor()[0];
+   fMaxIndexValue    = index->GetIndexValues()[index->GetN() - 1];
+   fMaxIndexValMinor = index->GetIndexValuesMinor()[index->GetN() - 1];
+}
+
+
+
 ClassImp(TChainIndex)
 
 //______________________________________________________________________________
@@ -99,20 +112,18 @@ TChainIndex::TChainIndex(const TTree *T, const char *majorname, const char *mino
          return;
       }
 
-      entry.fMinIndexValue = ti_index->GetIndexValues()[0];
-      entry.fMaxIndexValue = ti_index->GetIndexValues()[index->GetN() - 1];
+      entry.SetMinMaxFrom(ti_index);
       fEntries.push_back(entry);
    }
 
    // Check if the indices of different trees are in order. If not then return an error.
    for (i = 0; i < Int_t(fEntries.size() - 1); i++) {
-      if (fEntries[i].fMaxIndexValue > fEntries[i+1].fMinIndexValue) {
+      if( fEntries[i].GetMaxIndexValPair() > fEntries[i+1].GetMinIndexValPair() ) {
          DeleteIndices();
          MakeZombie();
          Error("TChainIndex", "The indices in files of this chain aren't sorted.");
       }
    }
-
 }
 
 //______________________________________________________________________________
@@ -120,6 +131,7 @@ void TChainIndex::Append(const TVirtualIndex *index, Bool_t delaySort )
 {
    // add an index to this chain
    // if delaySort is kFALSE (default) check if the indices of different trees are in order.
+
    if (index) {
       const TTreeIndex *ti_index = dynamic_cast<const TTreeIndex*>(index);
       if (ti_index == 0) {
@@ -129,15 +141,14 @@ void TChainIndex::Append(const TVirtualIndex *index, Bool_t delaySort )
       
       TChainIndexEntry entry;
       entry.fTreeIndex = 0;
-      entry.fMinIndexValue = ti_index->GetIndexValues()[0];
-      entry.fMaxIndexValue = ti_index->GetIndexValues()[index->GetN() - 1];
+      entry.SetMinMaxFrom(ti_index);
       fEntries.push_back(entry);
    }
    
    if (!delaySort) {
       // Check if the indices of different trees are in order. If not then return an error.
       for (Int_t i = 0; i < Int_t(fEntries.size() - 1); i++) {
-         if (fEntries[i].fMaxIndexValue > fEntries[i+1].fMinIndexValue) {
+         if( fEntries[i].GetMaxIndexValPair() > fEntries[i+1].GetMinIndexValPair() ) {
             DeleteIndices();
             MakeZombie();
             Error("Append", "The indices in files of this chain aren't sorted.");
@@ -171,7 +182,7 @@ TChainIndex::~TChainIndex()
 }
 
 //______________________________________________________________________________
-std::pair<TVirtualIndex*, Int_t> TChainIndex::GetSubTreeIndex(Int_t major, Int_t minor) const
+std::pair<TVirtualIndex*, Int_t> TChainIndex::GetSubTreeIndex(Long64_t major, Long64_t minor) const
 {
    // Returns a TVirtualIndex for a tree which holds the entry with the specified
    // major and minor values and the number of that tree.
@@ -184,22 +195,22 @@ std::pair<TVirtualIndex*, Int_t> TChainIndex::GetSubTreeIndex(Int_t major, Int_t
       return make_pair(static_cast<TVirtualIndex*>(0), 0);
    }
 
-   Long64_t indexValue = (Long64_t(major) << 31) + minor;
+   const TChainIndexEntry::IndexValPair_t     indexValue(major, minor);
 
-   if (indexValue < fEntries[0].fMinIndexValue) {
+   if( indexValue < fEntries[0].GetMinIndexValPair() ) {
       Warning("GetSubTreeIndex", "The index value is less than the smallest index values in subtrees");
       return make_pair(static_cast<TVirtualIndex*>(0), 0);
    }
 
    Int_t treeNo = fEntries.size() - 1;
    for (unsigned int i = 0; i < fEntries.size() - 1; i++) {
-      if (indexValue < fEntries[i+1].fMinIndexValue) {
+      if( indexValue < fEntries[i+1].GetMinIndexValPair() ) {
          treeNo = i;
          break;
       }
    }
    // Double check we found the right range.
-   if (indexValue > fEntries[treeNo].fMaxIndexValue) {
+   if( indexValue > fEntries[treeNo].GetMaxIndexValPair() ) {
       return make_pair(static_cast<TVirtualIndex*>(0), 0);
    }
    TChain* chain = dynamic_cast<TChain*> (fTree);
@@ -268,7 +279,7 @@ Long64_t TChainIndex::GetEntryNumberFriend(const TTree *parent)
 }
 
 //______________________________________________________________________________
-Long64_t TChainIndex::GetEntryNumberWithBestIndex(Int_t major, Int_t minor) const
+Long64_t TChainIndex::GetEntryNumberWithBestIndex(Long64_t major, Long64_t minor) const
 {
    // See TTreeIndex::GetEntryNumberWithBestIndex for details.
 
@@ -287,7 +298,7 @@ Long64_t TChainIndex::GetEntryNumberWithBestIndex(Int_t major, Int_t minor) cons
 }
 
 //______________________________________________________________________________
-Long64_t TChainIndex::GetEntryNumberWithIndex(Int_t major, Int_t minor) const
+Long64_t TChainIndex::GetEntryNumberWithIndex(Long64_t major, Long64_t minor) const
 {
    // Returns the entry number with given index values.
    // See TTreeIndex::GetEntryNumberWithIndex for details.

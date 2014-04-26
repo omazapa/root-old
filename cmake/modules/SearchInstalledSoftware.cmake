@@ -2,6 +2,17 @@
 include(ExternalProject)
 include(FindPackageHandleStandardArgs)
 
+#---Check for Cocoa/Quartz graphics backend (MacOS X only)
+if(cocoa)
+  if(APPLE)
+    set(x11 OFF CACHE BOOL "" FORCE)
+    set(builtin_freetype ON CACHE BOOL "" FORCE)
+  else()
+    message(STATUS "Cocoa option can only be enabled on MacOSX platform")
+    set(cocoa OFF CACHE BOOL "" FORCE)
+  endif()
+endif()
+
 #---Check for Zlib ------------------------------------------------------------------
 if(NOT builtin_zlib)
   message(STATUS "Looking for ZLib")
@@ -30,9 +41,9 @@ if(builtin_freetype)
   set(FREETYPE_INCLUDE_DIR ${CMAKE_BINARY_DIR}/graf2d/freetype/freetype-2.3.12/include)
   set(FREETYPE_INCLUDE_DIRS ${FREETYPE_INCLUDE_DIR})
   if(WIN32)
-    set(FREETYPE_LIBRARIES "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/freetype.lib")     
+    set(FREETYPE_LIBRARIES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/freetype.lib)
   else()
-    set(FREETYPE_LIBRARIES "-L${CMAKE_LIBRARY_OUTPUT_DIRECTORY} -lfreetype")
+    set(FREETYPE_LIBRARIES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libfreetype.a)
   endif()
 endif()
 
@@ -82,27 +93,23 @@ if(builtin_lzma)
     set(LZMA_LIBRARIES ${CMAKE_BINARY_DIR}/LZMA/src/LZMA/lib/liblzma.lib)
     set(LZMA_INCLUDE_DIR ${CMAKE_BINARY_DIR}/LZMA/src/LZMA/include)
   else() 
+    if(CMAKE_CXX_COMPILER_ID STREQUAL Clang)
+      set(LZMA_CFLAGS "-Wno-format-nonliteral")
+    elseif( CMAKE_CXX_COMPILER_ID STREQUAL Intel)
+      set(LZMA_CFLAGS "-wd188 -wd181 -wd1292 -wd10006 -wd10156 -wd2259 -wd981 -wd128 -wd3179")
+    endif()
     ExternalProject_Add(
       LZMA
       URL ${CMAKE_SOURCE_DIR}/core/lzma/src/xz-${lzma_version}.tar.gz 
       URL_MD5 858405e79590e9b05634c399497f4ba7
       INSTALL_DIR ${CMAKE_BINARY_DIR}
-      CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix <INSTALL_DIR> --with-pic --disable-shared
+      CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix <INSTALL_DIR> --with-pic --disable-shared CFLAGS=${LZMA_CFLAGS}
       BUILD_IN_SOURCE 1)
     set(LZMA_LIBRARIES -L${CMAKE_BINARY_DIR}/lib -llzma)
     set(LZMA_INCLUDE_DIR ${CMAKE_BINARY_DIR}/include)
   endif()
 endif()
 
-#---Check for Cocoa/Quartz graphics backend (MacOS X only)
-if(cocoa)
-  if(APPLE)
-    set(x11 OFF CACHE BOOL "" FORCE)
-  else()
-    message(STATUS "Cocoa option can only be enabled on MacOSX platform")
-    set(cocoa OFF CACHE BOOL "" FORCE)
-  endif()
-endif()
 
 #---Check for X11 which is mandatory lib on Unix--------------------------------------
 if(x11)
@@ -186,7 +193,7 @@ endif()
 if(mathmore)
   message(STATUS "Looking for GSL")
   if(NOT builtin_gsl)
-    find_package(GSL)
+    find_package(GSL 1.10)
     if(NOT GSL_FOUND)
       message(STATUS "GSL not found. Set variable GSL_DIR to point to your GSL installation")
       message(STATUS "               Alternatively, you can also enable the option 'builtin_gsl' to build the GSL libraries internally'") 
@@ -202,7 +209,7 @@ if(mathmore)
       INSTALL_DIR ${CMAKE_BINARY_DIR}
       CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix <INSTALL_DIR>
     )
-    set(GSL_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/include)
+    set(GSL_INCLUDE_DIR ${CMAKE_BINARY_DIR}/include)
     set(GSL_LIBRARIES -L${CMAKE_BINARY_DIR}/lib -lgsl -lgslcblas -lm)
   endif()
 endif()
@@ -574,24 +581,49 @@ if(xrootd)
     find_package(XROOTD)
     if(NOT XROOTD_FOUND)
       message(STATUS "XROOTD not found. Set environment variable XRDSYS to point to your XROOTD installation")
-      message(STATUS "                  Alternatively, you can also enable the option 'builtin_xrootd' to build XROOTD  internally'") 
+      message(STATUS "                  Alternatively, you can also enable the option 'builtin_xrootd' to build XROOTD  internally'")
       message(STATUS "                  For the time being switching OFF 'xrootd' option")
       set(xrootd OFF CACHE BOOL "" FORCE)
+    else()
+      set(xrootd_versionnum ${xrdversnum})  # variable used internally
     endif()
-  else()
-    set(xrootd_version 3.1.0)
-    set(xrootd_versionnum 300010000)
-    message(STATUS "Downloading and building XROOTD version ${xrootd_version}") 
-    ExternalProject_Add(
-      XROOTD
-      URL http://xrootd.slac.stanford.edu/download/v${xrootd_version}/xrootd-${xrootd_version}.tar.gz
-      INSTALL_DIR ${CMAKE_BINARY_DIR}
-      CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
-    )
-    set(XROOTD_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/include/xrootd)
-    set(XROOTD_LIBRARIES -L${CMAKE_BINARY_DIR}/lib -lXrdMain -lXrdUtils -lXrdClient)
-    set(XROOTD_CFLAGS "-DROOTXRDVERS=${xrootd_versionnum}")
   endif()
+endif()
+if(builtin_xrootd)
+  set(xrootd_version 3.3.6)
+  set(xrootd_versionnum 300030006)
+  message(STATUS "Downloading and building XROOTD version ${xrootd_version}") 
+  string(REPLACE "-Wall " "" __cxxflags "${CMAKE_CXX_FLAGS}")                        # Otherwise it produces tones of warnings
+  string(REPLACE "-W " "" __cxxflags "${__cxxflags} -Wno-deprecated-declarations -Wno-duplicate-decl-specifier")
+  ExternalProject_Add(
+    XROOTD
+    URL http://xrootd.org/download/v${xrootd_version}/xrootd-${xrootd_version}.tar.gz
+    INSTALL_DIR ${CMAKE_BINARY_DIR}
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+               -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+               -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}
+               -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+               -DCMAKE_CXX_FLAGS=${__cxxflags}
+  )
+  # We cannot call find_package(XROOTD) becuase the package is not yet built. So, we need to emulate what it defines....
+  set(_LIBDIR_DEFAULT "lib")
+  if(CMAKE_SYSTEM_NAME MATCHES "Linux" AND NOT CMAKE_CROSSCOMPILING AND NOT EXISTS "/etc/debian_version")
+    if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
+      set(_LIBDIR_DEFAULT "lib64")
+    endif()
+  endif()
+  set(XROOTD_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/include/xrootd ${CMAKE_BINARY_DIR}/include/xrootd/private)
+  set(XROOTD_LIBRARIES ${CMAKE_BINARY_DIR}/${_LIBDIR_DEFAULT}/libXrdMain${CMAKE_SHARED_LIBRARY_SUFFIX}
+                       ${CMAKE_BINARY_DIR}/${_LIBDIR_DEFAULT}/libXrdUtils${CMAKE_SHARED_LIBRARY_SUFFIX}
+                       ${CMAKE_BINARY_DIR}/${_LIBDIR_DEFAULT}/libXrdClient${CMAKE_SHARED_LIBRARY_SUFFIX}
+                       ${CMAKE_BINARY_DIR}/${_LIBDIR_DEFAULT}/libXrdCl${CMAKE_SHARED_LIBRARY_SUFFIX})
+  set(XROOTD_CFLAGS "-DROOTXRDVERS=${xrootd_versionnum}")
+  set(xrootd ON CACHE BOOL "" FORCE)
+endif()
+if(xrootd AND xrootd_versionnum VERSION_GREATER 300030005)
+  set(netxng ON)
+else()
+  set(netxng OFF)
 endif()
 
 #---Check for gfal-------------------------------------------------------------------

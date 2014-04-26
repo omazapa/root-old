@@ -79,7 +79,7 @@ Int_t stressRooStats(const char* refFile, Bool_t writeRef, Int_t verbose, Bool_t
       if (TString(refFile).Contains("http:")) {
          if (writeRef) {
             cout << "stressRooStats ERROR: reference file must be local file in writing mode" << endl ;
-            return kFALSE ;
+            return -1 ;
          }
          fref = new TWebFile(refFile) ;
       } else {
@@ -87,7 +87,7 @@ Int_t stressRooStats(const char* refFile, Bool_t writeRef, Int_t verbose, Bool_t
       }
       if (fref->IsZombie()) {
          cout << "stressRooStats ERROR: cannot open reference file " << refFile << endl ;
-         return kFALSE ;
+         return -1 ;
       }
    }
 
@@ -101,7 +101,6 @@ Int_t stressRooStats(const char* refFile, Bool_t writeRef, Int_t verbose, Bool_t
 
    // Add dedicated logging stream for errors that will remain active in silent mode
    RooMsgService::instance().addStream(RooFit::ERROR) ;
-
 
    cout << left << setw(lineWidth) << setfill('*') << "" << endl;
    cout << "*" << setw(lineWidth - 2) << setfill(' ') << " RooStats S.T.R.E.S.S. suite " << "*" << endl;
@@ -176,20 +175,20 @@ Int_t stressRooStats(const char* refFile, Bool_t writeRef, Int_t verbose, Bool_t
    // 37-43 TEST HTI PRODUCT POISSON : Observed value range is [0,30] for x=s+b and [0,80] for y=2*s*1.2^beta
    testList.push_back(new TestHypoTestInverter1(fref, writeRef, verbose, kAsymptotic, kProfileLR, 10, 30));
    testList.push_back(new TestHypoTestInverter1(fref, writeRef, verbose, kAsymptotic, kProfileLR, 20, 25));
-   testList.push_back(new TestHypoTestInverter1(fref, writeRef, verbose, kAsymptotic, kProfileLR, 15, 20, 2 * normal_cdf(2) - 1));
+   testList.push_back(new TestHypoTestInverter1(fref, writeRef, verbose, kAsymptotic, kProfileLR, 15, 20));
    testList.push_back(new TestHypoTestInverter1(fref, writeRef, verbose, kFrequentist, kProfileLR, 10, 30));
    testList.push_back(new TestHypoTestInverter1(fref, writeRef, verbose, kFrequentist, kProfileLR, 20, 25));
-   testList.push_back(new TestHypoTestInverter1(fref, writeRef, verbose, kFrequentist, kProfileLR, 15, 20, 2 * normal_cdf(2) - 1));
+   testList.push_back(new TestHypoTestInverter1(fref, writeRef, verbose, kFrequentist, kProfileLR, 15, 20));
    testList.push_back(new TestHypoTestInverter1(fref, writeRef, verbose, kHybrid, kProfileLR, 10, 30));
 
    // 44-48 TEST HTI S+B+E POISSON : Observed value range is [0,50] for x = e*s+b
-   testList.push_back(new TestHypoTestInverter2(fref, writeRef, verbose, kAsymptotic, kProfileLROneSided, 10));
+   testList.push_back(new TestHypoTestInverter2(fref, writeRef, verbose, kAsymptotic, kProfileLROneSided, 10, 0.95));
    testList.push_back(new TestHypoTestInverter2(fref, writeRef, verbose, kAsymptotic, kProfileLROneSided, 20));
 //    testList.push_back(new TestHypoTestInverter2(fref, writeRef, verbose, kFrequentist, kSimpleLR, 10));
 //    testList.push_back(new TestHypoTestInverter2(fref, writeRef, verbose, kFrequentist, kSimpleLR, 20));
-   testList.push_back(new TestHypoTestInverter2(fref, writeRef, verbose, kFrequentist, kRatioLR));
-   testList.push_back(new TestHypoTestInverter2(fref, writeRef, verbose, kFrequentist, kProfileLROneSided));
-   testList.push_back(new TestHypoTestInverter2(fref, writeRef, verbose, kHybrid, kSimpleLR));
+   testList.push_back(new TestHypoTestInverter2(fref, writeRef, verbose, kFrequentist, kRatioLR, 10, 0.95));
+   testList.push_back(new TestHypoTestInverter2(fref, writeRef, verbose, kFrequentist, kProfileLROneSided, 10, 0.95));
+   testList.push_back(new TestHypoTestInverter2(fref, writeRef, verbose, kHybrid, kSimpleLR, 10, 0.95));
  
    
    TString suiteType = TString::Format(" Starting S.T.R.E.S.S. %s",
@@ -205,6 +204,7 @@ Int_t stressRooStats(const char* refFile, Bool_t writeRef, Int_t verbose, Bool_t
 
    gBenchmark->Start("stressRooStats");
 
+   int nFailed = 0;
    {
       Int_t i;
       list<RooUnitTest*>::iterator iter;
@@ -217,7 +217,9 @@ Int_t stressRooStats(const char* refFile, Bool_t writeRef, Int_t verbose, Bool_t
                if (doDump) {
                   (*iter)->setDebug(kTRUE);
                }
-               StatusPrint(i, (*iter)->GetName(), (*iter)->isTestAvailable() ? (*iter)->runTest() : -1, lineWidth);
+               int status =  (*iter)->isTestAvailable() ? (*iter)->runTest() : -1;
+               StatusPrint(i, (*iter)->GetName(), status , lineWidth);
+               if (!status) nFailed++;  // do not count the skipped tests
             }
             delete *iter;
          }
@@ -277,7 +279,7 @@ Int_t stressRooStats(const char* refFile, Bool_t writeRef, Int_t verbose, Bool_t
    delete gBenchmark ;
    gBenchmark = 0 ;
 
-   return 0;
+   return nFailed;
 }
 
 //_____________________________batch only_____________________
@@ -296,6 +298,7 @@ int main(int argc, const char *argv[])
 
    //string refFileName = "http://root.cern.ch/files/stressRooStats_v534_ref.root" ;
    string refFileName = "$ROOTSYS/test/stressRooStats_ref.root" ;
+   string minimizerName = "Minuit";
 
    // Parse command line arguments
    for (Int_t i = 1 ;  i < argc ; i++) {
@@ -310,6 +313,9 @@ int main(int argc, const char *argv[])
       } else if (arg == "-mc") {
          cout << "stressRooStats: running in memcheck mode, no regression tests are performed" << endl;
          dryRun = kTRUE;
+      } else if (arg == "-min" || arg == "-minim") {
+         cout << "stressRooStats: running using minimizer " << argv[i +1]  << endl;
+         minimizerName = argv[++i] ;
       } else if (arg == "-ts") {
          cout << "stressRooStats: setting tree-based storage for datasets" << endl;
          doTreeStore = kTRUE;
@@ -319,6 +325,9 @@ int main(int argc, const char *argv[])
       } else if (arg == "-vv") {
          cout << "stressRooStats: running in very verbose mode" << endl;
          verbose = 2;
+      } else if (arg == "-vvv") {
+         cout << "stressRooStats: running in very very verbose mode" << endl;
+         verbose = 3;
       } else if (arg == "-a") {
          cout << "stressRooStats: deploying full suite of tests" << endl;
          allTests = kTRUE;
@@ -341,6 +350,7 @@ int main(int argc, const char *argv[])
          cout << "       -a        : run full suite of tests (default is basic suite); this overrides the -n single test option" << endl;
          cout << "       -c        : dump file stressRooStats_DEBUG.root to which results of both current result and reference for each failed test are written" << endl;
          cout << "       -mc       : memory check mode, no regression test are performed. Set this flag when running with valgrind" << endl;
+         cout << "     -min <name> : minimizer name (default is Minuit2_ if available" << endl;
          cout << "       -vs       : use vector-based storage for all datasets (default is tree-based storage)" << endl;
          cout << "       -v/-vv    : set verbose mode (show result of each regression test) or very verbose mode (show all roofit output as well)" << endl;
          cout << "       -d N      : set ROOT gDebug flag to N" << endl ;
@@ -368,9 +378,22 @@ int main(int argc, const char *argv[])
    // want to write out the cache file as part of the validation procedure
    RooMath::cacheCERF(kFALSE) ;
 
+
+   // set minimizer 
+    // use Minut2 if available 
+   std::string minimizerType = minimizerName; 
+   // check in case of Minuit2 and set Minuit in case we cannot use it 
+   if (minimizerType == "Minuit2") { 
+      int prec = gErrorIgnoreLevel;
+      gErrorIgnoreLevel = kFatal;
+      if (gSystem->Load("libMinuit2") < 0) minimizerType = "Minuit";
+      gErrorIgnoreLevel=prec;
+   }
+   ROOT::Math::MinimizerOptions::SetDefaultMinimizer(minimizerType.c_str());
+      
+
    gBenchmark = new TBenchmark();
-   stressRooStats(refFileName.c_str(), doWrite, verbose, allTests, oneTest, testNumber, dryRun, doDump, doTreeStore);
-   return 0;
+   return stressRooStats(refFileName.c_str(), doWrite, verbose, allTests, oneTest, testNumber, dryRun, doDump, doTreeStore);
 }
 
 #endif

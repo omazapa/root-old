@@ -80,6 +80,7 @@ contains the input coordinates), especially if the histogram is to be filled
 many times.
 <p>
 The following very simple macro shows how to build and fill a <tt>TH2Poly</tt>:
+<pre>
 {
     TH2Poly *h2p = new TH2Poly();
 
@@ -1198,6 +1199,17 @@ void TH2Poly::SavePrimitive(ostream &out, Option_t *option)
       }
    }
    TH1::SavePrimitiveHelp(out, hname, option);
+}
+
+
+//______________________________________________________________________________
+void TH2Poly::Scale(Double_t c1, Option_t*)
+{
+   // Multiply this histogram by a constant c1.
+
+   for( int i = 0; i < this->GetNumberOfBins(); i++ ) {
+      this->SetBinContent(i+1, c1*this->GetBinContent(i+1));
+   }
 }
 
 

@@ -237,7 +237,7 @@ public:
    void                   DrawTracks(Option_t *option=""); // *MENU*
    void                   SetParticleName(const char *pname) {fParticleName=pname;}
    const char            *GetParticleName() const {return fParticleName.Data();}
-   void                   DrawPath(const char *path);
+   void                   DrawPath(const char *path, Option_t *option="");
    void                   PrintOverlaps() const; // *MENU*
    void                   RandomPoints(const TGeoVolume *vol, Int_t npoints=10000, Option_t *option="");
    void                   RandomRays(Int_t nrays=1000, Double_t startx=0, Double_t starty=0, Double_t startz=0, const char *target_vol=0, Bool_t check_norm=kFALSE);
@@ -431,7 +431,7 @@ public:
    static Int_t           GetMaxDaughters();
    static Int_t           GetMaxLevels();
    static Int_t           GetMaxXtruVert();
-   Int_t                  GetMaxThreads() const {return fMaxThreads;}
+   Int_t                  GetMaxThreads() const {return fMaxThreads-1;}
    void                   SetMaxThreads(Int_t nthreads);
    void                   SetMultiThread(Bool_t flag=kTRUE) {fMultiThread = flag;}
    Bool_t                 IsMultiThread() const {return fMultiThread;}

@@ -194,7 +194,7 @@ TMVA::MethodBDT::MethodBDT( const TString& jobName,
    , fCtb_ss(0)
    , fCbb(0)
    , fDoPreselection(kFALSE)
-
+   , fHistoricBool(kFALSE) 
 {
    // the standard constructor for the "boosted decision trees"
    fMonitorNtuple = NULL;
@@ -248,6 +248,7 @@ TMVA::MethodBDT::MethodBDT( DataSetInfo& theData,
    , fCtb_ss(0)
    , fCbb(0)
    , fDoPreselection(kFALSE)
+   , fHistoricBool(kFALSE) 
 {
    fMonitorNtuple = NULL;
    fSepType = NULL;
@@ -531,6 +532,16 @@ void TMVA::MethodBDT::ProcessOptions()
          Log() << kWARNING << "Regression Trees do not work with Separation type other than <RegressionVariance> --> I will use it instead" << Endl;
          fSepType = NULL;
       }
+      if (fUseFisherCuts){
+	Log() << kWARNING << "Sorry, UseFisherCuts is not available for regression analysis, I will ignore it!" << Endl;
+	fUseFisherCuts = kFALSE;
+      }
+      if (fNCuts < 0) {
+	Log() << kWARNING << "Sorry, the option of nCuts<0 using a more elaborate node splitting algorithm " << Endl;
+	Log() << kWARNING << "is not implemented for regression analysis ! " << Endl;
+	Log() << kWARNING << "--> I switch do default nCuts = 20 and use standard node splitting"<<Endl;
+	fNCuts=20;
+      }
    }
    if (fRandomisedTrees){
       Log() << kINFO << " Randomised trees use no pruning" << Endl;
@@ -538,6 +549,12 @@ void TMVA::MethodBDT::ProcessOptions()
       //      fBoostType   = "Bagging";
    }
 
+   if (fUseFisherCuts) {
+     Log() << kWARNING << "Sorry, when using the option UseFisherCuts, the other option nCuts<0 (i.e. using" << Endl;
+     Log() << kWARNING << " a more elaborate node splitting algorithm) is not implemented. I will switch o " << Endl;
+     Log() << kWARNING << "--> I switch do default nCuts = 20 and use standard node splitting WITH possible Fisher criteria"<<Endl;
+     fNCuts=20;
+   }
    
    if (fNTrees==0){
       Log() << kERROR << " Zero Decision Trees demanded... that does not work !! "
@@ -736,6 +753,7 @@ void TMVA::MethodBDT::InitEventSample( void )
                firstZeroWeight = kFALSE;
                Log() << "Events with weight == 0 are going to be simply ignored " << Endl;
             }
+            delete event;
          }else{
             if (event->GetWeight() < 0) {
                fTrainWithNegWeights=kTRUE;
@@ -780,45 +798,54 @@ void TMVA::MethodBDT::InitEventSample( void )
       if (fPairNegWeightsGlobal) PreProcessNegativeEventWeights();
    }
 
+   if (!DoRegression()){
+      Log() << kINFO << "<InitEventSample> For classification trees, "<< Endl;
+      Log() << kINFO << " the effective number of backgrounds is scaled to match "<<Endl;
+      Log() << kINFO << " the signal. Othersise the first boosting step would do 'just that'!"<<Endl;
+      // it does not make sense in decision trees to start with unequal number of signal/background
+      // events (weights) .. hence normalize them now (happens atherwise in first 'boosting step'
+      // anyway..  
+      // Also make sure, that the sum_of_weights == sample.size() .. as this is assumed in
+      // the DecisionTree to derive a sensible number for "fMinSize" (min.#events in node)
+      // that currently is an OR between "weighted" and "unweighted number"
+      // I want:
+      //    nS + nB = n
+      //   a*SW + b*BW = n
+      //   (a*SW)/(b*BW) = fSigToBkgFraction
+      //
+      // ==> b = n/((1+f)BW)  and a = (nf/(1+f))/SW
 
-   // it does not make sense in decision trees to start with unequal number of signal/background
-   // events (weights) .. hence normalize them now (happens atherwise in first 'boosting step'
-   // anyway..  
-   // Also make sure, that the sum_of_weights == sample.size() .. as this is assumed in
-   // the DecisionTree to derive a sensible number for "fMinSize" (min.#events in node)
-   // that currently is an OR between "weighted" and "unweighted number"
-   // I want:
-   //    nS + nB = n
-   //   a*SW + b*BW = n
-   //   (a*SW)/(b*BW) = fSigToBkgFraction
-   //
-   // ==> b = n/((1+f)BW)  and a = (nf/(1+f))/SW
-
-   Double_t nevents = fEventSample.size();
-   Double_t sumSigW=0, sumBkgW=0;
-   Int_t    sumSig=0, sumBkg=0;
-   for (UInt_t ievt=0; ievt<fEventSample.size(); ievt++) {
-      if ((DataInfo().IsSignal(fEventSample[ievt])) ) {
-         sumSigW += fEventSample[ievt]->GetWeight();
-         sumSig++;
-      } else {
-         sumBkgW += fEventSample[ievt]->GetWeight(); 
-         sumBkg++;
+      Double_t nevents = fEventSample.size();
+      Double_t sumSigW=0, sumBkgW=0;
+      Int_t    sumSig=0, sumBkg=0;
+      for (UInt_t ievt=0; ievt<fEventSample.size(); ievt++) {
+         if ((DataInfo().IsSignal(fEventSample[ievt])) ) {
+            sumSigW += fEventSample[ievt]->GetWeight();
+            sumSig++;
+         } else {
+            sumBkgW += fEventSample[ievt]->GetWeight(); 
+            sumBkg++;
+         }
       }
-  }
-   Double_t normSig = nevents/((1+fSigToBkgFraction)*sumSigW)*fSigToBkgFraction;
-   Double_t normBkg = nevents/((1+fSigToBkgFraction)*sumBkgW); ;
-   Log() << kINFO << "re-normlise events such that Sig and Bkg have respective sum of weights = " 
-         << fSigToBkgFraction << Endl;
-   Log() << kINFO << "  sig->sig*"<<normSig << "ev. bkg->bkg*"<<normBkg << "ev." <<Endl;
-   Log() << kINFO << "#events: (reweighted) sig: "<< sumSigW*normSig << " bkg: " << sumBkgW*normBkg << Endl;
-   Log() << kINFO << "#events: (unweighted) sig: "<< sumSig << " bkg: " << sumBkg << Endl;
-   for (Long64_t ievt=0; ievt<nevents; ievt++) {
-      if ((DataInfo().IsSignal(fEventSample[ievt])) ) fEventSample[ievt]->SetBoostWeight(normSig);
-      else                                            fEventSample[ievt]->SetBoostWeight(normBkg);
+      if (sumSigW && sumBkgW){
+         Double_t normSig = nevents/((1+fSigToBkgFraction)*sumSigW)*fSigToBkgFraction;
+         Double_t normBkg = nevents/((1+fSigToBkgFraction)*sumBkgW); ;
+         Log() << kINFO << "re-normlise events such that Sig and Bkg have respective sum of weights = " 
+               << fSigToBkgFraction << Endl;
+         Log() << kINFO << "  sig->sig*"<<normSig << "ev. bkg->bkg*"<<normBkg << "ev." <<Endl;
+         Log() << kINFO << "#events: (reweighted) sig: "<< sumSigW*normSig << " bkg: " << sumBkgW*normBkg << Endl;
+         Log() << kINFO << "#events: (unweighted) sig: "<< sumSig << " bkg: " << sumBkg << Endl;
+         for (Long64_t ievt=0; ievt<nevents; ievt++) {
+            if ((DataInfo().IsSignal(fEventSample[ievt])) ) fEventSample[ievt]->SetBoostWeight(normSig);
+            else                                            fEventSample[ievt]->SetBoostWeight(normBkg);
+         }
+      }else{
+         Log() << kINFO << "--> could not determine scaleing factors as either there are " << Endl;
+         Log() << kINFO << " no signal events (sumSigW="<<sumSigW<<") or no bkg ev. (sumBkgW="<<sumBkgW<<")"<<Endl;
+      }
+      
    }
-
-
+   
    fTrainSample = &fEventSample;
    if (fBaggedBoost){
       GetBaggedSubSample(fEventSample);
