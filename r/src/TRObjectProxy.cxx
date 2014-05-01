@@ -50,7 +50,7 @@ using namespace ROOT::R;
 ClassImp(TRObjectProxy)
 
 //______________________________________________________________________________
-TRObjectProxy::TRObjectProxy(SEXP xx): x(xx) { }
+TRObjectProxy::TRObjectProxy(SEXP xx):TObject(), x(xx) { }
 
 //______________________________________________________________________________
 TString TRObjectProxy::ToString()

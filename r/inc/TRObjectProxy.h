@@ -32,7 +32,7 @@ namespace ROOT {
       private:
          Rcpp::RObject x;
       public:
-         TRObjectProxy() {};
+         TRObjectProxy():TObject() {};
          TRObjectProxy(SEXP xx);
 
          void operator=(SEXP xx);

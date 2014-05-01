@@ -121,7 +121,7 @@ ClassImp(TRInterface)
 // extern SEXP rcompgen_rho;
 
 //______________________________________________________________________________
-TRInterface::TRInterface(const int argc, const char *argv[], const bool loadRcpp, const bool verbose, const bool interactive)
+TRInterface::TRInterface(const int argc, const char *argv[], const bool loadRcpp, const bool verbose, const bool interactive):TObject()
 {
 // The command line arguments are by deafult argc=0 and argv=NULL,
 // The verbose mode is by default disabled but you can enable it to show procedures information in stdout/stderr

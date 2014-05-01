@@ -37,12 +37,12 @@ namespace ROOT {
       protected:
          Rcpp::InternalFunction *f;
       public:
-         TRFunction(){f=NULL;};
+         TRFunction();
 
-         TRFunction(const TRFunction &fun){f = fun.f;}
+         TRFunction(const TRFunction &fun);
 #if !defined(__CINT__)
          //________________________________________________________________________________________________________
-         template<class T> TRFunction(T fun) {
+         template<class T> TRFunction(T fun):TObject(fun) {
             //template constructor that supports a lot
             // of function's prototypes
             f = new Rcpp::InternalFunction(fun);

@@ -54,7 +54,6 @@ include/%.h: $(RDIRI)/%.h
 $(RLIB): $(RO) $(RDO) $(ORDER_) $(MAINLIBS) $(RLIBDEP)
 		@$(MAKELIB) $(PLATFORM) $(LD) "$(LDFLAGS)"  \
 		   "$(SOFLAGS)" libRInterface.$(SOEXT) $@     \
-		   "$(RO) $(RDO)"             \
 		   "$(RLIBEXTRA) $(RLIBS)"
 
 $(call pcmrule,R)
