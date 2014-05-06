@@ -1,17 +1,14 @@
 // @(#)root/r:$Id$
 // Author: Omar Zapata   29/05/2013
 
+
 /*************************************************************************
-* Copyright (C) 2013,  Gfif Developers                                   *
-* Grupo de Fenomenologia de Interacciones Fundamentales                  *
-* http://gfif.udea.edu.co                                                *
-* División de ciencias de la computación Gfifdev                         *
-* Class Created and Maintained By Omar Andres Zapata Mesa                *
-* All rights reserved.                                                   *
-*                                                                        *
-*                                                                        *
-* For the list of contributors see $ROOTSYS/README/CREDITS.              *
-*************************************************************************/
+ * Copyright (C) 2013-2014, Omar Andres Zapata Mesa                      *
+ * All rights reserved.                                                  *
+ *                                                                       *
+ * For the licensing terms see $ROOTSYS/LICENSE.                         *
+ * For the list of contributors see $ROOTSYS/README/CREDITS.             *
+ *************************************************************************/
 #ifndef ROOT_R_RExports
 #define ROOT_R_RExports
 //ROOT headers

@@ -67,7 +67,7 @@ $(RDS):  $(RL) $(RLINC) $(ROOTCINTTMPDEP) $(call pcmdep,R)
 $(RMAP): $(RL) $(RLINC) $(ROOTCINTTMPDEP) $(call pcmdep,R)
 		$(MAKEDIR)
 		@echo "Generating rootmap $@..."
-		$(ROOTCINTTMP) -r $(RDS)  $(call dictModule,R) -c $(ROOT_SRCDIR:%=-I%) $(RFLAGS)  $(RL)
+		$(ROOTCINTTMP) -r $(RDS)  $(call dictModule,R) -c $(ROOT_SRCDIR:%=-I%) $(RFLAGS) $(RDH) $(RL)
 
 all-$(MODNAME): $(RLIB)
 
