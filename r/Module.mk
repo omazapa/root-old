@@ -2,7 +2,7 @@
 # Copyright (c) 2013 Omar Andres Zapata Mesa
 #
 # Author: Omar Zapata, 30/5/2013
-# updated Apr 29 2014 GSoC
+# updated Apr 29 2014
 
 MODNAME      := r
 MODDIR       := $(ROOT_SRCDIR)/$(MODNAME)
@@ -13,24 +13,25 @@ RDIR  := $(MODDIR)
 RDIRS := $(RDIR)/src
 RDIRI := $(RDIR)/inc
 
-
 ##### libRInterface #####
-RL    := $(MODDIRI)/LinkDef.h
+RL           := $(MODDIRI)/LinkDef.h
 
+RDS          := $(call stripsrc,$(MODDIRS)/G__RInterface.cxx)
 
-RDS   := $(call stripsrc,$(MODDIRS)/G__RInterface.cxx)
-RDO   := $(RDS:.cxx=.o)
-#RDH   := $(RDS:.cxx=.h)
+RDO          := $(RDS:.cxx=.o)
 
-RDH   := $(MODDIRI)/RExports.h \
+#RDH          := $(RDS:.cxx=.h)
+
+RDH          := $(MODDIRI)/RExports.h \
                 $(MODDIRI)/TRInterface.h \
                 $(MODDIRI)/TRObjectProxy.h \
                 $(MODDIRI)/TRFunction.h \
                 $(MODDIRI)/compilerdata.h 
 
-RH    := $(filter-out $(MODDIRI)/LinkDef%,$(wildcard $(MODDIRI)/*.h))
+RH    := $(RDH) 
 RS    := $(filter-out $(MODDIRS)/G__%,$(wildcard $(MODDIRS)/*.cxx))
 RO    := $(call stripsrc,$(RS:.cxx=.o))
+
 
 RDEP  := $(RO:.o=.d) $(RDO:.o=.d)
 
@@ -45,34 +46,38 @@ ALLMAPS      += $(RMAP)
 # include all dependency files
 INCLUDEFILES += $(RDEP)
 
-##### local rules #####
-.PHONY:         all-$(MODNAME) clean-$(MODNAME) distclean-$(MODNAME)
 
-include/%.h: $(RDIRI)/%.h
+##### local rules #####
+.PHONY:         all-$(MODNAME) clean-$(MODNAME) distclean-$(MODNAME) \
+                test-$(MODNAME)
+
+include/%.h:    $(RDIRI)/%.h
 		cp $< $@
 
 $(RLIB): $(RO) $(RDO) $(ORDER_) $(MAINLIBS) $(RLIBDEP)
 		@$(MAKELIB) $(PLATFORM) $(LD) "$(LDFLAGS)"  \
 		   "$(SOFLAGS)" libRInterface.$(SOEXT) $@     \
+		   "$(RO) $(RDO)" \
 		   "$(RLIBEXTRA) $(RLIBS)"
 
 $(call pcmrule,R)
 	$(noop)
 
-$(RDS):  $(RL) $(RLINC) $(ROOTCINTTMPDEP) $(call pcmdep,R)
+$(RDS): $(RDH) $(RL)  $(ROOTCINTTMPDEP) $(call pcmdep,R)
 		$(MAKEDIR)
 		@echo "Generating dictionary $@..."
-		$(ROOTCINTTMP) -f $@  $(call dictModule,R) -c $(ROOT_SRCDIR:%=-I%) $(RFLAGS) $(RL)
+		$(ROOTCINTTMP) -f $@  $(call dictModule,R)  -c $(RDH) $(RFLAGS) $(RL)
 
 $(RMAP): $(RL) $(RLINC) $(ROOTCINTTMPDEP) $(call pcmdep,R)
 		$(MAKEDIR)
 		@echo "Generating rootmap $@..."
 		$(ROOTCINTTMP) -r $(RDS)  $(call dictModule,R) -c $(ROOT_SRCDIR:%=-I%) $(RFLAGS) $(RDH) $(RL)
 
+
 all-$(MODNAME): $(RLIB)
 
 clean-$(MODNAME):
-		@rm -f $(RO) $(RDO)
+		@rm -f $(RDO)
 
 clean::         clean-$(MODNAME)
 
@@ -82,9 +87,11 @@ distclean-$(MODNAME): clean-$(MODNAME)
 
 distclean::     distclean-$(MODNAME)
 
+#test-$(MODNAME): all-$(MODNAME)
+
 ##### extra rules ######
 $(RO): CXXFLAGS += $(RFLAGS) -DUSE_ROOT_ERROR
-$(RDO): CXXFLAGS += $(RFLAGS) -DUSE_ROOT_ERROR
-
+$(RDO): CXXFLAGS += $(RFLAGS) -DUSE_ROOT_ERROR 
+# add optimization to G__RInterface compilation
 # Optimize dictionary with stl containers.
-$(RDO): NOOPT = $(OPT)
+$(RDO) : NOOPT = $(OPT)
