@@ -44,22 +44,6 @@
 #pragma link C++ function ROOT::R::TRInterface::Binding::operator=(std::vector<Int_t>&);
 
 #pragma link C++ class ROOT::R::TRObjectProxy+;
-#pragma link C++ function  ROOT::R::TRObjectProxy::ToScalar<Double_t>();
-#pragma link C++ function  ROOT::R::TRObjectProxy::ToScalar<Float_t>();
-#pragma link C++ function  ROOT::R::TRObjectProxy::ToScalar<Int_t>();
-
-#pragma link C++ function  ROOT::R::TRObjectProxy::ToVector<Double_t>();
-#pragma link C++ function  ROOT::R::TRObjectProxy::ToVector<Float_t>();
-
-#pragma link C++ function  ROOT::R::TRObjectProxy::ToStdVector<Double_t>();
-#pragma link C++ function  ROOT::R::TRObjectProxy::ToStdVector<Float_t>();
-#pragma link C++ function  ROOT::R::TRObjectProxy::ToStdVector<Int_t>();
-
-#pragma link C++ function  ROOT::R::TRObjectProxy::ToArray<TArrayD,Double_t>();
-#pragma link C++ function  ROOT::R::TRObjectProxy::ToArray<TArrayF,Float_t>();
-#pragma link C++ function  ROOT::R::TRObjectProxy::ToArray<TArrayI,Int_t>();
-
-#pragma link C++ function  ROOT::R::TRObjectProxy::ToMatrix<Double_t>();
 
 // #pragma link C++ global gR;
 
