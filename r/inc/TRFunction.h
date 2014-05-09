@@ -37,16 +37,20 @@ namespace ROOT {
          TRFunction();
 
          TRFunction(const TRFunction &fun);
-#if !defined(__CINT__)
          //________________________________________________________________________________________________________
-         template<class T> TRFunction(T fun):TObject(fun) {
+         template<class T> TRFunction(T fun){
             //template constructor that supports a lot
             // of function's prototypes
             f = new Rcpp::InternalFunction(fun);
          }
-#endif
+
          ClassDef(TRFunction, 0) //
       };
+//       template<> TRFunction::TRFunction(Double_t (*fun)(Double_t));
+
    }
 }
+
+
+
 #endif

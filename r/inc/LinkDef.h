@@ -20,6 +20,7 @@
 
 //classes
 #pragma link C++ class ROOT::R::TRFunction+;
+#pragma link C++ class ROOT::R::TRFunction::TRFunction(Double_t (*fun)(Double_t));
 
 #pragma link C++ class ROOT::R::TRInterface+;
 #pragma link C++ function ROOT::R::TRInterface::Assign<Int_t>(const Int_t&,const TString&);
@@ -60,6 +61,6 @@
 
 #pragma link C++ function  ROOT::R::TRObjectProxy::ToMatrix<Double_t>();
 
-#pragma link C++ global gR;
+// #pragma link C++ global gR;
 
 #endif
