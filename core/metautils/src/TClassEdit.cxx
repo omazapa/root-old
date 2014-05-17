@@ -609,7 +609,7 @@ void TClassEdit::GetNormalizedName(std::string &norm_name, const char *name)
    TClassEdit::TSplitType splitname(norm_name.c_str(),(TClassEdit::EModType)(TClassEdit::kLong64 | TClassEdit::kDropStd | TClassEdit::kDropStlDefault | TClassEdit::kKeepOuterConst));
    splitname.ShortType(norm_name,TClassEdit::kDropStd | TClassEdit::kDropStlDefault );
 
-   // Depending on how the user typed his/her code, in particular typedef
+   // Depending on how the user typed their code, in particular typedef
    // declarations, we may end up with an explicit '::' being
    // part of the result string.  For consistency, we must remove it.
    if (norm_name.length()>2 && norm_name[0]==':' && norm_name[1]==':') {
@@ -1075,6 +1075,10 @@ string TClassEdit::ResolveTypedef(const char *tname, bool resolveAll)
    if ( tname==0 || tname[0]==0 ) return "";
 
    if ( strchr(tname,'<')==0 && (tname[strlen(tname)-1]!='*') ) {
+
+      if (strcmp(tname,"Double32_t")==0 || strcmp(tname,"Float16_t")==0) {
+         return tname;
+      }
 
       if ( strchr(tname,':')!=0 ) {
          // We have a namespace and we have to check it first :(

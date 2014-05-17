@@ -82,13 +82,18 @@ std::map <clang::Decl*, std::string> RScanner::fgAnonymousClassMap;
 std::map <clang::Decl*, std::string> RScanner::fgAnonymousEnumMap;
 
 //______________________________________________________________________________
-RScanner::RScanner (SelectionRules &rules, const cling::Interpreter &interpret, ROOT::TMetaUtils::TNormalizedCtxt &normCtxt, unsigned int verbose /* = 0 */) : 
+RScanner::RScanner (SelectionRules &rules, 
+                    EScanType stype,
+                    const cling::Interpreter &interpret, 
+                    ROOT::TMetaUtils::TNormalizedCtxt &normCtxt, 
+                    unsigned int verbose /* = 0 */) : 
   fVerboseLevel(verbose),
   fSourceManager(0),
   fInterpreter(interpret),
   fRecordDeclCallback(0),
   fNormCtxt(normCtxt),
   fSelectionRules(rules),
+  fScanType(stype),
   fFirstPass(true)
 {
    // Regular constructor setting up the scanner to search for entities
@@ -616,7 +621,12 @@ std::string RScanner::FuncParameterList(clang::FunctionDecl* D) const
 bool RScanner::VisitNamespaceDecl(clang::NamespaceDecl* N)
 {
    // This method visits a namespace node    
-   // in case it is implicit we don't create a builder 
+   
+   // We don't need to visit this while creating the big PCM
+   if (fScanType == EScanType::kOnePCM)
+      return true;
+   
+   // in case it is implicit we don't create a builder         
    if(N && N->isImplicit()){
       return true;
    }
@@ -664,7 +674,6 @@ bool RScanner::VisitRecordDecl(clang::RecordDecl* D)
 {
 
    // This method visits a class node
-
    return TreatRecordDeclOrTypedefNameDecl(D);
    
 
@@ -676,8 +685,6 @@ bool RScanner::TreatRecordDeclOrTypedefNameDecl(clang::TypeDecl* typeDecl)
 
    // For every class is created a new class buider irrespectful of weather the
    // class is internal for another class declaration or not.
-   // For every class the class builder is put on top of the fClassBuilders
-   // stack.
    // RecordDecls and TypedefDecls (or RecordDecls!) are treated.   
    // We follow two different codepaths if the typeDecl is a RecordDecl or
    // a TypedefDecl. If typeDecl is a TypedefDecl, recordDecl becomes the
@@ -701,6 +708,10 @@ bool RScanner::TreatRecordDeclOrTypedefNameDecl(clang::TypeDecl* typeDecl)
        "Could not cast typeDecl either to RecordDecl or could not get RecordDecl underneath typedef.\n");
       return true;
    }
+
+   if (fScanType == EScanType::kOnePCM && ROOT::TMetaUtils::IsStdClass(*recordDecl))
+      return true;
+
 
    // At this point, recordDecl must be a RecordDecl pointer.
    
@@ -727,23 +738,30 @@ bool RScanner::TreatRecordDeclOrTypedefNameDecl(clang::TypeDecl* typeDecl)
    if (cxxdecl && cxxdecl->getDescribedClassTemplate ()) {
       return true;
    }
-   
-   DumpDecl(recordDecl, "");
-   
-   //Test
+
    const ClassSelectionRule *selectedFromTypedef = typedefNameDecl ? fSelectionRules.IsDeclSelected(typedefNameDecl) : 0;
+
    const ClassSelectionRule *selectedFromRecDecl = fSelectionRules.IsDeclSelected(recordDecl);
    
    const ClassSelectionRule *selected = typedefNameDecl ? selectedFromTypedef : selectedFromRecDecl;
 
    if (! selected) return true; // early exit. Nothing more to be done.
-   
+
    // Selected through typedef but excluded with concrete classname 
    bool excludedFromRecDecl = false;
    if ( selectedFromRecDecl )
       excludedFromRecDecl = selectedFromRecDecl->GetSelected() == BaseSelectionRule::kNo;
 
    if (selected->GetSelected() == BaseSelectionRule::kYes && !excludedFromRecDecl) {
+      // The record decl will results to be selected
+
+      // Save the typedef
+      if (selectedFromTypedef){
+         fSelectedTypedefs.push_back(typedefNameDecl);
+         // Early exit here if we are not in presence of XML
+         if (!fSelectionRules.IsSelectionXMLFile()) return true;
+      }
+
       if (typedefNameDecl)
          ROOT::TMetaUtils::Info("RScanner::TreatRecordDeclOrTypedefNameDecl",
                                 "Typedef is selected %s.\n", typedefNameDecl->getNameAsString().c_str());
@@ -763,7 +781,7 @@ bool RScanner::TreatRecordDeclOrTypedefNameDecl(clang::TypeDecl* typeDecl)
          }
          const clang::NamespaceDecl *nsCanonical = nsDecl->getCanonicalDecl();
          if (nsCanonical && nsCanonical == fInterpreter.getCI()->getSema().getStdNamespace()) {
-            if (selected->HasAttributeWithName("file_name") || selected->HasAttributeWithName("file_pattern")) {
+            if (selected->HasAttributeFileName() || selected->HasAttributeFilePattern()) {
                return true;
             }
          }
@@ -771,12 +789,13 @@ bool RScanner::TreatRecordDeclOrTypedefNameDecl(clang::TypeDecl* typeDecl)
 
       // Insert in the selected classes if not already there
       // We need this check since the same class can be selected through its name or typedef
-      bool rcrdDeclAlreadySelected = fselectedRecordDecls.insert(recordDecl).second;
-      
-      if(rcrdDeclAlreadySelected && !fFirstPass){
-         
-         std::string name_value("");
-         if (selected->GetAttributeValue(ROOT::TMetaUtils::propNames::name, name_value)) {
+      bool rcrdDeclNotAlreadySelected = fselectedRecordDecls.insert(recordDecl).second;
+
+      if(rcrdDeclNotAlreadySelected &&
+         !fFirstPass){
+
+         const std::string& name_value = selected->GetAttributeName();
+         if (selected->HasAttributeName()) {
             ROOT::TMetaUtils::AnnotatedRecordDecl annRecDecl(selected->GetIndex(),
                                                             selected->GetRequestedType(),
                                                             recordDecl,
@@ -830,14 +849,6 @@ bool RScanner::TreatRecordDeclOrTypedefNameDecl(clang::TypeDecl* typeDecl)
          }
          
       }
-      // Add the typedef name if selected      
-      if (selectedFromTypedef){
-         // Here it does not make sense to use the name normalisation. It
-         // indeed resolve all typedefs except the opaque ones. The best we can
-         // do is to rely on clang.
-         fSelectedTypedefNames.push_back(typedefNameDecl->getQualifiedNameAsString());
-      }     
-
    }      
 
 
@@ -850,10 +861,12 @@ bool RScanner::VisitTypedefNameDecl(clang::TypedefNameDecl* D)
 {
    // Visitor for every TypedefNameDecl, i.e. aliases and typedefs
    // We check three conditions before trying to match the name:
-   // 1) If we are using a selection XML
+   // 1) If we are creating a big PCM
    // 2) If the underlying decl is a RecordDecl
    // 3) If the typedef is eventually contained in the std namespace
    
+   if (fScanType == EScanType::kOnePCM)
+      return true;
    
    const clang::DeclContext *ctx = D->getDeclContext();
 
@@ -863,8 +876,7 @@ bool RScanner::VisitTypedefNameDecl(clang::TypedefNameDecl* D)
       isInStd = parent && 0 == parent->getQualifiedNameAsString().compare(0,5,"std::");
       }
 
-   if (fSelectionRules.IsSelectionXMLFile() &&
-       ROOT::TMetaUtils::GetUnderlyingRecordDecl(D->getUnderlyingType()) &&
+   if (ROOT::TMetaUtils::GetUnderlyingRecordDecl(D->getUnderlyingType()) &&
        !isInStd){
       TreatRecordDeclOrTypedefNameDecl(D);
    }
@@ -990,6 +1002,8 @@ bool RScanner::VisitFieldDecl(clang::FieldDecl* D)
 //______________________________________________________________________________
 bool RScanner::VisitFunctionDecl(clang::FunctionDecl* D)
 {
+   if (fScanType == EScanType::kOnePCM)
+      return true;
    DumpDecl(D, "");
    
    bool ret = true;
@@ -1038,18 +1052,24 @@ bool RScanner::VisitFunctionDecl(clang::FunctionDecl* D)
 bool RScanner::TraverseDeclContextHelper(DeclContext *DC)
 {
    bool ret = true;
-   
+
    if (!DC)
       return true;
-   
+
    clang::Decl* D = dyn_cast<clang::Decl>(DC);
    // skip implicit decls
    if (D && D->isImplicit()){
       return true;
    }
-   
-   for (DeclContext::decl_iterator Child = DC->decls_begin(), ChildEnd = DC->decls_end(); 
-        ret && (Child != ChildEnd); ++Child) {      
+
+   if (fScanType == EScanType::kOnePCM){
+      const clang::NamespaceDecl *parent = llvm::dyn_cast<clang::NamespaceDecl> (DC);
+      if (parent && 0 == parent->getQualifiedNameAsString().compare(0,5,"std::"))
+         return true;
+      }
+
+   for (DeclContext::decl_iterator Child = DC->decls_begin(), ChildEnd = DC->decls_end();
+        ret && (Child != ChildEnd); ++Child) {
       ret=TraverseDecl(*Child);
    }
    
@@ -1156,7 +1176,7 @@ bool RScanner::GetFunctionPrototype(clang::Decl* D, std::string& prototype) cons
 }
 
 //______________________________________________________________________________
-void RScanner::Scan(const clang::ASTContext &C, bool twoPasses)
+void RScanner::Scan(const clang::ASTContext &C)
 {
    fSourceManager = &C.getSourceManager();
    
@@ -1167,7 +1187,7 @@ void RScanner::Scan(const clang::ASTContext &C, bool twoPasses)
          std::cout<<"File name detected"<<std::endl;
    }
 
-   if (twoPasses)
+   if (fScanType == EScanType::kTwoPasses)
       TraverseDecl(C.getTranslationUnitDecl());
 
 #ifdef SELECTION_DEBUG

@@ -109,10 +109,11 @@ namespace cling {
     if (!i->isPrintingDebug())
       return;
     const CompilerInstance& CI = *m_Interpreter->getCI();
+    CodeGenerator* CG = i->getCodeGenerator();
     m_State.reset(new ClangInternalState(CI.getASTContext(),
                                          CI.getPreprocessor(),
-                                         i->getCodeGenerator()->GetModule(),
-                                         i->getCodeGenerator(),
+                                         CG ? CG->GetModule() : 0,
+                                         CG,
                                          "aName"));
   }
 
@@ -214,12 +215,7 @@ namespace cling {
   }
 
   const char* Interpreter::getVersion() const {
-    return "cling http://cern.ch/cling - version "
-#ifdef CLING_VERSION
-      CLING_VERSION;
-#else
-      "<unknown>";
-#endif
+    return CLING_VERSION;
   }
 
   void Interpreter::handleFrontendOptions() {
@@ -629,13 +625,40 @@ namespace cling {
     // TA.Revert();
     // return result == TPResult::True();
 
-    llvm::OwningPtr<llvm::MemoryBuffer> buf;
-    buf.reset(llvm::MemoryBuffer::getMemBuffer(input, "Cling Preparse Buf"));
-    Lexer WrapLexer(SourceLocation(), getSema().getLangOpts(), input.c_str(), 
-                    input.c_str(), input.c_str() + input.size());
+    // FIXME: can't skipToEndOfLine because we don't want to PragmaLex
+    // because we don't want to pollute the preprocessor. Without PragmaLex
+    // there is no "end of line" / eod token. So skip the #line before lexing.
+    size_t posStart = 0;
+    size_t lenInput = input.length();
+    while (lenInput > posStart && isspace(input[posStart]))
+      ++posStart;
+    // Don't wrap empty input
+    if (posStart == lenInput)
+      return false;
+    if (input[posStart] == '#') {
+      size_t posDirective = posStart + 1;
+      while (lenInput > posDirective && isspace(input[posDirective]))
+        ++posDirective;
+      // A single '#'? Weird... better don't wrap.
+      if (posDirective == lenInput)
+        return false;
+      if (!strncmp(&input[posDirective], "line ", 5)) {
+        // There is a line directive. It does affect the determination whether
+        // this input should be wrapped; skip the line.
+        size_t posEOD = input.find('\n', posDirective + 5);
+        if (posEOD != std::string::npos)
+          posStart = posEOD + 1;
+      }
+    }
+    //llvm::OwningPtr<llvm::MemoryBuffer> buf;
+    //buf.reset(llvm::MemoryBuffer::getMemBuffer(&input[posStart],
+    //                                           "Cling Preparse Buf"));
+    Lexer WrapLexer(SourceLocation(), getSema().getLangOpts(),
+                    input.c_str() + posStart,
+                    input.c_str() + posStart,
+                    input.c_str() + input.size());
     Token Tok;
     WrapLexer.LexFromRawLexer(Tok);
-
     const tok::TokenKind kind = Tok.getKind();
 
     if (kind == tok::raw_identifier && !Tok.needsCleaning()) {
@@ -811,6 +834,9 @@ namespace cling {
     //  Compile the wrapper code.
     //
     const llvm::GlobalValue* GV = 0;
+    if (!getCodeGenerator())
+      return 0;
+
     if (ifUnique)
       GV = getCodeGenerator()->GetModule()->getNamedValue(name);
 
@@ -1047,6 +1073,11 @@ namespace cling {
     return m_IncrParser->getLastTransaction();
   }
 
+  const Transaction* Interpreter::getCurrentTransaction() const {
+    return m_IncrParser->getCurrentTransaction();
+  }
+
+
   void Interpreter::enableDynamicLookup(bool value /*=true*/) {
     m_DynamicLookupEnabled = value;
 
@@ -1098,7 +1129,9 @@ namespace cling {
   void* Interpreter::getAddressOfGlobal(llvm::StringRef SymName,
                                         bool* fromJIT /*=0*/) const {
     // Return a symbol's address, and whether it was jitted.
-    llvm::Module* module = m_IncrParser->getCodeGenerator()->GetModule();
+    if (!m_IncrParser->hasCodeGenerator())
+      return 0;
+    llvm::Module* module = getCodeGenerator()->GetModule();
     return m_Executor->getAddressOfGlobal(module, SymName, fromJIT);
   }
 

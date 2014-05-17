@@ -28,7 +28,7 @@
 //      present now;                                                      //
 //   -  trace propely any change in the order of the data-members         //
 //                                                                        //
-// To enjoy this class one has to derive his/her own custom class:        //
+// To enjoy this class one has to derive one's own custom class:          //
 //                                                                        //
 // St_dst_track_Table.h:                                                  //
 // ---------------------                                                  //
@@ -1670,7 +1670,7 @@ const Char_t *TTable::Print(Int_t row, Int_t rownumber, const Char_t *, const Ch
       for (; member != dscE; member++){
          TString membertype = GetTypeName(EColumnType((*member).fType));
          isdate = kFALSE;
-         if (strcmp((*member).fColumnName,"fDatime") == 0 && membertype == "UInt_t")
+         if (strcmp((*member).fColumnName,"fDatime") == 0 && EColumnType((*member).fType) == kUInt)
                                                                                    isdate = kTRUE;
          std::cout << membertype.Data();
 

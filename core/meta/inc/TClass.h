@@ -60,6 +60,7 @@ class TListOfEnums;
 class TViewPubFunctions;
 class TViewPubDataMembers;
 class TFunctionTemplate;
+class TProtoClass;
 
 namespace clang {
    class Decl;
@@ -83,6 +84,7 @@ class TClass : public TDictionary {
 friend class TCling;
 friend void ROOT::ResetClassVersion(TClass*, const char*, Short_t);
 friend class ROOT::TGenericClassInfo;
+friend class TProtoClass;
 
 public:
    // TClass status bits
@@ -95,9 +97,20 @@ public:
           kStartWithTObject = BIT(20),  // see comments for IsStartingWithTObject()
           kWarned      = BIT(21),
           kHasNameMapNode = BIT(22),
-          kHasCustomStreamerMember = BIT(23) // The class has a Streamer method and it is implemented by the user.
+          kHasCustomStreamerMember = BIT(23) // The class has a Streamer method and it is implemented by the user or an older (not StreamerInfo based) automatic streamer.
    };
    enum ENewType { kRealNew = 0, kClassNew, kDummyNew };
+   enum ECheckSum {
+      kCurrentCheckSum = 0,
+      kNoEnum          = 1, // Used since v3.3
+      kReflexNoComment = 2, // Up to v5.34.18 (has no range/comment and no typedef at all)
+      kNoRange         = 3, // Up to v5.17
+      kWithTypeDef     = 4, // Up to v5.34.18 and v5.99/06
+      kReflex          = 5, // Up to v5.34.18 (has no typedef at all)
+      kNoRangeCheck    = 6, // Up to v5.34.18 and v5.99/06
+      kNoBaseCheckSum  = 7, // Up to v5.34.18 and v5.99/06
+      kLatestCheckSum  = 8
+   };
 
    // Describe the current state of the TClass itself.
    enum EState {
@@ -159,9 +172,12 @@ private:
 
            Int_t      fCanSplit;        //!Indicates whether this class can be split or not.
    mutable Long_t     fProperty;        //!Property
-   mutable Bool_t     fVersionUsed;     //!Indicates whether GetClassVersion has been called
 
-   mutable Bool_t     fIsOffsetStreamerSet; //!saved remember if fOffsetStreamer has been set.
+           Bool_t     fHasRootPcmInfo : 1;      //!Whether info was loaded from a root pcm.
+   mutable Bool_t     fCanLoadClassInfo : 1;    //!Indicates whether the ClassInfo is supposed to be available.
+   mutable Bool_t     fVersionUsed : 1;         //!Indicates whether GetClassVersion has been called
+   mutable Bool_t     fIsOffsetStreamerSet : 1; //!saved remember if fOffsetStreamer has been set.
+
    mutable Long_t     fOffsetStreamer;  //!saved info to call Streamer
    Int_t              fStreamerType;    //!cached of the streaming method to use
    EState             fState;           //!Current 'state' of the class (Emulated,Interpreted,Loaded)
@@ -184,9 +200,12 @@ private:
              ClassInfo_t *classInfo,
              Bool_t silent);
    void ForceReload (TClass* oldcl);
+   void LoadClassInfo() const;
 
    void               SetClassVersion(Version_t version);
    void               SetClassSize(Int_t sizof) { fSizeof = sizof; }
+
+   void SetStreamerImpl();
 
    // Various implementation for TClass::Stramer
    void StreamerExternal(void *object, TBuffer &b, const TClass *onfile_class) const;
@@ -203,7 +222,7 @@ private:
    static Int_t       fgClassCount;     //provides unique id for a each class
                                         //stored in TObject::fUniqueID
    // Internal status bits
-   enum { kLoading = BIT(14) };
+   enum { kLoading = BIT(14), kUnloading = BIT(14) };
    // Internal streamer type.
    enum EStreamerType {kDefault=0, kEmulatedStreamer=1, kTObject=2, kInstrumented=4, kForeign=8, kExternal=16};
 
@@ -280,8 +299,11 @@ public:
    TVirtualStreamerInfo     *FindConversionStreamerInfo( const char* onfile_classname, UInt_t checksum ) const;
    TVirtualStreamerInfo     *GetConversionStreamerInfo( const TClass* onfile_cl, Int_t version ) const;
    TVirtualStreamerInfo     *FindConversionStreamerInfo( const TClass* onfile_cl, UInt_t checksum ) const;
+   Bool_t             HasDataMemberInfo() const { return fHasRootPcmInfo || HasInterpreterInfo(); }
    Bool_t             HasDefaultConstructor() const;
-   UInt_t             GetCheckSum(UInt_t code=0) const;
+   Bool_t             HasInterpreterInfoInMemory() const { return 0 != fClassInfo; }
+   Bool_t             HasInterpreterInfo() const { return fCanLoadClassInfo || fClassInfo; }
+   UInt_t             GetCheckSum(ECheckSum code = kCurrentCheckSum) const;
    TVirtualCollectionProxy *GetCollectionProxy() const;
    TVirtualIsAProxy  *GetIsAProxy() const;
    TMethod           *GetClassMethod(const char *name, const char *params, Bool_t objectIsConst = kFALSE);
@@ -295,7 +317,7 @@ public:
    ROOT::DelFunc_t    GetDelete() const;
    ROOT::DesFunc_t    GetDestructor() const;
    ROOT::DelArrFunc_t GetDeleteArray() const;
-   ClassInfo_t       *GetClassInfo() const { return fClassInfo; }
+   ClassInfo_t       *GetClassInfo() const { if (fCanLoadClassInfo) LoadClassInfo(); return fClassInfo; }
    const char        *GetContextMenuTitle() const { return fContextMenuTitle; }
    TVirtualStreamerInfo     *GetCurrentStreamerInfo() {
       if (fCurrentInfo) return fCurrentInfo;
@@ -345,6 +367,7 @@ public:
    const TObjArray          *GetStreamerInfos() const { return fStreamerInfo; }
    TVirtualStreamerInfo     *GetStreamerInfo(Int_t version=0) const;
    TVirtualStreamerInfo     *GetStreamerInfoAbstractEmulated(Int_t version=0) const;
+   TVirtualStreamerInfo     *FindStreamerInfoAbstractEmulated(UInt_t checksum) const;
    const type_info   *GetTypeInfo() const { return fTypeInfo; };
    Bool_t             HasDictionary();
    void               GetMissingDictionaries(TObjArray& result, bool recurse = false);
@@ -360,6 +383,7 @@ public:
    Bool_t             IsTObject() const;
    void               ls(Option_t *opt="") const;
    void               MakeCustomMenuList();
+   Bool_t             MatchLegacyCheckSum(UInt_t checksum) const;
    void               Move(void *arenaFrom, void *arenaTo) const;
    void              *New(ENewType defConstructor = kClassNew, Bool_t quiet = kFALSE) const;
    void              *New(void *arena, ENewType defConstructor = kClassNew) const;

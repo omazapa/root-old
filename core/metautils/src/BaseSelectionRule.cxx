@@ -132,11 +132,6 @@ bool BaseSelectionRule::HasAttributeWithName(const std::string& attributeName) c
    else return false;
 }
 
-bool BaseSelectionRule::HasAttributeWithName(const EAttributeID attributeID) const
-{
-   return !fAttributesArray[attributeID].empty();
-}
-
 bool BaseSelectionRule::GetAttributeValue(const std::string& attributeName, std::string& returnValue) const
 {
    AttributesMap_t::const_iterator iter = fAttributes.find(attributeName);
@@ -144,14 +139,6 @@ bool BaseSelectionRule::GetAttributeValue(const std::string& attributeName, std:
    bool retVal = iter!=fAttributes.end();   
    returnValue = retVal ? iter->second : "";   
    return retVal;   
-}
-
-bool BaseSelectionRule::GetAttributeValue(const EAttributeID attributeID, std::string& returnValue) const
-{ 
-    const std::string& attribute = fAttributesArray[attributeID];
-    if (attribute.empty()) return false;
-    returnValue=attribute;
-    return true;;
 }
 
 void BaseSelectionRule::SetAttributeValue(const std::string& attributeName, const std::string& attributeValue)
@@ -200,8 +187,9 @@ void BaseSelectionRule::PrintAttributes(int level) const
    PrintAttributes(std::cout, level);
 }
 
-BaseSelectionRule::EMatchType BaseSelectionRule::Match(const clang::NamedDecl *decl, const std::string& name, 
-                                                       const std::string& prototype, 
+BaseSelectionRule::EMatchType BaseSelectionRule::Match(const clang::NamedDecl *decl, 
+                                                       const std::string& name, 
+                                                       const std::string& prototype,
                                                        bool isLinkdef) const
 {
    /* This method returns whether and how the declaration is matching the rule.
@@ -220,42 +208,37 @@ BaseSelectionRule::EMatchType BaseSelectionRule::Match(const clang::NamedDecl *d
     *   isLinkdef - if the selection rules were generating from a linkdef.h file 
     */ 
 
-   std::string name_value;
-   bool has_name_attribute = GetAttributeValue(kNameID, name_value);
-   std::string pattern_value;
-   bool has_pattern_attribute = GetAttributeValue(kPatternID, pattern_value);
-   
-   if (has_pattern_attribute || HasAttributeWithName(kProtoPatternID)) {
-      if (fSubPatterns.empty()) {
-         std::cout<<"Error - skip?"<<std::endl;
-         return kNoMatch;
-      }
-   }
+
+   const std::string& name_value = fName;
+   const std::string& pattern_value = fPattern;
 
    // Check if we have in hands a typedef to a RecordDecl
-   const clang::TypedefNameDecl* typedefNameDecl = clang::dyn_cast<clang::TypedefNameDecl> (decl);
-   bool isTypedefNametoRecordDecl = typedefNameDecl &&
-                                    ROOT::TMetaUtils::GetUnderlyingRecordDecl(typedefNameDecl->getUnderlyingType());
+   const clang::CXXRecordDecl *D = llvm::dyn_cast<clang::CXXRecordDecl>(decl);   
+   bool isTypedefNametoRecordDecl = false;
    
-   if (! isTypedefNametoRecordDecl && GetCXXRecordDecl() !=0 && GetCXXRecordDecl() != (void*)-1) {
-      const clang::CXXRecordDecl *target = GetCXXRecordDecl();
-      const clang::CXXRecordDecl *D = llvm::dyn_cast<clang::CXXRecordDecl>(decl);
-      if ( target && D && target == llvm::dyn_cast<clang::CXXRecordDecl>( D ) ) {
+   if (!D){
+      //Either it's a CXXRecordDecl ot a TypedefNameDecl
+      const clang::TypedefNameDecl* typedefNameDecl = llvm::dyn_cast<clang::TypedefNameDecl> (decl);
+      isTypedefNametoRecordDecl = typedefNameDecl &&
+                                  ROOT::TMetaUtils::GetUnderlyingRecordDecl(typedefNameDecl->getUnderlyingType());
+      }
+   
+   if (! isTypedefNametoRecordDecl && fCXXRecordDecl !=0 && fCXXRecordDecl != (void*)-1) {
+      const clang::CXXRecordDecl *target = fCXXRecordDecl;
+      if ( target && D && target == D ) {
          //               fprintf(stderr,"DECL MATCH: %s %s\n",name_value.c_str(),name.c_str());
          const_cast<BaseSelectionRule*>(this)->SetMatchFound(true);
          return kName;
       }
-   } else if (has_name_attribute) {      
+   } else if (fHasNameAttribute) {
       if (name_value == name) {
          const_cast<BaseSelectionRule*>(this)->SetMatchFound(true);
          return kName;
-      } else if ( GetCXXRecordDecl() != (void*)-1 ) {
-         // Try a real match!
-         
-         const clang::CXXRecordDecl *D = llvm::dyn_cast<clang::CXXRecordDecl>(decl);
+      } else if ( fCXXRecordDecl != (void*)-1 ) {
+         // Try a real match!         
          const clang::CXXRecordDecl *target
-            = ROOT::TMetaUtils::ScopeSearch(name_value.c_str(), *fInterp,
-                                            true /*diagnose*/, 0);
+            = fHasFromTypedefAttribute ? nullptr : ROOT::TMetaUtils::ScopeSearch(name_value.c_str(), *fInterp,
+                                                   true /*diagnose*/, 0);
          
          if ( target ) {
             const_cast<BaseSelectionRule*>(this)->fCXXRecordDecl = target;
@@ -263,7 +246,7 @@ BaseSelectionRule::EMatchType BaseSelectionRule::Match(const clang::NamedDecl *d
             // If the lookup failed, let's not try it again, so mark the value has invalid.
             const_cast<BaseSelectionRule*>(this)->fCXXRecordDecl = (clang::CXXRecordDecl*)-1;
          }
-         if ( target && D && target == llvm::dyn_cast<clang::CXXRecordDecl>( D ) ) {
+         if ( target && D && target == D ) {
             const_cast<BaseSelectionRule*>(this)->SetMatchFound(true);
             return kName;
          }
@@ -271,18 +254,16 @@ BaseSelectionRule::EMatchType BaseSelectionRule::Match(const clang::NamedDecl *d
    }
 
    // do we have matching against the file_name (or file_pattern) attribute and if yes - select or veto
-   std::string file_name_value;
-   bool has_file_name_attribute = GetAttributeValue(kFileNameID, file_name_value);
-   std::string file_pattern_value;
-   bool has_file_pattern_attribute = GetAttributeValue(kFilePatternID, file_pattern_value);
-   
-   if ((has_file_name_attribute||has_file_pattern_attribute)) {
+   const std::string& file_name_value = fFileName;
+   const std::string& file_pattern_value = fFilePattern;
+
+   if ((fHasFileNameAttribute||fHasFilePatternAttribute)) {
       const char *file_name = R__GetDeclSourceFileName(decl);
-      bool hasFileMatch = ((has_file_name_attribute && 
+      bool hasFileMatch = ((fHasFileNameAttribute &&
            //FIXME It would be much better to cache the rule stat result and compare to the clang::FileEntry
            (R__match_filename(file_name_value.c_str(),file_name))) 
           ||
-          (has_file_pattern_attribute && 
+          (fHasFilePatternAttribute &&
            CheckPattern(file_name, file_pattern_value, fFileSubPatterns, isLinkdef)));
 
 #if MATCH_ON_INSTANTIATION_LOCATION
@@ -292,11 +273,11 @@ BaseSelectionRule::EMatchType BaseSelectionRule::Match(const clang::NamedDecl *d
          // Try the instantiation point.
          if (tmpltDecl) {
             file_name = R__GetDeclSourceFileName(tmpltDecl);
-            hasFileMatch = ((has_file_name_attribute && 
+            hasFileMatch = ((HasAttributeFileName() &&
                              //FIXME It would be much better to cache the rule stat result and compare to the clang::FileEntry
                              (R__match_filename(file_name_value.c_str(),file_name))) 
                             ||
-                            (has_file_pattern_attribute && 
+                            (HasAttributeFilePattern() &&
                              CheckPattern(file_name, file_pattern_value, fFileSubPatterns, isLinkdef)));
          }
       }
@@ -317,7 +298,7 @@ BaseSelectionRule::EMatchType BaseSelectionRule::Match(const clang::NamedDecl *d
          if (!name.compare(0, 22, "ROOT::R__dummyStreamer")) {
             return kNoMatch;
          }
-         if (has_pattern_attribute) {
+         if (fHasPatternAttribute) {
          if (CheckPattern(name, pattern_value, fSubPatterns, isLinkdef)) {
             const_cast<BaseSelectionRule*>(this)->SetMatchFound(true);
             return kFile;
@@ -333,9 +314,9 @@ BaseSelectionRule::EMatchType BaseSelectionRule::Match(const clang::NamedDecl *d
       return kNoMatch;
    }
 
-   if (has_pattern_attribute){
+   if (fHasPatternAttribute){
       bool patternMatched=CheckPattern(name, pattern_value, fSubPatterns, isLinkdef);
-      if (!patternMatched){
+      if (!patternMatched && !isLinkdef){
          std::string nameNoSpaces(name);
          nameNoSpaces.erase(std::remove_if(nameNoSpaces.begin(),nameNoSpaces.end(),isspace),
                       nameNoSpaces.end());         
@@ -489,7 +470,7 @@ bool BaseSelectionRule::CheckPattern(const std::string& test, const std::string&
    bool end = EndsWithStar(pattern);
    
    // we first check if the last sub-pattern is contained in the test string 
-   std::string last = patterns_list.back();
+   const std::string& last = patterns_list.back();
    size_t pos_end = test.rfind(last);
    
    if (pos_end == std::string::npos) { // the last sub-pattern isn't conatained in the test string
@@ -563,11 +544,6 @@ const clang::Type *BaseSelectionRule::GetRequestedType() const
    return fRequestedType;
 }
 
-inline const clang::CXXRecordDecl *BaseSelectionRule::GetCXXRecordDecl() const
-{
-   return fCXXRecordDecl;
-}
-
 void BaseSelectionRule::SetCXXRecordDecl(const clang::CXXRecordDecl *decl, const clang::Type *typeptr)
 {
    fCXXRecordDecl = decl;
@@ -577,18 +553,24 @@ void BaseSelectionRule::SetCXXRecordDecl(const clang::CXXRecordDecl *decl, const
 void BaseSelectionRule::FillCache()
 {
    std::string value;
-   GetAttributeValue("name",value);
-   fAttributesArray[kNameID] = value;
-   GetAttributeValue("proto_name",value);
-   fAttributesArray[kProtoNameID] = value;
-   GetAttributeValue("pattern",value);
-   fAttributesArray[kPatternID] = value;
-   GetAttributeValue("proto_pattern",value);
-   fAttributesArray[kProtoPatternID] = value;
-   GetAttributeValue("file_name",value);
-   fAttributesArray[kFileNameID] = value;
-   GetAttributeValue("file_pattern",value);
-   fAttributesArray[kFilePatternID] = value;
+   fHasNameAttribute = GetAttributeValue("name",fName);
+   fHasProtoNameAttribute = GetAttributeValue("proto_name",fProtoName);
+   fHasPatternAttribute = GetAttributeValue("pattern",fPattern);
+   fHasProtoPatternAttribute = GetAttributeValue("proto_pattern",fProtoPattern);
+   fHasFileNameAttribute = GetAttributeValue("file_name",fFileName);
+   fHasFilePatternAttribute = GetAttributeValue("file_pattern",fFilePattern);
+   std::string dummy;
+   fHasFromTypedefAttribute = GetAttributeValue("fromTypedef",dummy);
+
+   GetAttributeValue(ROOT::TMetaUtils::propNames::nArgsToKeep,fNArgsToKeep);
+
+
+   if (fHasPatternAttribute || fHasProtoPatternAttribute) {
+      if (fSubPatterns.empty()) {
+         std::cout<<"Error - A pattern selection without sub patterns." <<std::endl;
+      }
+   }
+
 }
 
 

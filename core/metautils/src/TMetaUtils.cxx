@@ -536,25 +536,14 @@ inline bool IsTemplate(const clang::Decl &cl)
 
 
 //______________________________________________________________________________
-bool ROOT::TMetaUtils::ClassInfo__HasMethod(const clang::RecordDecl *cl, const char* name)
+const clang::FunctionDecl* ROOT::TMetaUtils::ClassInfo__HasMethod(const clang::DeclContext *cl, const char* name,
+                                                            const cling::Interpreter& interp)
 {
-   const clang::CXXRecordDecl* CRD = llvm::dyn_cast<clang::CXXRecordDecl>(cl);
-   if (!CRD) {
-      return false;
-   }
-   std::string given_name(name);
-   for (
-        clang::CXXRecordDecl::method_iterator M = CRD->method_begin(),
-        MEnd = CRD->method_end();
-        M != MEnd;
-        ++M
-        )
-   {
-      if (M->getNameAsString() == given_name) {
-         return true;
-      }
-   }
-   return false;
+   clang::Sema* S = const_cast<clang::Sema*>(&interp.getSema());
+   const clang::NamedDecl* ND = cling::utils::Lookup::Named(S, name, cl);
+   if (ND == (clang::NamedDecl*)-1)
+      return (clang::FunctionDecl*)-1;
+   return llvm::dyn_cast_or_null<clang::FunctionDecl>(ND);
 }
 
 //______________________________________________________________________________
@@ -650,7 +639,7 @@ int ROOT::TMetaUtils::ElementStreamer(std::ostream& finalString,
    ROOT::TMetaUtils::GetQualifiedName(rawname, clang::QualType(rawtype,0), forcontext);
 
    clang::CXXRecordDecl *cxxtype = rawtype->getAsCXXRecordDecl() ;
-   int isStre = cxxtype && ROOT::TMetaUtils::ClassInfo__HasMethod(cxxtype,"Streamer");
+   int isStre = cxxtype && ROOT::TMetaUtils::ClassInfo__HasMethod(cxxtype,"Streamer",interp);
    int isTObj = cxxtype && (IsBase(cxxtype,TObject_decl) || rawname == "TObject");
 
    long kase = 0;
@@ -1453,7 +1442,7 @@ void ROOT::TMetaUtils::WriteClassInit(std::ostream& finalString,
 
    finalString << "namespace ROOT {" << "\n";
 
-   if (!ClassInfo__HasMethod(decl,"Dictionary") || IsTemplate(*decl))
+   if (!ClassInfo__HasMethod(decl,"Dictionary",interp) || IsTemplate(*decl))
    {
       finalString << "   static void " << mappedname.c_str() << "_Dictionary();\n"
                   << "   static void " << mappedname.c_str() << "_TClassManip(TClass*);\n";
@@ -1603,7 +1592,8 @@ void ROOT::TMetaUtils::WriteClassInit(std::ostream& finalString,
             attrValue = attrName + propNames::separator + attrValue;
 
          if (!infrastructureGenerated){
-            finalString << "      if (gInterpreter){\n"
+            finalString << "	  static bool firstCall = true;\n"
+                        << "	  if (gInterpreter && !firstCall){\n"
                         << "         Int_t prevAutoLoad = gInterpreter->SetClassAutoloading(0);\n"
                         << "         ClassInfo_t* CI = gInterpreter->ClassInfo_Factory(\"" << classname << "\");\n"
                         << "         DataMemberInfo_t *DMI = gInterpreter->DataMemberInfo_Factory(CI);\n"
@@ -1633,13 +1623,16 @@ void ROOT::TMetaUtils::WriteClassInit(std::ostream& finalString,
    } // end loop on class internal decls
 
    if (infrastructureGenerated) {
-      finalString << "         }\n         gInterpreter->SetClassAutoloading(prevAutoLoad);\n      }\n";
+      finalString << "         }\n"
+                  << "         gInterpreter->SetClassAutoloading(prevAutoLoad);\n"
+                  << "      }\n"
+                  << "      firstCall=false; \n";
    }
 
    finalString << "      " << csymbol << " *ptr = 0;" << "\n";
 
    //fprintf(fp, "      static ::ROOT::ClassInfo< %s > \n",classname.c_str());
-   if (ClassInfo__HasMethod(decl,"IsA") ) {
+   if (ClassInfo__HasMethod(decl,"IsA",interp) ) {
       finalString << "      static ::TVirtualIsAProxy* isa_proxy = new ::TInstrumentedIsAProxy< "  << csymbol << " >(0);" << "\n";
    }
    else {
@@ -1647,7 +1640,7 @@ void ROOT::TMetaUtils::WriteClassInit(std::ostream& finalString,
    }
    finalString << "      static ::ROOT::TGenericClassInfo " << "\n" << "         instance(\"" << classname.c_str() << "\", ";
 
-   if (ClassInfo__HasMethod(decl,"Class_Version")) {
+   if (ClassInfo__HasMethod(decl,"Class_Version",interp)) {
       finalString << csymbol << "::Class_Version(), ";
    } else if (bset) {
       finalString << "2, "; // bitset 'version number'
@@ -1691,7 +1684,7 @@ void ROOT::TMetaUtils::WriteClassInit(std::ostream& finalString,
    }
    finalString << "\"" << filename << "\", " << ROOT::TMetaUtils::GetLineNumber(cl) << "," << "\n" << "                  typeid(" << csymbol << "), DefineBehavior(ptr, ptr)," << "\n" << "                  ";
 
-   if (ClassInfo__HasMethod(decl,"Dictionary") && !IsTemplate(*decl)) {
+   if (ClassInfo__HasMethod(decl,"Dictionary",interp) && !IsTemplate(*decl)) {
       finalString << "&" << csymbol << "::Dictionary, ";
    } else {
       finalString << "&" << mappedname << "_Dictionary, ";
@@ -1787,7 +1780,7 @@ void ROOT::TMetaUtils::WriteClassInit(std::ostream& finalString,
 
    finalString << "   static ::ROOT::TGenericClassInfo *_R__UNIQUE_(Init) = GenerateInitInstanceLocal((const " << csymbol << "*)0x0); R__UseDummy(_R__UNIQUE_(Init));" << "\n";
 
-   if (!ClassInfo__HasMethod(decl,"Dictionary") || IsTemplate(*decl)) {
+   if (!ClassInfo__HasMethod(decl,"Dictionary",interp) || IsTemplate(*decl)) {
       finalString <<  "\n" << "   // Dictionary for non-ClassDef classes" << "\n"
                   << "   static void " << mappedname << "_Dictionary() {\n"
                   << "      TClass* theClass ="
@@ -2172,7 +2165,7 @@ void ROOT::TMetaUtils::WritePointersSTL(const AnnotatedRecordDecl &cl,
    std::string a;
    std::string clName;
    TMetaUtils::GetCppName(clName, ROOT::TMetaUtils::GetFileName(*cl.GetRecordDecl(), interp).str().c_str());
-   int version = ROOT::TMetaUtils::GetClassVersion(cl.GetRecordDecl());
+   int version = ROOT::TMetaUtils::GetClassVersion(cl.GetRecordDecl(),interp);
    if (version == 0) return;
    if (version < 0 && !(cl.RequestStreamerInfo()) ) return;
 
@@ -2207,7 +2200,7 @@ void ROOT::TMetaUtils::WritePointersSTL(const AnnotatedRecordDecl &cl,
          }
       }
 
-      if (!ROOT::TMetaUtils::IsStreamableObject(**field_iter)) continue;
+      if (!ROOT::TMetaUtils::IsStreamableObject(**field_iter, interp)) continue;
 
       int k = ROOT::TMetaUtils::IsSTLContainer( **field_iter );
       if (k!=0) {
@@ -2235,63 +2228,49 @@ std::string ROOT::TMetaUtils::TrueName(const clang::FieldDecl &m)
 }
 
 //______________________________________________________________________________
-int ROOT::TMetaUtils::GetClassVersion(const clang::RecordDecl *cl)
+int ROOT::TMetaUtils::GetClassVersion(const clang::RecordDecl *cl, const cling::Interpreter& interp)
 {
    // Return the version number of the class or -1
    // if the function Class_Version does not exist.
-
-   if (!ROOT::TMetaUtils::ClassInfo__HasMethod(cl,"Class_Version")) return -1;
 
    const clang::CXXRecordDecl* CRD = llvm::dyn_cast<clang::CXXRecordDecl>(cl);
    if (!CRD) {
       // Must be an enum or namespace.
       // FIXME: Make it work for a namespace!
-      return false;
+      return -1;
    }
-   // Class_Version is know to be inline and we constrol (via the ClassDef macros)
-   // it's structure, so this is apriori fine, but we could consider replacing it
-   // with the slower but simpler:
-   //   gInterp->evaluate( classname + "::Class_Version()", &Value);
-   std::string given_name("Class_Version");
-   for (
-        clang::CXXRecordDecl::method_iterator M = CRD->method_begin(),
-        MEnd = CRD->method_end();
-        M != MEnd;
-        ++M
-        ) {
-      if (M->getNameAsString() == given_name) {
-         clang::CompoundStmt *func = 0;
-         if (M->getBody()) {
-            func = llvm::dyn_cast<clang::CompoundStmt>(M->getBody());
-         } else {
-            const clang::FunctionDecl *inst = M->getInstantiatedFromMemberFunction();
-            if (inst && inst->getBody()) {
-               func = llvm::dyn_cast<clang::CompoundStmt>(inst->getBody());
-            } else {
-               std::string qualName;
-               ROOT::TMetaUtils::GetQualifiedName(qualName,*cl);
-               ROOT::TMetaUtils::Error("GetClassVersion","Could not find the body for %s::ClassVersion!\n",qualName.c_str());
-            }
-         }
-         if (func && !func->body_empty()) {
-            clang::ReturnStmt *ret = llvm::dyn_cast<clang::ReturnStmt>(*func->body_begin());
-            if (ret) {
-               clang::IntegerLiteral *val;
-               clang::ImplicitCastExpr *cast = llvm::dyn_cast<clang::ImplicitCastExpr>( ret->getRetValue() );
-               if (cast) {
-                  val = llvm::dyn_cast<clang::IntegerLiteral>( cast->getSubExprAsWritten() );
-               } else {
-                  val = llvm::dyn_cast<clang::IntegerLiteral>( ret->getRetValue() );
-               }
-               if (val) {
-                  return (int)val->getValue().getLimitedValue(~0);
-               }
-            }
-         }
-         return 0;
-      }
+   const clang::FunctionDecl* funcCV = ROOT::TMetaUtils::ClassInfo__HasMethod(CRD,"Class_Version",interp);
+   // if we have no Class_Info() return -1.
+   if (!funcCV) return -1;
+   // if we have many Class_Info() (?!) return 1.
+   if (funcCV == (clang::FunctionDecl*)-1) return 1;
+
+   const clang::CompoundStmt* FuncBody
+      = llvm::dyn_cast_or_null<clang::CompoundStmt>(funcCV->getBody());
+   if (!FuncBody) return -1;
+   if (FuncBody->size() != 1) {
+      // This is a non-ClassDef(), complex function - it might depend on state
+      // and thus we'll need the runtime and cannot determine the result
+      // statically.
+      return -1;
    }
-   return 0;
+   const clang::ReturnStmt* RetStmt
+      = llvm::dyn_cast<clang::ReturnStmt>(FuncBody->body_back());
+   if (!RetStmt) return -1;
+   const clang::Expr* RetExpr = RetStmt->getRetValue();
+   // ClassDef controls the content of Class_Version() but not the return
+   // expression which is CPP expanded from what the user provided as second
+   // ClassDef argument. It's usually just be an integer literal but it could
+   // also be an enum or a variable template for all we know.
+   // Go through ICE to be more general.
+   llvm::APSInt RetRes;
+   if (!RetExpr->isIntegerConstantExpr(RetRes, funcCV->getASTContext()))
+      return -1;
+   if (RetRes.isSigned()) {
+      return (Version_t)RetRes.getSExtValue();
+   }
+   // else
+   return (Version_t)RetRes.getZExtValue();
 }
 
 //______________________________________________________________________________
@@ -2364,7 +2343,8 @@ const char *ROOT::TMetaUtils::ShortTypeName(const char *typeDesc)
    return t;
 }
 
-bool ROOT::TMetaUtils::IsStreamableObject(const clang::FieldDecl &m)
+bool ROOT::TMetaUtils::IsStreamableObject(const clang::FieldDecl &m,
+                                          const cling::Interpreter& interp)
 {
    const char *comment = ROOT::TMetaUtils::GetComment( m ).data();
 
@@ -2407,9 +2387,9 @@ bool ROOT::TMetaUtils::IsStreamableObject(const clang::FieldDecl &m)
    }
 
    const clang::CXXRecordDecl *cxxdecl = rawtype->getAsCXXRecordDecl();
-   if (cxxdecl && ROOT::TMetaUtils::ClassInfo__HasMethod(cxxdecl,"Streamer")) {
-      if (!(ROOT::TMetaUtils::ClassInfo__HasMethod(cxxdecl,"Class_Version"))) return true;
-      int version = ROOT::TMetaUtils::GetClassVersion(cxxdecl);
+   if (cxxdecl && ROOT::TMetaUtils::ClassInfo__HasMethod(cxxdecl,"Streamer", interp)) {
+      if (!(ROOT::TMetaUtils::ClassInfo__HasMethod(cxxdecl,"Class_Version", interp))) return true;
+      int version = ROOT::TMetaUtils::GetClassVersion(cxxdecl,interp);
       if (version > 0) return true;
    }
    return false;
@@ -2474,7 +2454,7 @@ void ROOT::TMetaUtils::WriteClassCode(CallWriteStreamer_t WriteStreamerFunc,
      return;
    }
 
-   if (ROOT::TMetaUtils::ClassInfo__HasMethod(cl,"Streamer")) {
+   if (ROOT::TMetaUtils::ClassInfo__HasMethod(cl,"Streamer",interp)) {
       if (cl.RootFlag()) ROOT::TMetaUtils::WritePointersSTL(cl, interp, normCtxt); // In particular this detect if the class has a version number.
       if (!(cl.RequestNoStreamer())) {
          (*WriteStreamerFunc)(cl, interp, normCtxt, dictStream, isGenreflex || cl.RequestStreamerInfo());
@@ -2769,7 +2749,7 @@ clang::QualType ROOT::TMetaUtils::AddDefaultParameters(clang::QualType instanceT
 }
 
 //______________________________________________________________________________
-const char* ROOT::TMetaUtils::DataMemberInfo__ValidArrayIndex(const clang::FieldDecl &m, int *errnum, const char **errstr)
+const char* ROOT::TMetaUtils::DataMemberInfo__ValidArrayIndex(const clang::DeclaratorDecl &m, int *errnum, const char **errstr)
 {
    // ValidArrayIndex return a static string (so use it or copy it immediatly, do not
    // call GrabIndex twice in the same expression) containing the size of the
@@ -2803,9 +2783,9 @@ const char* ROOT::TMetaUtils::DataMemberInfo__ValidArrayIndex(const clang::Field
 
    if (errnum) *errnum = VALID;
 
+   if (title.size() == 0 || (title[0] != '[')) return 0; 
    size_t rightbracket = title.find(']');
-   if ((title[0] != '[') ||
-       (rightbracket == llvm::StringRef::npos)) return 0;
+   if (rightbracket == llvm::StringRef::npos) return 0;
 
    std::string working;
    static std::string indexvar;
@@ -2845,7 +2825,7 @@ const char* ROOT::TMetaUtils::DataMemberInfo__ValidArrayIndex(const clang::Field
       } else { // current token is not a digit
          // first let's see if it is a data member:
          int found = 0;
-         const clang::CXXRecordDecl *parent_clxx = llvm::dyn_cast<clang::CXXRecordDecl>(m.getParent());
+         const clang::CXXRecordDecl *parent_clxx = llvm::dyn_cast<clang::CXXRecordDecl>(m.getDeclContext());
          const clang::FieldDecl *index1 = GetDataMemberFromAll(*parent_clxx, current );
          if ( index1 ) {
             if ( IsFieldDeclInt(index1) ) {
@@ -3049,7 +3029,8 @@ llvm::StringRef ROOT::TMetaUtils::GetFileName(const clang::Decl& decl,
                                 true /*isAngled*/, 0/*FromDir*/, foundDir,
                                 ArrayRef<const FileEntry*>(),
                                 0/*Searchpath*/, 0/*RelPath*/,
-                                0/*SuggModule*/);
+                                0/*SuggModule*/, false /*SkipCache*/,
+                                false /*OpenFile*/, true /*CacheFailures*/);
       if (FEhdr) break;
       headerFID = sourceManager.getFileID(includeLoc);
       headerFE = sourceManager.getFileEntryForID(headerFID);
@@ -3149,20 +3130,20 @@ void ROOT::TMetaUtils::GetFullyQualifiedTypeName(std::string &typenamestr,
 std::string ROOT::TMetaUtils::GetInterpreterExtraIncludePath(bool rootbuild)
 {
    // Return the -I needed to find RuntimeUniverse.h
-   if (!rootbuild) {
-#ifndef ROOTETCDIR
+#ifdef ROOTETCDIR
+   if (rootbuild) {
+      // Building ROOT, ignore ROOTETCDIR!
+#endif
       const char* rootsys = getenv("ROOTSYS");
       if (!rootsys) {
          Error(0, "Environment variable ROOTSYS not set!");
          return "-Ietc";
       }
       return std::string("-I") + rootsys + "/etc";
-#else
-      return std::string("-I") + ROOTETCDIR;
-#endif
+#ifdef ROOTETCDIR
    }
-   // else
-   return "-Ietc";
+   return std::string("-I") + ROOTETCDIR;
+#endif
 }
 
 //______________________________________________________________________________
@@ -3602,7 +3583,7 @@ void ROOT::TMetaUtils::GetNormalizedName(std::string &norm_name, const clang::Qu
    splitname.ShortType(norm_name,TClassEdit::kDropStd | TClassEdit::kDropStlDefault );
 
    // The result of this routine is by definition a fully qualified name.  There is an implicit starting '::' at the beginning of the name.
-   // Depending on how the user typed his/her code, in particular typedef declarations, we may end up with an explicit '::' being
+   // Depending on how the user typed their code, in particular typedef declarations, we may end up with an explicit '::' being
    // part of the result string.  For consistency, we must remove it.
    if (norm_name.length()>2 && norm_name[0]==':' && norm_name[1]==':') {
       norm_name.erase(0,2);
@@ -3695,7 +3676,8 @@ clang::Module* ROOT::TMetaUtils::declareModuleMap(clang::CompilerInstance* CI,
                                  false /*isAngled*/, 0 /*FromDir*/, CurDir,
                                  llvm::ArrayRef<const clang::FileEntry*>(),
                                  0 /*SearchPath*/, 0 /*RelativePath*/,
-                                 0 /*SuggestedModule*/);
+                                 0/*SuggModule*/, false /*SkipCache*/,
+                                 false /*OpenFile*/, true /*CacheFailures*/);
       if (!hdrFileEntry) {
          std::cerr << "TMetaUtils::declareModuleMap: "
             "Cannot find header file " << *hdr
@@ -4015,6 +3997,10 @@ clang::QualType ROOT::TMetaUtils::ReSubstTemplateArg(clang::QualType input, cons
 
    if (!instance) return input;
 
+   using namespace llvm;
+   using namespace clang;
+   const clang::ASTContext &Ctxt = instance->getAsCXXRecordDecl()->getASTContext();
+
    // Treat scope (clang::ElaboratedType) if any.
    const clang::ElaboratedType* etype
       = llvm::dyn_cast<clang::ElaboratedType>(input.getTypePtr());
@@ -4023,7 +4009,6 @@ clang::QualType ROOT::TMetaUtils::ReSubstTemplateArg(clang::QualType input, cons
 
       clang::Qualifiers scope_qualifiers = input.getLocalQualifiers();
       assert(instance->getAsCXXRecordDecl()!=0 && "ReSubstTemplateArg only makes sense with a type representing a class.");
-      const clang::ASTContext &Ctxt = instance->getAsCXXRecordDecl()->getASTContext();
 
       clang::NestedNameSpecifier *scope = ReSubstTemplateArgNNS(Ctxt,etype->getQualifier(),instance);
       clang::QualType subTy = ReSubstTemplateArg(clang::QualType(etype->getNamedType().getTypePtr(),0),instance);
@@ -4031,6 +4016,102 @@ clang::QualType ROOT::TMetaUtils::ReSubstTemplateArg(clang::QualType input, cons
       if (scope) subTy = Ctxt.getElaboratedType(clang::ETK_None,scope,subTy);
       subTy = Ctxt.getQualifiedType(subTy,scope_qualifiers);
       return subTy;
+   }
+
+   QualType QT = input;
+
+   // In case of Int_t* we need to strip the pointer first, ReSubst and attach
+   // the pointer once again.
+   if (isa<PointerType>(QT.getTypePtr())) {
+      // Get the qualifiers.
+      Qualifiers quals = QT.getQualifiers();
+      QualType nQT;
+      nQT = ReSubstTemplateArg(QT->getPointeeType(),instance);
+      if (nQT == QT->getPointeeType()) return QT;
+
+      QT = Ctxt.getPointerType(nQT);
+      // Add back the qualifiers.
+      QT = Ctxt.getQualifiedType(QT, quals);
+      return QT;
+   }
+
+   // In case of Int_t& we need to strip the pointer first, ReSubst and attach
+   // the reference once again.
+   if (isa<ReferenceType>(QT.getTypePtr())) {
+      // Get the qualifiers.
+      bool isLValueRefTy = isa<LValueReferenceType>(QT.getTypePtr());
+      Qualifiers quals = QT.getQualifiers();
+      QualType nQT;
+      nQT = ReSubstTemplateArg(QT->getPointeeType(),instance);
+      if (nQT == QT->getPointeeType()) return QT;
+
+      // Add the r- or l-value reference type back to the desugared one.
+      if (isLValueRefTy)
+         QT = Ctxt.getLValueReferenceType(nQT);
+      else
+         QT = Ctxt.getRValueReferenceType(nQT);
+      // Add back the qualifiers.
+      QT = Ctxt.getQualifiedType(QT, quals);
+      return QT;
+   }
+
+   // In case of Int_t[2] we need to strip the array first, ReSubst and attach
+   // the array once again.
+   if (isa<ArrayType>(QT.getTypePtr())) {
+      // Get the qualifiers.
+      Qualifiers quals = QT.getQualifiers();
+
+      if (isa<ConstantArrayType>(QT.getTypePtr())) {
+         const ConstantArrayType *arr = dyn_cast<ConstantArrayType>(QT.getTypePtr());
+
+         QualType newQT= ReSubstTemplateArg(arr->getElementType(),instance);
+
+         if (newQT == arr->getElementType()) return QT;
+         QT = Ctxt.getConstantArrayType (newQT,
+                                        arr->getSize(),
+                                        arr->getSizeModifier(),
+                                        arr->getIndexTypeCVRQualifiers());
+
+      } else if (isa<DependentSizedArrayType>(QT.getTypePtr())) {
+         const DependentSizedArrayType *arr = dyn_cast<DependentSizedArrayType>(QT.getTypePtr());
+
+         QualType newQT = ReSubstTemplateArg(arr->getElementType(),instance);
+
+         if (newQT == QT) return QT;
+         QT = Ctxt.getDependentSizedArrayType (newQT,
+                                              arr->getSizeExpr(),
+                                              arr->getSizeModifier(),
+                                              arr->getIndexTypeCVRQualifiers(),
+                                              arr->getBracketsRange());
+
+      } else if (isa<IncompleteArrayType>(QT.getTypePtr())) {
+         const IncompleteArrayType *arr
+           = dyn_cast<IncompleteArrayType>(QT.getTypePtr());
+
+         QualType newQT = ReSubstTemplateArg(arr->getElementType(),instance);
+
+         if (newQT == arr->getElementType()) return QT;
+         QT = Ctxt.getIncompleteArrayType (newQT,
+                                          arr->getSizeModifier(),
+                                          arr->getIndexTypeCVRQualifiers());
+
+      } else if (isa<VariableArrayType>(QT.getTypePtr())) {
+         const VariableArrayType *arr
+            = dyn_cast<VariableArrayType>(QT.getTypePtr());
+
+         QualType newQT = ReSubstTemplateArg(arr->getElementType(),instance);
+
+         if (newQT == arr->getElementType()) return QT;
+         QT = Ctxt.getVariableArrayType (newQT,
+                                        arr->getSizeExpr(),
+                                        arr->getSizeModifier(),
+                                        arr->getIndexTypeCVRQualifiers(),
+                                        arr->getBracketsRange());
+      }
+
+      // Add back the qualifiers.
+      QT = Ctxt.getQualifiedType(QT, quals);
+      return QT;
    }
 
    // If the instance is also an elaborated type, we need to skip
@@ -4134,6 +4215,7 @@ clang::QualType ROOT::TMetaUtils::ReSubstTemplateArg(clang::QualType input, cons
 
    return input;
 }
+
 //______________________________________________________________________________
 int ROOT::TMetaUtils::RemoveTemplateArgsFromName(std::string& name, unsigned int nArgsToRemove)
 {
@@ -4160,7 +4242,6 @@ int ROOT::TMetaUtils::RemoveTemplateArgsFromName(std::string& name, unsigned int
    return 0;
 
 }
-
 
 //______________________________________________________________________________
 ROOT::ESTLType ROOT::TMetaUtils::STLKind(const llvm::StringRef type)

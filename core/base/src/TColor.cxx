@@ -78,7 +78,7 @@ End_Html
 Begin_Macro(source)
 {
    TCanvas *c = new TCanvas("c","Fill Area colors",0,0,500,200);
-   c.DrawColorTable();
+   c->DrawColorTable();
    return c;
 }
 End_Macro
@@ -194,7 +194,7 @@ Begin_Macro(source)
 {
    TCanvas *c2  = new TCanvas("c2","c2",0,0,600,400);
    TF2 *f2 = new TF2("f2","0.1+(1-(x-2)*(x-2))*(1-(y-2)*(y-2))",1,3,1,3);
-   UInt_t Number = 3;
+   const Int_t Number = 3;
    Double_t Red[Number]    = { 1.00, 0.00, 0.00};
    Double_t Green[Number]  = { 0.00, 1.00, 0.00};
    Double_t Blue[Number]   = { 1.00, 0.00, 1.00};
@@ -1260,6 +1260,25 @@ Int_t TColor::GetColorDark(Int_t n)
 
 
 //______________________________________________________________________________
+Int_t TColor::GetColorTransparent(Int_t n, Float_t a)
+{
+   /* Begin_html
+   Static function: Returns the transparent color number corresponding to n.
+   The transparency level is given by the alpha value a.
+   End_html */
+   
+   if (n < 0) return -1;
+   
+   TColor *color = gROOT->GetColor(n);
+   TColor *colort = new TColor(gROOT->GetListOfColors()->GetLast()+1,
+                               color->GetRed(), color->GetGreen(), color->GetBlue());
+   colort->SetAlpha(a);
+   colort->SetName(Form("%s_transparent",color->GetName()));
+   return colort->GetNumber();
+}   
+
+
+//______________________________________________________________________________
 ULong_t TColor::Number2Pixel(Int_t ci)
 {
    /* Begin_html
@@ -1394,27 +1413,37 @@ void TColor::SaveColor(std::ostream &out, Int_t ci)
    End_html */
 
    char quote = '"';
-   Float_t r,g,b;
+   Float_t r,g,b,a;
    Int_t ri, gi, bi;
    TString cname;
 
    TColor *c = gROOT->GetColor(ci);
-   if (c) c->GetRGB(r, g, b);
-   else return;
-
-   ri = (Int_t)(255*r);
-   gi = (Int_t)(255*g);
-   bi = (Int_t)(255*b);
-   cname.Form("#%02x%02x%02x", ri, gi, bi);
+   if (c) {
+      c->GetRGB(r, g, b);
+      a = c->GetAlpha();
+   } else {
+      return;
+   }
 
    if (gROOT->ClassSaved(TColor::Class())) {
       out << std::endl;
    } else {
       out << std::endl;
-      out << "   Int_t ci;   // for color index setting" << std::endl;
+      out << "   Int_t ci;      // for color index setting" << std::endl;
+      out << "   TColor *color; // for color definition with alpha" << std::endl;
    }
 
-   out<<"   ci = TColor::GetColor("<<quote<<cname.Data()<<quote<<");"<<std::endl;
+   if (a<1) {
+      out<<"   ci = "<<ci<<";"<<std::endl;
+      out<<"   color = new TColor(ci, "<<r<<", "<<g<<", "<<b<<", "
+      <<"\" \", "<<a<<");"<<std::endl;
+   } else {
+      ri = (Int_t)(255*r);
+      gi = (Int_t)(255*g);
+      bi = (Int_t)(255*b);
+      cname.Form("#%02x%02x%02x", ri, gi, bi);
+      out<<"   ci = TColor::GetColor("<<quote<<cname.Data()<<quote<<");"<<std::endl;
+   }
 }
 
 
@@ -1725,7 +1754,7 @@ void TColor::SetPalette(Int_t ncolors, Int_t *colors, Float_t alpha)
       paletteType = 7;
       return;
    }
- 
+
    // set Inverted Dark Body Radiator palette
    if (ncolors == 56 && colors == 0) {
       TColor::InitializeColors();

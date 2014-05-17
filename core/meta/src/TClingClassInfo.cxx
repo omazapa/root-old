@@ -108,10 +108,12 @@ TClingClassInfo::TClingClassInfo(cling::Interpreter *interp, const char *name)
                                    &type, /* intantiateTemplate= */ true );
    if (!decl) {
       std::string buf = TClassEdit::InsertStd(name);
-      decl = lh.findScope(buf,
-                          gDebug > 5 ? cling::LookupHelper::WithDiagnostics
-                          : cling::LookupHelper::NoDiagnostics,
-                          &type, /* intantiateTemplate= */ true );
+      if (buf != name) {
+         decl = lh.findScope(buf,
+                             gDebug > 5 ? cling::LookupHelper::WithDiagnostics
+                             : cling::LookupHelper::NoDiagnostics,
+                             &type, /* intantiateTemplate= */ true );
+      }
    }
    if (!decl && type) {
       const TagType *tagtype =type->getAs<TagType>();
@@ -325,7 +327,7 @@ TClingMethodInfo TClingClassInfo::GetMethod(const char *fname) const
 
 TClingMethodInfo TClingClassInfo::GetMethod(const char *fname,
       const char *proto, long *poffset, EFunctionMatchMode mode /*= kConversionMatch*/,
-      InheritanceMode imode /*= WithInheritance*/) const
+      EInheritanceMode imode /*= kWithInheritance*/) const
 {
    return GetMethod(fname,proto,false,poffset,mode,imode);
 }
@@ -333,7 +335,7 @@ TClingMethodInfo TClingClassInfo::GetMethod(const char *fname,
 TClingMethodInfo TClingClassInfo::GetMethod(const char *fname,
       const char *proto, bool objectIsConst,
       long *poffset, EFunctionMatchMode mode /*= kConversionMatch*/,
-      InheritanceMode imode /*= WithInheritance*/) const
+      EInheritanceMode imode /*= kWithInheritance*/) const
 {
    if (poffset) {
       *poffset = 0L;
@@ -381,13 +383,32 @@ TClingMethodInfo TClingClassInfo::GetMethod(const char *fname,
       TClingMethodInfo tmi(fInterp);
       return tmi;
    }
-   if (poffset) {
-     // We have been asked to return a this pointer adjustment.
-     if (const CXXMethodDecl *md =
-           llvm::dyn_cast<CXXMethodDecl>(fd)) {
-        // This is a class member function.
-        *poffset = GetOffset(md);
-     }
+   if (imode == TClingClassInfo::kInThisScope) {
+      // If requested, check whether fd is a member function of this class.
+      // Even though this seems to be the wrong order (we should not allow the
+      // lookup to even collect candidates from the base) it does the right
+      // thing: if any function overload exists in the derived class, all
+      // (but explicitly used) will be hidden. Thus we will only find the
+      // derived class's function overloads (or used, which is fine). Only
+      // if there is none will we find those from the base, in which case
+      // we will reject them here:
+      const clang::DeclContext* ourDC = llvm::dyn_cast<clang::DeclContext>(fDecl);
+      if (!fd->getDeclContext()->Equals(ourDC)
+          && !(fd->getDeclContext()->isTransparentContext()
+               && fd->getDeclContext()->getParent()->Equals(ourDC)))
+         return TClingMethodInfo(fInterp);
+
+      // The offset must be 0 - the function must be ours.
+      if (poffset) *poffset = 0;
+   } else {
+      if (poffset) {
+         // We have been asked to return a this pointer adjustment.
+         if (const CXXMethodDecl *md =
+             llvm::dyn_cast<CXXMethodDecl>(fd)) {
+            // This is a class member function.
+            *poffset = GetOffset(md);
+         }
+      }
    }
    TClingMethodInfo tmi(fInterp);
    tmi.Init(fd);
@@ -397,7 +418,7 @@ TClingMethodInfo TClingClassInfo::GetMethod(const char *fname,
 TClingMethodInfo TClingClassInfo::GetMethod(const char *fname,
                                             const llvm::SmallVectorImpl<clang::QualType> &proto,
                                             long *poffset, EFunctionMatchMode mode /*= kConversionMatch*/,
-                                            InheritanceMode imode /*= WithInheritance*/) const
+                                            EInheritanceMode imode /*= kWithInheritance*/) const
 {
    return GetMethod(fname,proto,false,poffset,mode,imode);
 }
@@ -405,7 +426,7 @@ TClingMethodInfo TClingClassInfo::GetMethod(const char *fname,
 TClingMethodInfo TClingClassInfo::GetMethod(const char *fname,
                                             const llvm::SmallVectorImpl<clang::QualType> &proto, bool objectIsConst,
                                             long *poffset, EFunctionMatchMode mode /*= kConversionMatch*/,
-                                            InheritanceMode imode /*= WithInheritance*/) const
+                                            EInheritanceMode imode /*= kWithInheritance*/) const
 {
    if (poffset) {
       *poffset = 0L;
@@ -467,7 +488,7 @@ TClingMethodInfo TClingClassInfo::GetMethod(const char *fname,
 
 TClingMethodInfo TClingClassInfo::GetMethodWithArgs(const char *fname,
       const char *arglist, long *poffset, EFunctionMatchMode mode /* = kConversionMatch*/,
-      InheritanceMode imode /* = WithInheritance*/) const
+      EInheritanceMode imode /* = kWithInheritance*/) const
 {
    return GetMethodWithArgs(fname,arglist,false,poffset,mode,imode);
 }
@@ -475,7 +496,7 @@ TClingMethodInfo TClingClassInfo::GetMethodWithArgs(const char *fname,
 TClingMethodInfo TClingClassInfo::GetMethodWithArgs(const char *fname,
       const char *arglist, bool objectIsConst,
       long *poffset, EFunctionMatchMode /*mode = kConversionMatch*/,
-      InheritanceMode /* imode = WithInheritance*/) const
+      EInheritanceMode /* imode = kWithInheritance*/) const
 {
    if (fType) {
       const TypedefType *TT = llvm::dyn_cast<TypedefType>(fType);
@@ -683,9 +704,11 @@ void TClingClassInfo::Init(const char *name)
                         &fType, /* intantiateTemplate= */ true );
    if (!fDecl) {
       std::string buf = TClassEdit::InsertStd(name);
-      fDecl = lh.findScope(buf, gDebug > 5 ? cling::LookupHelper::WithDiagnostics
-                          : cling::LookupHelper::NoDiagnostics,
-                           &fType, /* intantiateTemplate= */ true );
+      if (buf != name) {
+         fDecl = lh.findScope(buf, gDebug > 5 ? cling::LookupHelper::WithDiagnostics
+                              : cling::LookupHelper::NoDiagnostics,
+                              &fType, /* intantiateTemplate= */ true );
+      }
    }
    if (!fDecl && fType) {
       const TagType *tagtype =fType->getAs<TagType>();
@@ -1224,8 +1247,16 @@ const char *TClingClassInfo::Title()
    if (const TagDecl *TD = llvm::dyn_cast<TagDecl>(GetDecl())) {
       if ( (TD = ROOT::TMetaUtils::GetAnnotatedRedeclarable(TD)) ) {
          if (AnnotateAttr *A = TD->getAttr<AnnotateAttr>()) {
-            fTitle = A->getAnnotation().str();
-            return fTitle.c_str();
+            std::string attr = A->getAnnotation().str();
+            if (attr.find(TMetaUtils::propNames::separator) != std::string::npos) {
+               if (TMetaUtils::ExtractAttrPropertyFromName(*TD,TMetaUtils::propNames::comment,attr)) {
+                  fTitle = attr;
+                  return fTitle.c_str();
+               }
+            } else {
+               fTitle = attr;
+               return fTitle.c_str();
+            }
          }
       }
    }

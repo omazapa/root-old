@@ -166,6 +166,11 @@ TClingBaseClassInfo::GenerateBaseOffsetFunction(const TClingClassInfo * fromDeri
    // from the parameter derived class to the parameter toBase class for the
    // address.
 
+   // rootcling can trigger this, too, and without CodeGen we cannot use any
+   // offset calculation function.
+   if (!fInterp->getCodeGenerator())
+      return 0;
+
    // Get the dedcls for the two classes.
    const clang::RecordDecl* fromDerivedDecl
       = dyn_cast<clang::RecordDecl>(fromDerivedClass->GetDecl());
@@ -506,7 +511,7 @@ long TClingBaseClassInfo::Property() const
    if (Paths.getDetectedVirtual()) {
       property |= kIsVirtualBase;
    }
-   
+
    clang::AccessSpecifier AS = clang::AS_public;
    // Derived: public Mid; Mid : protected Base: Derived inherits protected Base?
    for (clang::CXXBasePaths::const_paths_iterator IB = Paths.begin(), EB = Paths.end();

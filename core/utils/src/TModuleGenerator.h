@@ -57,6 +57,11 @@ public:
    const std::string& GetContentName() const { return fContentName; }
 
    const std::vector<std::string>& GetHeaders() const { return fHeaders; }
+   const std::vector<std::string>& GetIncludePaths() const { return fCompI; }
+
+   std::ostream& WritePPDefines(std::ostream& out) const;
+   std::ostream& WritePPUndefines(std::ostream& out) const;
+   std::ostream& WritePPIncludes(std::ostream& out) const;
 
    void WriteRegistrationSource(std::ostream& out, 
                                 bool inlineHeader,
@@ -74,11 +79,7 @@ private:
       WritePPUndefines(out);
       return WritePPIncludes(out);
    }
-   std::ostream& WritePPDefines(std::ostream& out) const;
-   std::ostream& WritePPUndefines(std::ostream& out) const;
-   std::ostream& WritePPIncludes(std::ostream& out) const;
 
-   std::ostream& WriteAllSeenHeadersArray(std::ostream& out) const;
    std::ostream& WriteHeaderArray(std::ostream& out) const {
       // Write "header1.h",\n"header2.h",\n0\n
       return WriteStringVec(fHeaders, out);
@@ -105,7 +106,6 @@ private:
                            std::ostream& out) const;
 
    clang::CompilerInstance* fCI;
-   std::string fShLibFileName;
    bool fIsPCH;
 
    std::string fDictionaryName; // Name of the dictionary, e.g. "Base"

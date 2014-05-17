@@ -81,6 +81,7 @@ public:
       kArtificial  = 1000, 
       kCacheNew    = 1001,
       kCacheDelete = 1002,
+      kNeedObjectForVirtualBaseClass = 99997,
       kMissing     = 99999
    };
 
@@ -109,13 +110,13 @@ public:
    TVirtualStreamerInfo(TClass * /*cl*/);
    virtual            ~TVirtualStreamerInfo();
    virtual void        Build() = 0;
-   virtual void        BuildCheck() = 0;
+   virtual void        BuildCheck(TFile *file = 0) = 0;
    virtual void        BuildEmulated(TFile *file) = 0;
    virtual void        BuildOld() = 0;
    virtual Bool_t      BuildFor( const TClass *cl ) = 0;
    virtual void        CallShowMembers(const void* obj, TMemberInspector &insp, Bool_t isTransient) const = 0;
    virtual void        Clear(Option_t *) = 0;
-   virtual Bool_t      CompareContent(TClass *cl,TVirtualStreamerInfo *info, Bool_t warn, Bool_t complete) = 0;
+   virtual Bool_t      CompareContent(TClass *cl,TVirtualStreamerInfo *info, Bool_t warn, Bool_t complete, TFile *file) = 0;
    virtual void        Compile() = 0;
    virtual void        ForceWriteInfo(TFile *file, Bool_t force=kFALSE) = 0;
    virtual Int_t       GenerateHeaderFile(const char *dirname, const TList *subClasses = 0, const TList *extrainfos = 0) = 0;
@@ -150,6 +151,7 @@ public:
    virtual void        TagFile(TFile *fFile) = 0;
    virtual void        Update(const TClass *oldClass, TClass *newClass) = 0;
 
+   static const char         *GetElementCounterStart(const char *dmTitle);
    static TStreamerBasicType *GetElementCounter(const char *countName, TClass *cl);
 
    static Bool_t       CanOptimize();

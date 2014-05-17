@@ -72,27 +72,29 @@ INCLUDEFILES += $(METADEP)
 include/%.h:    $(METADIRI)/%.h
 		cp $< $@
 
+IOLIB_EARLY = $(LPATH)/libRIO.$(SOEXT)
+
 $(CLINGLIB):    $(CLINGO) $(CLINGDO) $(METAOLLVM) $(METAUTILSOLLVM) \
-                $(METAUTILSTO) $(ORDER_) $(MAINLIBS)
+                $(METAUTILSTO) $(ORDER_) $(MAINLIBS) $(TCLINGLIBDEPM) $(IOLIB_EARLY)
 		@$(MAKELIB) $(PLATFORM) $(LD) "$(LDFLAGS)" \
 		   "$(SOFLAGS)" libCling.$(SOEXT) $@ \
 		   "$(METAOLLVM) $(METAUTILSOLLVM) $(METAUTILSTO) \
-		    $(CLINGO) $(CLINGDO) $(CLINGLIBEXTRA)" \
+		    $(CLINGO) $(CLINGDO) $(CLINGLIBEXTRA) $(TCLINGLIBEXTRA)" \
 		   ""
 
-$(CLINGMAP):    $(CLINGL) $(ROOTCINTTMPDEP) $(LLVMDEP) $(call pcmdep,CLING)
+$(CLINGMAP):    $(CLINGL) $(ROOTCLINGSTAGE1DEP) $(LLVMDEP) $(call pcmdep,CLING)
 		$(MAKEDIR)
 		@echo "Generating rootmap $@..."
-		$(ROOTCINTTMP) -r $(CLINGDS) $(call dictModule,CLING) -c \
+		$(ROOTCLINGSTAGE1) -r $(CLINGDS) $(call dictModule,CLING) -c \
 		   $(CLINGH) $(CLINGL)
 
 $(call pcmrule,CLING)
 	$(noop)
 
-$(CLINGDS): $(CLINGL) $(ROOTCINTTMPDEP) $(LLVMDEP) $(call pcmdep,CLING)
+$(CLINGDS): $(CLINGL) $(ROOTCLINGSTAGE1DEP) $(LLVMDEP) $(call pcmdep,CLING)
 		$(MAKEDIR)
 		@echo "Generating dictionary $@..."
-		$(ROOTCINTTMP) -f $@ $(call dictModule,CLING) -c $(CLINGH) \
+		$(ROOTCLINGSTAGE1) -f $@ $(call dictModule,CLING) -c $(CLINGH) \
 		   $(CLINGL)
 
 all-$(MODNAME): $(METAO) $(METAOLLVM) $(CLINGLIB)

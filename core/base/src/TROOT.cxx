@@ -209,7 +209,6 @@ namespace {
    struct ModuleHeaderInfo_t {
       ModuleHeaderInfo_t(const char* moduleName,
                          const char** headers,
-                         const char** allHeaders,
                          const char** includePaths,
                          const char* payloadCode,
                          void (*triggerFunc)(),
@@ -218,7 +217,6 @@ namespace {
                            fModuleName(moduleName),
                            fHeaders(headers),
                            fPayloadCode(payloadCode),
-                           fAllHeaders(allHeaders),
                            fIncludePaths(includePaths),
                            fTriggerFunc(triggerFunc),
                            fClassesHeaders(classesHeaders),
@@ -227,7 +225,6 @@ namespace {
       const char* fModuleName; // module name
       const char** fHeaders; // 0-terminated array of header files
       const char* fPayloadCode; // Additional code to be given to cling at library load
-      const char** fAllHeaders; // 0-terminated array of all seen header files
       const char** fIncludePaths; // 0-terminated array of header files      
       void (*fTriggerFunc)(); // Pointer to the dict initialization used to find the library name
       const char** fClassesHeaders; // 0-terminated list of classes and related header files
@@ -433,14 +430,18 @@ TROOT::TROOT(const char *name, const char *title, VoidFuncPtr_t *initfunc)
    fStreamerInfo    = new TObjArray(100);
    fClassGenerators = new TList;
 
-   // initialize plugin manager early
-   fPluginManager->LoadHandlersFromEnv(gEnv);
+   // usedToIdentifyRootClingByDlSym is available when TROOT is part of
+   // rootcling.
+   if (!dlsym(RTLD_DEFAULT, "usedToIdentifyRootClingByDlSym")) {
+      // initialize plugin manager early
+      fPluginManager->LoadHandlersFromEnv(gEnv);
 #if defined(R__MACOSX) && (TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR)
-   if (TARGET_OS_IPHONE | TARGET_IPHONE_SIMULATOR) {
-      TEnv plugins(".plugins-ios");
-      fPluginManager->LoadHandlersFromEnv(&plugins);
-   }
+      if (TARGET_OS_IPHONE | TARGET_IPHONE_SIMULATOR) {
+         TEnv plugins(".plugins-ios");
+         fPluginManager->LoadHandlersFromEnv(&plugins);
+      }
 #endif
+   }
 
    TSystemDirectory *workdir = new TSystemDirectory("workdir", gSystem->WorkingDirectory());
 
@@ -1056,7 +1057,7 @@ const char *TROOT::FindObjectPathName(const TObject *) const
    // The function returns the first occurence of the object in the list
    // of folders. The returned string points to a static char array in TROOT.
    // If this function is called in a loop or recursively, it is the
-   // user's responsability to copy this string in his area.
+   // user's responsability to copy this string in their area.
 
    Error("FindObjectPathName","Not yet implemented");
    return "??";
@@ -1621,54 +1622,58 @@ void TROOT::InitInterpreter()
    // Initialize the interpreter. Should be called only after main(),
    // to make sure LLVM/Clang is fully initialized.
 
-   // Make sure no llvm symbols are visible before loading libCling. If they
-   // exist libCling will use those and not ours, causing havoc in the
-   // interpreter. Look for an extern "C" symbol to avoid mangling; look for a
-   // symbol from llvm because clang builds on top, so users would likely
-   // have also their own llvm symbols when providing their own clang.
-   void *LLVMEnablePrettyStackTraceAddr = 0;
-   // Can't use gSystem->DynFindSymbol() because that iterates over all *known*
-   // libraries which is not the same!
-   LLVMEnablePrettyStackTraceAddr = dlsym(RTLD_DEFAULT, "LLVMEnablePrettyStackTrace");
-   if (LLVMEnablePrettyStackTraceAddr) {
-      Error("InitInterpreter()", "LLVM SYMBOLS ARE EXPOSED TO CLING! "
-            "This will cause problems; please hide them or dlopen() them "
-            "after the call to TROOT::InitInterpreter()!");
-   }
+   // usedToIdentifyRootClingByDlSym is available when TROOT is part of
+   // rootcling.
+   if (!dlsym(RTLD_DEFAULT, "usedToIdentifyRootClingByDlSym")) {
+      // Make sure no llvm symbols are visible before loading libCling. If they
+      // exist libCling will use those and not ours, causing havoc in the
+      // interpreter. Look for an extern "C" symbol to avoid mangling; look for a
+      // symbol from llvm because clang builds on top, so users would likely
+      // have also their own llvm symbols when providing their own clang.
+      void *LLVMEnablePrettyStackTraceAddr = 0;
+      // Can't use gSystem->DynFindSymbol() because that iterates over all *known*
+      // libraries which is not the same!
+      LLVMEnablePrettyStackTraceAddr = dlsym(RTLD_DEFAULT, "LLVMEnablePrettyStackTrace");
+      if (LLVMEnablePrettyStackTraceAddr) {
+         Error("InitInterpreter()", "LLVM SYMBOLS ARE EXPOSED TO CLING! "
+               "This will cause problems; please hide them or dlopen() them "
+               "after the call to TROOT::InitInterpreter()!");
+      }
 
-   char *libclingStorage = 0;
-   const char *libcling = 0;
+      const char *libcling = 0;
+      char *libclingStorage = 0;
 #ifdef ROOTLIBDIR
-   libcling = ROOTLIBDIR "/libCling."
+      libcling = ROOTLIBDIR "/libCling."
 # ifdef R__WIN32
       "dll";
 # else
       "so";
 # endif
-
 #else
-   libclingStorage = gSystem->DynamicPathName("libCling");
-   libcling = libclingStorage;
+      libclingStorage = gSystem->DynamicPathName("libCling");
+      libcling = libclingStorage;
 #endif
+      gInterpreterLib = dlopen(libcling, RTLD_LAZY|RTLD_LOCAL);
+      delete [] libclingStorage;
 
-   gInterpreterLib = dlopen(libcling, RTLD_LAZY|RTLD_LOCAL);
-   delete [] libclingStorage;
-   if (!gInterpreterLib) {
-      TString err = dlerror();
-      fprintf(stderr, "Fatal in <TROOT::InitInterpreter>: cannot load library %s\n", err.Data());
-      exit(1);
+      if (!gInterpreterLib) {
+         TString err = dlerror();
+         fprintf(stderr, "Fatal in <TROOT::InitInterpreter>: cannot load library %s\n", err.Data());
+         exit(1);
+      }
+      dlerror();   // reset error message
+   } else {
+      gInterpreterLib = RTLD_DEFAULT;
    }
-   dlerror();   // reset error message
-
-   // Schedule the destruction of TROOT.
-   atexit(at_exit_of_TROOT);
-
    CreateInterpreter_t *CreateInterpreter = (CreateInterpreter_t*) dlsym(gInterpreterLib, "CreateInterpreter");
    if (!CreateInterpreter) {
       TString err = dlerror();
       fprintf(stderr, "Fatal in <TROOT::InitInterpreter>: cannot load symbol %s\n", err.Data());
       exit(1);
    }
+   // Schedule the destruction of TROOT.
+   atexit(at_exit_of_TROOT);
+
    gDestroyInterpreter = (DestroyInterpreter_t*) dlsym(gInterpreterLib, "DestroyInterpreter");
    if (!gDestroyInterpreter) {
       TString err = dlerror();
@@ -1690,7 +1695,6 @@ void TROOT::InitInterpreter()
          // process buffered module registrations
       fInterpreter->RegisterModule(li->fModuleName,
                                    li->fHeaders,
-                                   li->fAllHeaders,
                                    li->fIncludePaths,
                                    li->fPayloadCode,
                                    li->fTriggerFunc,
@@ -1825,6 +1829,23 @@ Int_t TROOT::LoadClass(const char * /*classname*/, const char *libname,
    }
 
    return err;
+}
+
+//______________________________________________________________________________
+Bool_t TROOT::IsRootFile(const char *filename) const
+{
+   // Return true if the file is local and is (likely) to be a ROOT file
+
+   Bool_t result = kFALSE;
+   FILE *mayberootfile = fopen(filename,"rb");
+   if (mayberootfile) {
+      char header[5];
+      if (fgets(header,5,mayberootfile)) {
+         result = strncmp(header,"root",4)==0;
+      }
+      fclose(mayberootfile);
+   }
+   return result;
 }
 
 //______________________________________________________________________________
@@ -2102,7 +2123,6 @@ static void CallCloseFiles()
 //______________________________________________________________________________
 void TROOT::RegisterModule(const char* modulename,
                            const char** headers,                           
-                           const char** allHeaders,
                            const char** includePaths,
                            const char* payloadCode,
                            void (*triggerFunc)(),
@@ -2174,11 +2194,12 @@ void TROOT::RegisterModule(const char* modulename,
    
    // Now register with TCling.
    if (gCling) {
-      gCling->RegisterModule(modulename, headers, allHeaders,
-                             includePaths, payloadCode, triggerFunc, fwdDeclsArgToSkip, classesHeaders);
+      gCling->RegisterModule(modulename, headers, includePaths, payloadCode,
+                             triggerFunc, fwdDeclsArgToSkip, classesHeaders);
    } else {
-      GetModuleHeaderInfoBuffer().push_back(ModuleHeaderInfo_t (modulename, headers, allHeaders,
-                                                                includePaths, payloadCode, triggerFunc, fwdDeclsArgToSkip,classesHeaders));
+      GetModuleHeaderInfoBuffer()
+         .push_back(ModuleHeaderInfo_t (modulename, headers, includePaths, payloadCode,
+                                        triggerFunc, fwdDeclsArgToSkip,classesHeaders));
    }
 }
 
@@ -2423,4 +2444,10 @@ Int_t TROOT::RootVersionCode()
    // Return ROOT version code as defined in RVersion.h.
 
    return ROOT_VERSION_CODE;
+}
+
+//______________________________________________________________________________
+const char**& TROOT::GetExtraInterpreterArgs() {
+   static const char** extraInterpArgs = 0;
+   return extraInterpArgs;
 }

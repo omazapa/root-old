@@ -63,10 +63,14 @@
 #include "compiledata.h"
 #include "TMetaUtils.h"
 #include "TVirtualCollectionProxy.h"
+#include "TVirtualStreamerInfo.h"
 #include "TListOfDataMembers.h"
 #include "TListOfEnums.h"
 #include "TListOfFunctions.h"
 #include "TListOfFunctionTemplates.h"
+
+#include "TFile.h"
+class TProtoClass;
 
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"
@@ -770,10 +774,13 @@ namespace{
 TCling::TCling(const char *name, const char *title)
 : TInterpreter(name, title), fGlobalsListSerial(-1), fInterpreter(0),
    fMetaProcessor(0), fNormalizedCtxt(0), fPrevLoadedDynLibInfo(0),
-   fClingCallbacks(0), fHaveSinglePCM(kFALSE), fAutoLoadCallBack(0),
-   fTransactionCount(0)
+   fClingCallbacks(0), fAutoLoadCallBack(0),
+   fTransactionCount(0), fHeaderParsingOnDemand(getenv("HEADER_PARSING_ON_DEMAND"))
 {
    // Initialize the cling interpreter interface.
+
+   // rootcling also uses TCling for generating the dictionary ROOT files.
+   bool fromRootCling = dlsym(RTLD_DEFAULT, "usedToIdentifyRootClingByDlSym");
 
    llvm::install_fatal_error_handler(&exceptionErrorHandler);
 
@@ -782,70 +789,90 @@ TCling::TCling(const char *name, const char *title)
    std::vector<std::string> clingArgsStorage;
    clingArgsStorage.push_back("cling4root");
 
-   ROOT::TMetaUtils::SetPathsForRelocatability(clingArgsStorage);
+   std::string interpInclude;
+   // rootcling sets its arguments through TROOT::GetExtraInterpreterArgs().
+   if (!fromRootCling) {
+      ROOT::TMetaUtils::SetPathsForRelocatability(clingArgsStorage);
 
-   std::string interpInclude = ROOT::TMetaUtils::GetInterpreterExtraIncludePath(false);
-   clingArgsStorage.push_back(interpInclude);
+      interpInclude = ROOT::TMetaUtils::GetInterpreterExtraIncludePath(false);
+      clingArgsStorage.push_back(interpInclude);
 
-   std::string pchFilename = interpInclude.substr(2) + "/allDict.cxx.pch";
-   clingArgsStorage.push_back("-include-pch");
-   clingArgsStorage.push_back(pchFilename);
+      std::string pchFilename = interpInclude.substr(2) + "/allDict.cxx.pch";
+      clingArgsStorage.push_back("-include-pch");
+      clingArgsStorage.push_back(pchFilename);
 
-   // clingArgsStorage.push_back("-Xclang");
-   // clingArgsStorage.push_back("-fmodules");
+      // clingArgsStorage.push_back("-Xclang");
+      // clingArgsStorage.push_back("-fmodules");
 
-   std::string include;
-   // Add the root include directory to list searched by default
+      std::string include;
 #ifndef ROOTINCDIR
-   include = gSystem->Getenv("ROOTSYS");
-   include += "/include";
+      include = gSystem->Getenv("ROOTSYS");
+      include += "/include";
 #else // ROOTINCDIR
-   include = ROOTINCDIR;
+      include = ROOTINCDIR;
 #endif // ROOTINCDIR
-   clingArgsStorage.push_back("-I");
-   clingArgsStorage.push_back(include);
+      clingArgsStorage.push_back("-I");
+      clingArgsStorage.push_back(include);
+   }
 
    std::vector<const char*> interpArgs;
    for (std::vector<std::string>::const_iterator iArg = clingArgsStorage.begin(),
            eArg = clingArgsStorage.end(); iArg != eArg; ++iArg)
       interpArgs.push_back(iArg->c_str());
 
+   // Add statically injected extra arguments, usually coming from rootcling.
+   for (const char** extraArgs = TROOT::GetExtraInterpreterArgs();
+        extraArgs && *extraArgs; ++extraArgs) {
+         interpArgs.push_back(*extraArgs);
+   }
+
    fInterpreter = new cling::Interpreter(interpArgs.size(),
                                          &(interpArgs[0]),
                                          ROOT::TMetaUtils::GetLLVMResourceDir(false).c_str());
-   fInterpreter->installLazyFunctionCreator(llvmLazyFunctionCreator);
 
-   // Add include path to etc/cling. FIXME: This is a short term solution. The
-   // llvm/clang header files shouldn't be there at all. We have to get rid of
-   // that dependency and avoid copying the header files.
-   TCling::AddIncludePath((interpInclude.substr(2) + "/cling").c_str());
+   if (!fromRootCling) {
+      fInterpreter->installLazyFunctionCreator(llvmLazyFunctionCreator);
 
-   // Add the current path to the include path
-   TCling::AddIncludePath(".");
+      // Add include path to etc/cling. FIXME: This is a short term solution. The
+      // llvm/clang header files shouldn't be there at all. We have to get rid of
+      // that dependency and avoid copying the header files.
+      // Use explicit TCling::AddIncludePath() to avoid vtable: we're in the c'tor!
+      TCling::AddIncludePath((interpInclude.substr(2) + "/cling").c_str());
 
-   // Add the root include directory and etc/ to list searched by default.
-   // Use explicit TCling::AddIncludePath() to avoid vtable: we're in the c'tor!
-   TCling::AddIncludePath(ROOT::TMetaUtils::GetROOTIncludeDir(false).c_str());
+      // Add the current path to the include path
+      TCling::AddIncludePath(".");
+
+      // Add the root include directory and etc/ to list searched by default.
+      TCling::AddIncludePath(ROOT::TMetaUtils::GetROOTIncludeDir(false).c_str());
+   }
 
    // Don't check whether modules' files exist.
    fInterpreter->getCI()->getPreprocessorOpts().DisablePCHValidation = true;
+
+   // Until we can disable autoloading during Sema::CorrectTypo() we have
+   // to disable spell checking.
+   fInterpreter->getCI()->getLangOpts().SpellChecking = false;
+
+
    // We need stream that doesn't close its file descriptor, thus we are not
    // using llvm::outs. Keeping file descriptor open we will be able to use
    // the results in pipes (Savannah #99234).
    static llvm::raw_fd_ostream fMPOuts (STDOUT_FILENO, /*ShouldClose*/false);
    fMetaProcessor = new cling::MetaProcessor(*fInterpreter, fMPOuts);
 
-   if (getenv("ROOT_MODULES")) {
-      fHaveSinglePCM =
-         LoadPCM(ROOT::TMetaUtils::GetModuleFileName("allDict").c_str(),
-                 0 /*headers*/, 0 /*triggerFunc*/);
-   }
-   if (fHaveSinglePCM)
-      ::Info("TCling::TCling", "Using one PCM.");
-
    // For the list to also include string, we have to include it now.
-   fInterpreter->declare("#include \"Rtypes.h\"\n"+ gInterpreterClassDef +"#include <string>\n"
-                         "using namespace std;");
+   // rootcling does parts already if needed, e.g. genreflex does not want using
+   // namespace std.
+   if (fromRootCling) {
+      fInterpreter->declare("#include \"RtypesCore.h\"\n"
+                            "#include <string>\n"
+                            "using std::string;");
+   } else {
+      fInterpreter->declare("#include \"Rtypes.h\"\n"
+                            + gInterpreterClassDef
+                            + "#include <string>\n"
+                            "using namespace std;");
+   }
 
    // We are now ready (enough is loaded) to init the list of opaque typedefs.
    fNormalizedCtxt = new ROOT::TMetaUtils::TNormalizedCtxt(fInterpreter->getLookupHelper());
@@ -866,10 +893,10 @@ TCling::TCling(const char *name, const char *title)
 #ifndef R__WIN32
    optind = 1;  // make sure getopt() works in the main program
 #endif // R__WIN32
-   // Initialize for ROOT:
-   TCling::AddIncludePath(include.c_str());
 
-   fInterpreter->enableDynamicLookup();
+   if (!fromRootCling) {
+      fInterpreter->enableDynamicLookup();
+   }
 
    // Attach cling callbacks
    fClingCallbacks = new TClingCallbacks(fInterpreter);
@@ -949,47 +976,60 @@ bool TCling::LoadPCM(TString pcmFileName,
                      void (*triggerFunc)()) const {
    // Tries to load a PCM; returns true on success.
 
-   // pcmFileName is an intentional copy; updaed by FindFile() below.
+   // pcmFileName is an intentional copy; updated by FindFile() below.
 
-   // Assemble search path:
-#ifdef R__WIN32
-   TString searchPath = "$(PATH);";
-#else
-   TString searchPath = "$(LD_LIBRARY_PATH):";
-#endif
-#ifndef ROOTLIBDIR
-   TString rootsys = gSystem->Getenv("ROOTSYS");
-# ifdef R__WIN32
-   searchPath += rootsys + "/bin";
-# else
-   searchPath += rootsys + "/lib";
-# endif
-#else // ROOTLIBDIR
-# ifdef R__WIN32
-   searchPath += ROOTBINDIR;
-# else
-   searchPath += ROOTLIBDIR;
-# endif
-#endif // ROOTLIBDIR
-   gSystem->ExpandPathName(searchPath);
+   TString searchPath;
 
    if (triggerFunc) {
       const char *libraryName = FindLibraryName(triggerFunc);
       if (libraryName) {
-         std::string libDir = llvm::sys::path::parent_path(libraryName);
- #ifdef R__WIN32
-         searchPath += ";" + libDir;
+         searchPath = llvm::sys::path::parent_path(libraryName);
+#ifdef R__WIN32
+         searchPath += ";";
 #else
-         searchPath += ":" + libDir;
+         searchPath += ":";
 #endif
       }
    }
+   // Note: if we know where the library is, we probably shouldn't even
+   // look in other places.
+   searchPath.Append( gSystem->GetDynamicPath() );
+
+   static bool enableRootPcm = !gSystem->Getenv("DISABLE_ROOT_PCM");
+   if (!enableRootPcm) return kTRUE;
 
    if (!gSystem->FindFile(searchPath, pcmFileName))
       return kFALSE;
 
-   if (gDebug > 5)
-      ::Info("TCling::LoadPCM", "Loading PCM %s", pcmFileName.Data());
+   if (gROOT->IsRootFile(pcmFileName)) {
+      Int_t oldDebug = gDebug;
+      if (gDebug > 5) {
+         gDebug -= 5;
+         ::Info("TCling::LoadPCM", "Loading ROOT PCM %s", pcmFileName.Data());
+      } else {
+         gDebug = 0;
+      }
+
+      TDirectory::TContext ctxt(0);
+      TFile *pcmFile = new TFile(pcmFileName,"READ");
+      TObjArray *protoClasses;
+      pcmFile->GetObject("__ProtoClasses", protoClasses);
+      if (protoClasses)
+         for(auto proto : *protoClasses)
+            TClassTable::Add((TProtoClass*)proto);
+      protoClasses->Clear(); // Owner ship was transfered to TClassTable.
+      delete protoClasses;
+      delete pcmFile;
+
+      gDebug = oldDebug;
+   } else {
+      if (gDebug > 5)
+         ::Info("TCling::LoadPCM", "Loading clang PCM %s", pcmFileName.Data());
+
+   }
+   // Note: Declaring the relationship between the module (pcm) and the header
+   // probably does not yet make sense since the pcm is 'only' a root file.
+   // We also have to review if we still need to do this with the delay loading.
    clang::CompilerInstance* CI = fInterpreter->getCI();
    ROOT::TMetaUtils::declareModuleMap(CI, pcmFileName, headers);
    return kTRUE;
@@ -998,9 +1038,8 @@ bool TCling::LoadPCM(TString pcmFileName,
 //______________________________________________________________________________
 void TCling::RegisterModule(const char* modulename,
                             const char** headers,
-                            const char** allHeaders,
                             const char** includePaths,
-                            const char* payloadCode,                            
+                            const char* payloadCode,
                             void (*triggerFunc)(),
                             const FwdDeclArgsToKeepCollection_t& fwdDeclsArgToSkip,
                             const char** classesHeaders)
@@ -1014,27 +1053,17 @@ void TCling::RegisterModule(const char* modulename,
    // The payload code is injected "as is" in the interpreter.
    // The value of 'triggerFunc' is used to find the shared library location.
 
-   bool rootModulesDefined (getenv("ROOT_MODULES"));
-   
-   if (fHaveSinglePCM && !strncmp(modulename, "G__", 3))
-      modulename = "allDict";
+   // rootcling also uses TCling for generating the dictionary ROOT files.
+   bool fromRootCling = dlsym(RTLD_DEFAULT, "usedToIdentifyRootClingByDlSym");
+   // We need the dictionary initialization but we don't want to inject the
+   // declarations into the interpreter, except for those we really need for
+   // I/O; see rootcling.cxx after the call to TCling__GetInterpreter().
+   if (fromRootCling) return;
+
    TString pcmFileName(ROOT::TMetaUtils::GetModuleFileName(modulename).c_str());
 
    for (const char** inclPath = includePaths; *inclPath; ++inclPath) {
       TCling::AddIncludePath(*inclPath);
-   }
-
-   if (gDebug > 0) {
-      for (const char** allHdr = allHeaders; *allHdr; ++allHdr) {
-         ModuleForHeader_t::iterator iMap = fModuleForHeader.find(*allHdr);
-         if (iMap != fModuleForHeader.end()) {
-            Warning("RegisterModule()",
-                    "Header %s provided by module %s was already available through module %s",
-                    *allHdr, modulename, iMap->second);
-         } else {
-            fModuleForHeader[*allHdr] = modulename;
-         }
-      }
    }
 
    // Put the template decls and the number of arguments to skip in the TNormalizedCtxt
@@ -1063,11 +1092,12 @@ void TCling::RegisterModule(const char* modulename,
    // FIXME: Remove #define __ROOTCLING__ once PCMs are there.
    // This is used to give Sema the same view on ACLiC'ed files (which
    // are then #included through the dictionary) as rootcling had.
-   TString code = "#define __ROOTCLING__ 1\n"
-                  "#undef ClassDef\n"
-                  "#define ClassDef(name,id) \\\n"
-                  "_ClassDef_(name,id) \\\n"
-                  "static int DeclFileLine() { return __LINE__; }\n";
+   TString code = fromRootCling ? "" :
+      "#define __ROOTCLING__ 1\n"
+      "#undef ClassDef\n"
+      "#define ClassDef(name,id) \\\n"
+      "_ClassDef_(name,id) \\\n"
+      "static int DeclFileLine() { return __LINE__; }\n";
    code += payloadCode;
 
    // We need to open the dictionary shared library, to resolve sylbols
@@ -1091,9 +1121,42 @@ void TCling::RegisterModule(const char* modulename,
       }
    }
 
-   if (rootModulesDefined) {
-      fInterpreter->declare(code.Data());
-      code = "";
+   // Now we register all the headers necessary for the class
+   // Typical format of the array:
+   //    {"A", "classes.h", "@",
+   //     "vector<A>", "vector", "@",
+   //     "myClass", payloadCode, "@",
+   //    nullptr};
+   if (fHeaderParsingOnDemand){
+      size_t theHash;
+      std::string temp;
+      for (const char** classesHeader = classesHeaders; *classesHeader; ++classesHeader) {
+         temp=*classesHeader;
+         theHash = fStringHashFunction(*classesHeader);
+         classesHeader++;
+         for (const char** classesHeader_inner = classesHeader; 0!=strcmp(*classesHeader_inner,"@"); ++classesHeader_inner,++classesHeader){
+            // This is done in order to distinguish headers from files and from the payloadCode
+            if (payloadCode == *classesHeader_inner ){
+               fPayloads.insert(theHash);
+            }
+            fClassesHeadersMap[theHash].push_back(*classesHeader_inner);
+         }
+      }
+   }
+
+
+   if (strcmp(modulename,"libCore")!=0 && strcmp(modulename,"libRint")!=0
+       && strcmp(modulename,"libThread")!=0 && strcmp(modulename,"libRIO")!=0
+       && strcmp(modulename,"libcomplexDict")!=0 && strcmp(modulename,"libdequeDict")!=0
+       && strcmp(modulename,"liblistDict")!=0 && strcmp(modulename,"libvectorDict")!=0
+       && strcmp(modulename,"libmapDict")!=0 && strcmp(modulename,"libmultimap2Dict")!=0
+       && strcmp(modulename,"libmap2Dict")!=0 && strcmp(modulename,"libmultimapDict")!=0
+       && strcmp(modulename,"libsetDict")!=0 && strcmp(modulename,"libmultisetDict")!=0
+       && strcmp(modulename,"libvalarrayDict")!=0
+       && strcmp(modulename,"G__GenVector32")!=0 && strcmp(modulename,"G__Smatrix32")!=0
+
+       ) {
+      // No pcm for now for libCore or libRint, the info is in the pch.
       if (!LoadPCM(pcmFileName, headers, triggerFunc)) {
          ::Error("TCling::RegisterModule", "cannot find dictionary module %s",
                  ROOT::TMetaUtils::GetModuleFileName(modulename).c_str());
@@ -1108,10 +1171,7 @@ void TCling::RegisterModule(const char* modulename,
       if (gDebug > 5) {
          ::Info("TCling::RegisterModule", "   #including %s...", *hdr);
       }
-      if(!rootModulesDefined)
-         code += TString::Format("#include \"%s\"\n", *hdr);
-      else
-         fInterpreter->loadModuleForHeader(*hdr);
+      code += TString::Format("#include \"%s\"\n", *hdr);
    }
 
    { // scope within which diagnostics are de-activated
@@ -1126,7 +1186,7 @@ void TCling::RegisterModule(const char* modulename,
       #endif
       #endif      
 
-      if(!getenv("HEADER_PARSING_ON_DEMAND")){
+      if(!fHeaderParsingOnDemand){
          cling::Interpreter::CompilationResult compRes = fInterpreter->parseForModule(code.Data());
 
          assert(cling::Interpreter::kSuccess == compRes &&
@@ -1138,56 +1198,39 @@ void TCling::RegisterModule(const char* modulename,
       }
    }
 
-   // Now we register all the headers necessary for the class
-   // Typical format of the array:
-   //    {"A", "classes.h", "@",
-   //     "vector<A>", "vector", "@",
-   //     "myClass", payloadCode, "@",
-   //    nullptr};
-
-   size_t theHash;
-   std::string temp;
-   for (const char** classesHeader = classesHeaders; *classesHeader; ++classesHeader) {
-      temp=*classesHeader;
-      theHash = fStringHashFunction(*classesHeader);
-      classesHeader++;
-      for (const char** classesHeader_inner = classesHeader; 0!=strcmp(*classesHeader_inner,"@"); ++classesHeader_inner,++classesHeader){
-         // This is done in order to distinguish headers from files and from the payloadCode
-         if (payloadCode == *classesHeader_inner ){
-            fPayloads.insert(theHash);
-         }
-         fClassesHeadersMap[theHash].push_back(*classesHeader_inner);
-      }
-   }
-   
    // Now that all the header have been registered/compiled, let's
    // make sure to 'reset' the TClass that have a class init in this module
    // but already had their type information available (using information/header
    // loaded form other modules).
-   while (!fClassesToUpdate.empty()) {
-      TClass *oldcl = fClassesToUpdate.back().first;
-      if (oldcl->GetState() != TClass::kHasTClassInit) {
-         // if (gDebug > 2) Info("RegisterModule", "Forcing TClass init for %s", oldcl->GetName());
-         TString classname = oldcl->GetName();
-         VoidFuncPtr_t dict = fClassesToUpdate.back().second;
-         fClassesToUpdate.pop_back();
-         // Calling func could manipulate the list so, let maintain the list
-         // then call the dictionary function.
-         dict();
-         TClass *ncl = TClass::GetClass(classname, kFALSE, kTRUE);
-         if (ncl) ncl->PostLoadCheck();
-      } else {
-         fClassesToUpdate.pop_back();
+   if (!fHeaderParsingOnDemand){
+      while (!fClassesToUpdate.empty()) {
+         TClass *oldcl = fClassesToUpdate.back().first;
+         if (oldcl->GetState() != TClass::kHasTClassInit) {
+            // if (gDebug > 2) Info("RegisterModule", "Forcing TClass init for %s", oldcl->GetName());
+            TString classname = oldcl->GetName();
+            VoidFuncPtr_t dict = fClassesToUpdate.back().second;
+            fClassesToUpdate.pop_back();
+            // Calling func could manipulate the list so, let maintain the list
+            // then call the dictionary function.
+            dict();
+            TClass *ncl = TClass::GetClass(classname, kFALSE, kTRUE);
+            if (ncl) ncl->PostLoadCheck();
+         } else {
+            fClassesToUpdate.pop_back();
+         }
       }
    }
 
    if (fClingCallbacks)
      SetClassAutoloading(oldValue);
 
-   // Might be pulled in through PCH
-   fInterpreter->declare("#ifdef __ROOTCLING__\n"
-                         "#undef __ROOTCLING__\n" + gInterpreterClassDef +
-                         "#endif");
+   if (!fromRootCling) {
+      // __ROOTCLING__ might be pulled in through PCH
+      fInterpreter->declare("#ifdef __ROOTCLING__\n"
+                            "#undef __ROOTCLING__\n"
+                            + gInterpreterClassDef +
+                            "#endif");
+   }
 
    if (dyLibName) {
       void* dyLibHandle = fRegisterModuleDyLibs.back();
@@ -1407,6 +1450,11 @@ void TCling::InspectMembers(TMemberInspector& insp, const void* obj,
 {
    // Visit all members over members, recursing over base classes.
 
+   if (insp.GetObjectValidity() == TMemberInspector::kUnset) {
+      insp.SetObjectValidity(obj ? TMemberInspector::kValidObjectGiven
+                             : TMemberInspector::kNoObjectGiven);
+   }
+
    if (!cl || cl->GetCollectionProxy()) {
       // We do not need to investigate the content of the STL
       // collection, they are opaque to us (and details are
@@ -1434,10 +1482,16 @@ void TCling::InspectMembers(TMemberInspector& insp, const void* obj,
    // Printf("Inspecting class %s\n", clname);
 
    const clang::ASTContext& astContext = fInterpreter->getCI()->getASTContext();
-   const cling::LookupHelper& lh = fInterpreter->getLookupHelper();
-   // Diags will complain about private classes:
-   const clang::Decl *scopeDecl
-      = lh.findScope(clname, cling::LookupHelper::NoDiagnostics);
+   const clang::Decl *scopeDecl = 0;
+
+   if (cl->GetClassInfo()) {
+      TClingClassInfo * clingCI = (TClingClassInfo *)cl->GetClassInfo();
+      scopeDecl = clingCI->GetDecl();
+   } else {
+      const cling::LookupHelper& lh = fInterpreter->getLookupHelper();
+      // Diags will complain about private classes:
+      scopeDecl = lh.findScope(clname, cling::LookupHelper::NoDiagnostics);
+   }
    if (!scopeDecl) {
       Error("InspectMembers", "Cannot find Decl for class %s", clname);
       return;
@@ -1630,27 +1684,31 @@ void TCling::InspectMembers(TMemberInspector& insp, const void* obj,
       }
       int64_t baseOffset;
       if (iBase->isVirtual()) {
-         if (!obj) {
-            Error("InspectMembers",
-                  "Base %s of class %s is virtual but no object provided",
-                  sBaseName.c_str(), clname);
-            continue;
-         }
-         TClingClassInfo* ci = (TClingClassInfo*)cl->GetClassInfo();
-         TClingClassInfo* baseCi = (TClingClassInfo*)baseCl->GetClassInfo();
-         if (ci && baseCi) {
-            baseOffset = ci->GetBaseOffset(baseCi, const_cast<void*>(obj),
-                                           true /*isDerivedObj*/);
-            if (baseOffset == -1) {
+         if (insp.GetObjectValidity() == TMemberInspector::kNoObjectGiven) {
+            if (!isTransient) {
                Error("InspectMembers",
-                     "Error calculating offset of virtual base %s of class %s",
+                     "Base %s of class %s is virtual but no object provided",
                      sBaseName.c_str(), clname);
             }
+            baseOffset = TVirtualStreamerInfo::kNeedObjectForVirtualBaseClass;
          } else {
-            Error("InspectMembers",
-                  "Cannot calculate offset of virtual base %s of class %s",
-                  sBaseName.c_str(), clname);
-            continue;
+            // We have an object to determine the vbase offset.
+            TClingClassInfo* ci = (TClingClassInfo*)cl->GetClassInfo();
+            TClingClassInfo* baseCi = (TClingClassInfo*)baseCl->GetClassInfo();
+            if (ci && baseCi) {
+               baseOffset = ci->GetBaseOffset(baseCi, const_cast<void*>(obj),
+                                              true /*isDerivedObj*/);
+               if (baseOffset == -1) {
+                  Error("InspectMembers",
+                        "Error calculating offset of virtual base %s of class %s",
+                        sBaseName.c_str(), clname);
+               }
+            } else {
+               Error("InspectMembers",
+                     "Cannot calculate offset of virtual base %s of class %s",
+                     sBaseName.c_str(), clname);
+               continue;
+            }
          }
       } else {
          baseOffset = recLayout.getBaseClassOffset(baseDecl).getQuantity();
@@ -2711,6 +2769,7 @@ void TCling::CreateListOfMethodArgs(TFunction* m) const
    }
 }
 
+
 //______________________________________________________________________________
 TClass *TCling::GenerateTClass(const char *classname, Bool_t emulation, Bool_t silent /* = kFALSE */)
 {
@@ -2733,7 +2792,57 @@ TClass *TCling::GenerateTClass(const char *classname, Bool_t emulation, Bool_t s
       version = TClass::GetClass("TVirtualStreamerInfo")->GetClassVersion();
    }
    TClass *cl = new TClass(classname, version, silent);
-   if (emulation) cl->SetBit(TClass::kIsEmulation);
+   if (emulation) {
+      cl->SetBit(TClass::kIsEmulation);
+   } else {
+      // Set the class version if the class is versioned.
+      // Note that we cannot just call CLASS::Class_Version() as we might not have
+      // an execution engine (when invoked from rootcling).
+
+      // Do not call cl->GetClassVersion(), it has side effects!
+      Version_t oldvers = cl->fClassVersion;
+      if (oldvers == version && cl->GetClassInfo()) {
+         // We have a version and it might need an update.
+         Version_t newvers = oldvers;
+         TClingClassInfo* cli = (TClingClassInfo*)cl->GetClassInfo();
+         if (llvm::isa<clang::NamespaceDecl>(cli->GetDecl())) {
+            // Namespaces don't have class versions.
+            return cl;
+         }
+         TClingMethodInfo mi = cli->GetMethod("Class_Version", "", 0 /*poffset*/,
+                                              ROOT::kExactMatch,
+                                              TClingClassInfo::kInThisScope);
+         if (!mi.IsValid()) {
+            if (cl->TestBit(TClass::kIsTObject)) {
+               Error("GenerateTClass",
+                     "Cannot find %s::Class_Version()! Class version might be wrong.",
+                     cl->GetName());
+            }
+            return cl;
+         }
+         newvers = ROOT::TMetaUtils::GetClassVersion(llvm::dyn_cast<clang::RecordDecl>(cli->GetDecl()),
+                                                     *fInterpreter);
+         if (newvers == -1) {
+            // Didn't manage to determine the class version from the AST.
+            // Use runtime instead.
+            if ((mi.Property() & kIsStatic)
+                && fInterpreter->getCodeGenerator()) {
+               // This better be a static function.
+               TClingCallFunc callfunc(fInterpreter, *fNormalizedCtxt);
+               callfunc.SetFunc(&mi);
+               newvers = callfunc.ExecInt(0);
+            } else {
+               Error("GenerateTClass",
+                     "Cannot invoke %s::Class_Version()! Class version might be wrong.",
+                     cl->GetName());
+            }
+         }
+         if (newvers != oldvers) {
+            cl->fClassVersion = newvers;
+            cl->fStreamerInfo->Expand(newvers + 2 + 10);
+         }
+      }
+   }
 
    return cl;
 
@@ -3326,6 +3435,10 @@ bool TCling::InsertMissingDictionaryDecl(const clang::Decl* D, std::set<std::str
    // In the set of pointer for the classes without dictionaries.
 
    // Get the name of the class.
+
+   // If we deal with a std::string we do not need to recurse and we do not need to get the normalized name
+   // because we want to now if it is a std string or not.
+   if (strcmp(qType.getAsString().c_str(), "std::string")==0) return false;
    std::string buf;
    ROOT::TMetaUtils::GetNormalizedName(buf, qType, *fInterpreter, *fNormalizedCtxt);
    const char* name = buf.c_str();
@@ -3765,8 +3878,8 @@ int TCling::ReadRootmapFile(const char *rootmapfile)
    // success, -1 if the file has already been read, and -3 in case its format
    // is the old one (e.g. containing "Library.ClassName")
    
-   // For "class ", "namespace " and "typedef " respectively
-   const std::unordered_map<char, unsigned int> keyLenMap = {{'c',6},{'n',10},{'t',8}};
+   // For "class ", "namespace ", "typedef ", "header " respectively
+   const std::unordered_map<char, unsigned int> keyLenMap = {{'c',6},{'n',10},{'t',8},{'h',7}};
    
    if (rootmapfile && *rootmapfile) {
 
@@ -4309,12 +4422,16 @@ Int_t TCling::AutoLoad(const char* cls)
    if (!gROOT || !gInterpreter || gROOT->TestBit(TObject::kInvalidObject)) {
       return status;
    }
+   if (fClingCallbacks && !fClingCallbacks->IsAutoloadingEnabled ()) {
+      return 0;
+   }
    // Prevent the recursion when the library dictionary are loaded.
    Int_t oldvalue = SetClassAutoloading(false);
    // Try using externally provided callback first.
    if (fAutoLoadCallBack) {
       int success = (*(AutoLoadCallBack_t)fAutoLoadCallBack)(cls);
       if (success) {
+         AutoParse(cls);
          SetClassAutoloading(oldvalue);
          return success;
       }
@@ -4355,44 +4472,86 @@ Int_t TCling::AutoLoad(const char* cls)
       delete tokens;
    }
       
-   // Piggy-back the header parsing
-   if(getenv("HEADER_PARSING_ON_DEMAND")){
-      std::size_t normNameHash(fStringHashFunction(cls));
-      // If the class was not looked up
-      if (fLookedUpClasses.insert(normNameHash).second){
-         const std::vector<const char*> hNamesPtrs = fClassesHeadersMap[normNameHash];
-         for (auto & hName : hNamesPtrs){
-            if (0!=fPayloads.count(normNameHash)){
-               if (gDebug > 0) {
-                  Info("TCling::AutoLoad",
-                     "Parsing full payload for %s", cls);
-               }
-               fInterpreter->parseForModule(hName);
-            } else {
-               if (gDebug > 0) {
-                  Info("TCling::AutoLoad",
-                     "I would have included %s", hName);
-               }
-               std::string includeLine("#include \"");
-               includeLine+=hName;
-               includeLine+="\"";
-               fInterpreter->parseForModule(includeLine.c_str());
-            }
-         }
-      }
-   }
+   AutoParse(cls);
    
    SetClassAutoloading(oldvalue);         
    return status;
 }
 
 //______________________________________________________________________________
+Int_t TCling::AutoParse(const char* cls)
+{
+   // Parse the headers relative to the class
+
+   if (!fHeaderParsingOnDemand) return 0;
+
+   // No recursive header parsing on demand; we require headers to be standalone.
+   fHeaderParsingOnDemand = false;
+
+   Int_t nHheadersParsed = 0;
+   std::size_t normNameHash(fStringHashFunction(cls));
+   // If the class was not looked up
+   if (fLookedUpClasses.insert(normNameHash).second){
+      const std::vector<const char*>& hNamesPtrs = fClassesHeadersMap[normNameHash];
+      for (auto& hName : hNamesPtrs){
+         if (0!=fPayloads.count(normNameHash)){
+            if (gDebug > 0) {
+               Info("AutoParse",
+                  "Parsing full payload for %s", cls);
+            }
+            auto cRes = fInterpreter->parseForModule(hName);
+            if (cRes != cling::Interpreter::kSuccess){
+               Error("AutoParse","Error parsing payload code for class %s.", cls);
+            }
+         } else {
+            if (gDebug > 0) {
+               Info("AutoParse",
+                  "Parsing single header %s", hName);
+            }
+            std::string includeLine("#include \"");
+            includeLine+=hName;
+            includeLine+="\"";
+            auto cRes = fInterpreter->parseForModule(includeLine.c_str());
+            if (cRes != cling::Interpreter::kSuccess){
+               Error("AutoParse","Error parsing headerfile %s for class %s.", hName, cls);
+            }
+         }
+         nHheadersParsed++;
+      }
+   }
+
+   if (nHheadersParsed != 0){
+      while (!fClassesToUpdate.empty()) {
+         TClass *oldcl = fClassesToUpdate.back().first;
+         if (oldcl->GetState() != TClass::kHasTClassInit) {
+            // if (gDebug > 2) Info("RegisterModule", "Forcing TClass init for %s", oldcl->GetName());
+            TString classname = oldcl->GetName();
+            VoidFuncPtr_t dict = fClassesToUpdate.back().second;
+            fClassesToUpdate.pop_back();
+            // Calling func could manipulate the list so, let maintain the list
+            // then call the dictionary function.
+            dict();
+            TClass *ncl = TClass::GetClass(classname, kFALSE, kTRUE);
+            if (ncl) ncl->PostLoadCheck();
+         } else {
+            fClassesToUpdate.pop_back();
+         }
+      }
+   }
+
+   fHeaderParsingOnDemand = true;
+
+   return nHheadersParsed;
+}
+
+
+//______________________________________________________________________________
 void* TCling::LazyFunctionCreatorAutoload(const std::string& mangled_name) {
    // Autoload a library based on a missing symbol.
 
    // First see whether the symbol is in the library that we are currently
-   // loading. It will have access to the symbols of the libraries that
-   // triggered its load, thus checking "back()" is sufficient.
+   // loading. It will have access to the symbols of its dependent libraries,
+   // thus checking "back()" is sufficient.
    if (!fRegisterModuleDyLibs.empty()) {
       if (void* addr = dlsym(fRegisterModuleDyLibs.back(),
                              mangled_name.c_str())) {

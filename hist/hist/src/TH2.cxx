@@ -2123,7 +2123,7 @@ TProfile *TH2::ProfileX(const char *name, Int_t firstybin, Int_t lastybin, Optio
    //
    //   if option "d" is specified, the profile is drawn in the current pad.
    //
-   //   if option "o" original axis range of the taget axes will be
+   //   if option "o" original axis range of the target axes will be
    //   kept, but only bins inside the selected range will be filled.
    //
    //   The option can also be used to specify the projected profile error type.
@@ -2188,7 +2188,7 @@ TProfile *TH2::ProfileY(const char *name, Int_t firstxbin, Int_t lastxbin, Optio
    //   a compatible axis the profile is reset and filled again with the projected contents of the TH2.
    //   In the case of axis incompatibility an error is reported and a NULL pointer is returned.
    //
-   //   NOTE that he Y axis attributes of the TH2 are copied to the X axis of the profile.
+   //   NOTE that the Y axis attributes of the TH2 are copied to the X axis of the profile.
    //
    //   NOTE that the default under- / overflow behavior differs from what ProjectionX
    //   does! Profiles take the bin center into account, so here the under- and overflow

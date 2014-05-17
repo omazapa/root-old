@@ -149,10 +149,10 @@ if(ROOT_mathmore_FOUND)
 endif()
 
 #--stressMathCore----------------------------------------------------------------------------------
-if(ROOT_mathcore_FOUND)
-  ROOT_EXECUTABLE(stressMathCore stressMathCore.cxx LIBRARIES MathCore)
-  ROOT_ADD_TEST(test-stressmathcore COMMAND stressMathCore FAILREGEX "FAILED")  
-endif()
+ROOT_GENERATE_DICTIONARY(TrackMathCoreDictionary ${CMAKE_CURRENT_SOURCE_DIR}/TrackMathCore.h MODULE TrackMathCoreDictionary LINKDEF TrackMathCoreLinkDef.h)
+ROOT_LINKER_LIBRARY(TrackMathCoreDict TrackMathCoreDictionary.cxx LIBRARIES Core MathCore RIO GenVector)
+ROOT_EXECUTABLE(stressMathCore stressMathCore.cxx LIBRARIES MathCore Hist RIO Tree GenVector)
+ROOT_ADD_TEST(test-stressmathcore COMMAND stressMathCore FAILREGEX "FAILED")  
 
 #--stressRooFit----------------------------------------------------------------------------------
 if(ROOT_roofit_FOUND)
@@ -215,6 +215,7 @@ if(NOT WIN32 AND ROOT_xrootd_FOUND)
   ROOT_ADD_TEST(test-stressproof COMMAND stressProof lite:// 
                                          -h1 ${CMAKE_SOURCE_DIR}/files/h1 -event ${CMAKE_SOURCE_DIR}/files/event
                                          -l /tmp/stressProof-%d.log -cleanlog -catlog -noprogress
+                                         ENVIRONMENT PATH=${CMAKE_BINARY_DIR}/bin:$ENV{PATH}
                                          FAILREGEX "FAILED")  
 endif()
 

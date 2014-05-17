@@ -353,7 +353,8 @@ TFile::TFile(const char *fname1, Option_t *option, const char *ftitle, Int_t com
    fArchiveOffset = 0;
    fIsArchive     = kFALSE;
    fArchive       = 0;
-   if (fIsRootFile) {
+   if (fIsRootFile && fOption != "NEW" && fOption != "CREATE"
+       && fOption != "RECREATE") {
       fArchive = TArchiveFile::Open(fUrl.GetUrl(), this);
       if (fArchive) {
         fname1 = fArchive->GetArchiveName();
@@ -890,15 +891,19 @@ void TFile::Close(Option_t *option)
    // Delete all supported directories structures from memory
    // If gDirectory points to this object or any of the nested
    // TDirectoryFile, TDirectoryFile::Close will induce the proper cd.
+   fMustFlush = kFALSE; // Make sure there is only one Flush.
    TDirectoryFile::Close();
 
    if (IsWritable()) {
       TFree *f1 = (TFree*)fFree->First();
       if (f1) {
          WriteFree();       //*-*- Write free segments linked list
-         WriteHeader();     //*-*- Now write file header
+         WriteHeader();     //*-*- Now write file header ; this forces a Flush/fsync
+      } else {
+         Flush();
       }
    }
+   fMustFlush = kTRUE;
 
    FlushWriteCache();
 
@@ -1341,7 +1346,7 @@ void TFile::MakeFree(Long64_t first, Long64_t last)
    // (attempted to be reused.
    // coverity[unchecked_value] 
    WriteBuffer(psave, nb);
-   Flush();
+   if (fMustFlush) Flush();
    delete [] psave;
 }
 
@@ -2361,7 +2366,7 @@ void TFile::WriteHeader()
    Int_t nbytes  = buffer - psave;
    Seek(0);
    WriteBuffer(psave, nbytes);
-   Flush();
+   Flush(); // Intentionally not conditional on fMustFlush, this is the 'obligatory' flush.
    delete [] psave;
 }
 
@@ -2614,7 +2619,7 @@ void TFile::MakeProject(const char *dirname, const char * /*classes*/,
       }
       TClass *cl = TClass::GetClass(info->GetName());
       if (cl) {
-         if (cl->GetClassInfo()) continue; // skip known classes
+         if (cl->HasInterpreterInfo()) continue; // skip known classes
       }
       // Find and use the proper rules for the TStreamerInfos.
       TMakeProject::GenerateMissingStreamerInfos( &extrainfos, info->GetName() );
@@ -2803,7 +2808,7 @@ void TFile::MakeProject(const char *dirname, const char * /*classes*/,
       }
       TClass *cl = TClass::GetClass(info->GetName());
       if (cl) {
-         if (cl->GetClassInfo()) continue; // skip known classes
+         if (cl->HasInterpreterInfo()) continue; // skip known classes
          const ROOT::TSchemaMatch* rules = 0;
          if (cl->GetSchemaRules()) {
             rules = cl->GetSchemaRules()->FindRules(cl->GetName(), info->GetClassVersion());
@@ -2864,7 +2869,7 @@ void TFile::MakeProject(const char *dirname, const char * /*classes*/,
                   } else {
                      what.ReplaceAll("std::","");
                      TClass *paircl = TClass::GetClass(what.Data());
-                     if (paircl == 0 || paircl->GetClassInfo() == 0) {
+                     if (paircl == 0 || !paircl->HasInterpreterInfo()) {
                         fprintf(fp,"#pragma link C++ class %s+;\n",what.Data());
                      }
                   }
@@ -3333,8 +3338,35 @@ void TFile::ReadStreamerInfo()
 
    if (gDebug > 0) Info("ReadStreamerInfo", "called for file %s",GetName());
 
-   // loop on all TStreamerInfo classes
    TStreamerInfo *info;
+
+   if (fVersion < 53419 || (59900 < fVersion && fVersion < 59907)) {
+      // We need to update the fCheckSum field of the TStreamerBase.
+
+      // loop on all TStreamerInfo classes
+      TObjLink *lnk = list->FirstLink();
+      while (lnk) {
+         info = (TStreamerInfo*)lnk->GetObject();
+         if (info == 0 || info->IsA() != TStreamerInfo::Class()) {
+            lnk = lnk->Next();
+            continue;
+         }
+         TIter next(info->GetElements());
+         TStreamerElement *element;
+         while ((element = (TStreamerElement*) next())) {
+            TStreamerBase *base = dynamic_cast<TStreamerBase*>(element);
+            if (!base) continue;
+            if (base->GetBaseCheckSum() != 0) continue;
+            TStreamerInfo *baseinfo = (TStreamerInfo*)list->FindObject(base->GetName());
+            if (baseinfo) {
+               base->SetBaseCheckSum(baseinfo->GetCheckSum());
+            }
+         }
+         lnk = lnk->Next();
+      }
+   }
+
+   // loop on all TStreamerInfo classes
    for (int mode=0;mode<2; ++mode) {
       // In order for the collection proxy to be initialized properly, we need
       // to setup the TStreamerInfo for non-stl class before the stl classes.
@@ -3377,7 +3409,7 @@ void TFile::ReadStreamerInfo()
          if ( (!isstl && mode ==0) || (isstl && mode ==1) ) {
                // Skip the STL container the first time around
                // Skip the regular classes the second time around;
-            info->BuildCheck();
+            info->BuildCheck(this);
             Int_t uid = info->GetNumber();
             Int_t asize = fClassIndex->GetSize();
             if (uid >= asize && uid <100000) fClassIndex->Set(2*asize);
