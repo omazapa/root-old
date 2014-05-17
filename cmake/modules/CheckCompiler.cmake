@@ -95,9 +95,17 @@ if(gnuinstall)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DR__HAVE_CONFIG")
 endif()
 
+#---Check whether libc++ is used or not---------------------------------------------------------------
+file(WRITE ${CMAKE_BINARY_DIR}/CMakeFiles/CMakeTmp/empty.cxx "")
+set(_command ${CMAKE_CXX_COMPILER} ${CMAKE_CXX_FLAGS} -v -x c++ -E ${CMAKE_BINARY_DIR}/CMakeFiles/CMakeTmp/empty.cxx)
+separate_arguments(_command)
+execute_process(COMMAND ${_command} OUTPUT_QUIET ERROR_VARIABLE _output)
+if(_output MATCHES "-stdlib=libc[+][+]")
+  set(USING_LIBCXX 1)
+endif()
 
 #---Print the final compiler flags--------------------------------------------------------------------
 message(STATUS "ROOT Platform: ${ROOT_PLATFORM}")
 message(STATUS "ROOT Architecture: ${ROOT_ARCHITECTURE}")
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
-message(STATUS "Compiler Flags: ${CMAKE_CXX_FLAGS} ${ALL_CXX_FLAGS_${uppercase_CMAKE_BUILD_TYPE}}")
+message(STATUS "Compiler Flags: ${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${uppercase_CMAKE_BUILD_TYPE}}")

@@ -872,13 +872,13 @@ $(COREMAP): $(RLIBMAP) $(MAKEFILEDEP) $(COREL)
 map::   $(ALLMAPS)
 
 dist:
-	@$(MAKEDIST) $(GCC_VERS)
+	@$(MAKEDIST) $(ROOT_SRCDIR) $(GCC_VERS)
 
 distsrc:
 	@$(MAKEDISTSRC)
 
 distmsi: build/package/msi/makemsi$(EXEEXT)
-	$(MAKEDIST) -msi
+	$(MAKEDIST) $(ROOT_SRCDIR) -msi
 
 build/package/msi/makemsi$(EXEEXT): build/package/msi/makemsi.cxx build/version_number
 	@vers=`sed 's|\(.*\)/\(.*\)|\1.\2|' < build/version_number` && \
@@ -1387,7 +1387,20 @@ runtimedirs:
 			--exclude '*.lib' \
 			--exclude '*.dll' \
 			$(ROOT_SRCDIR)/$$d . ; \
-	done;
+	done; \
+	echo "Rsync'ing $(ROOT_SRCDIR)/geom/gdml/*.py..."; \
+	$(RSYNC) \
+		--include '*.py' \
+		--exclude '*' \
+		$(ROOT_SRCDIR)/geom/gdml/ geom/gdml ; \
+	echo "Rsync'ing $(ROOT_SRCDIR)/tmva/test/*.C, *.gif, *.png..."; \
+	$(RSYNC) \
+		--include '*.C' \
+		--include '*.gif' \
+		--include '*.png' \
+		--include 'README' \
+		--exclude '*' \
+		$(ROOT_SRCDIR)/tmva/test/ tmva/test ;
 endif
 
 showbuild:
