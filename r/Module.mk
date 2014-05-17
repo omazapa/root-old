@@ -66,12 +66,12 @@ $(call pcmrule,R)
 $(RDS): $(RDH) $(RL)  $(ROOTCINTTMPDEP) $(call pcmdep,R)
 		$(MAKEDIR)
 		@echo "Generating dictionary $@..."
-		$(ROOTCINTTMP) -f $@  $(call dictModule,R)  -c $(RDH) $(RFLAGS) $(RL)
+		$(ROOTCLINGSTAGE2) -f $@  $(call dictModule,R)  -c $(RDH) $(RFLAGS) $(RL)
 
 $(RMAP): $(RL) $(RLINC) $(ROOTCINTTMPDEP) $(call pcmdep,R)
 		$(MAKEDIR)
 		@echo "Generating rootmap $@..."
-		$(ROOTCINTTMP) -r $(RDS)  $(call dictModule,R) -c $(ROOT_SRCDIR:%=-I%) $(RFLAGS) $(RDH) $(RL)
+		$(ROOTCLINGSTAGE2) -r $(RDS)  $(call dictModule,R) -c $(ROOT_SRCDIR:%=-I%) $(RFLAGS) $(RDH) $(RL)
 
 
 all-$(MODNAME): $(RLIB)
