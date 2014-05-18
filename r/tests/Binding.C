@@ -9,8 +9,7 @@ Double_t Function(Double_t x)
 }
 
 void Binding(){
-const char *argvs[] = {"rootr", "--no-save", "--silent"};
-ROOT::R::TRInterface *gR = new ROOT::R::TRInterface(3, argvs, true, false, true);
+
 ROOT::R::TRInterface &r=gR->Instance();
 r.SetVerbose(kTRUE);
 //creating variables

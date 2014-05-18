@@ -105,6 +105,6 @@ namespace ROOT {
    }
 }
 
-// R__EXTERN ROOT::R::TRInterface *gR;
+R__EXTERN ROOT::R::TRInterface *gR;
 
 #endif

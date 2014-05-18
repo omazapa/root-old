@@ -9,8 +9,8 @@
 #include"TRCompletion.h"
 #include<vector>
 
-// const char *argvs[] = {"rootr", "--no-save", "--silent"};
-// ROOT::R::TRInterface *gR = new ROOT::R::TRInterface(3, argvs, true, false, true);
+static const char *argvs[] = {"rootr", "--no-save", "--silent"};
+ROOT::R::TRInterface *gR = new ROOT::R::TRInterface(3, argvs, true, false, true);
 //______________________________________________________________________________
 /* Begin_Html
 <center><h2>TRInterface class</h2></center>

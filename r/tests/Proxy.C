@@ -3,8 +3,6 @@
 //script to test RExport a TRobjectProxy
 void Proxy()
 {
-  const char *argvs[] = {"rootr", "--no-save", "--silent"};
-  ROOT::R::TRInterface *gR = new ROOT::R::TRInterface(3, argvs, true, false, true);
   gR->SetVerbose(kTRUE);
    //////////////////////////
    //Getting values from R //

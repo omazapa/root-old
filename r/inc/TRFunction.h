@@ -43,10 +43,16 @@ namespace ROOT {
             // of function's prototypes
             f = new Rcpp::InternalFunction(fun);
          }
+         
+         //________________________________________________________________________________________________________
+         template<class T> void SetFunction(T fun){
+            //template method that supports a lot
+            // of function's prototypes
+            f = new Rcpp::InternalFunction(fun);
+         }
 
          ClassDef(TRFunction, 0) //
       };
-//       template<> TRFunction::TRFunction(Double_t (*fun)(Double_t));
 
    }
 }

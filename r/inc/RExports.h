@@ -55,14 +55,13 @@
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 #endif
 
-#if  defined(__CINT__)
-#include<compilerdata.h>
-gSystem->AddIncludePath(RINCLUDEPATH);
-gSystem->AddLinkedLibs(RLINKEDLIBS);
-#endif
+// #if  defined(__CINT__)
+// #include<compilerdata.h>
+// gSystem->AddIncludePath(RINCLUDEPATH);
+// gSystem->AddLinkedLibs(RLINKEDLIBS);
+// #endif
 
 
-#ifndef __CINT__
 #include<RcppCommon.h>
 namespace ROOT {
    namespace R {
@@ -83,19 +82,4 @@ namespace Rcpp {
 }
 #include<Rcpp.h>//this headers should be called after templates definitions
 #include<RInside.h>
-#else
-class RInside;
-class RInside::Proxy;
-namespace Rcpp {
-   class RObject;
-   class NumericMatrix;
-   class NumericVector;
-   class InternalFunction;
-   class Environment;
-   class Environment::Binding;
-
-}
-//internal R objects (at R api) Rinternals.h
-typedef struct SEXPREC *SEXP;
-#endif
 #endif
