@@ -185,19 +185,6 @@ TRInterface::Binding TRInterface::operator[](const TString& name)
 }
 
 //______________________________________________________________________________
-void TRInterface::Xwin(TString opt)
-{
-   //Initiliaze the window's system to make plots.
-   //every platform has its own system.
-   //see R manual for x11(unix based systems),windows(MS windows)
-#if defined(R__WIN32)
-   Parse(TString("windows(" + opt + ")").Data());
-#else
-   Parse(TString("x11(" + opt + ")").Data());
-#endif
-}
-
-//______________________________________________________________________________
 void TRInterface::Assign(const TRFunction &obj, const TString & name)
 {
    //This method lets you pass c++ functions to R environment.
@@ -218,22 +205,4 @@ void TRInterface::Interactive()
       if (*line) add_history(line);
       free(line);
    }
-}
-
-//______________________________________________________________________________
-void TRInterface::Install(TString pkg, TString options)
-{
-   //utility function to install R's packages with the default options.
-   pkg.Prepend("install.packages('");
-   if (!options.IsNull() && !options.IsWhitespace())pkg.Append("'," + options);
-   pkg.Append(")");
-   Parse(pkg);
-}
-
-//______________________________________________________________________________
-void TRInterface::Remove(TString pkg)
-{
-   //utility function to remove R's packages with the default options.
-   pkg.Prepend("revome.packages('").Append("')");
-   Parse(pkg);
 }

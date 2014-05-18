@@ -20,12 +20,6 @@
 #include<TRFunction.h>
 #endif
 
-//utility macro to easily create a method from R function in the TRInterface
-#define R_FUNCTION(func) inline void func(TString opt){ \
-      TString code=#func;\
-      code+="("+opt+")";\
-      Parse(code.Data());}
-
 /**
    @defgroup R R Interface for Statistical Computing
    \ref ROOTR was implemented using the
@@ -95,21 +89,7 @@ namespace ROOT {
          }
          void Assign(const TRFunction &fun, const TString & name);
 
-         void Xwin(TString opt = "");
-
-         void Install(TString pkg, TString options = "contriburl='http://cran.stat.ucla.edu/src/contrib'");
-         void Remove(TString pkg);
-
-
          void Interactive();
-
-         R_FUNCTION(plot)
-         R_FUNCTION(points)
-         R_FUNCTION(lines)
-         R_FUNCTION(text)
-         R_FUNCTION(abline)
-         R_FUNCTION(segments)
-         R_FUNCTION(curve)
 
          Binding operator[](const TString& name);
 

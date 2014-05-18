@@ -43,6 +43,10 @@
 //std headers
 #include<string>
 #include<vector>
+//support for std c++11 classes
+#if __cplusplus > 199711L
+#include<array>
+#endif
 
 //pragma to disable warnings on Rcpp which have
 //so many noise compiling
@@ -75,6 +79,7 @@ namespace Rcpp {
 
    template<> SEXP wrap(const TMatrixD &m);
    template<> TMatrixD as(SEXP) ;
+
 }
 #include<Rcpp.h>//this headers should be called after templates definitions
 #include<RInside.h>

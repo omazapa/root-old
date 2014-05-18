@@ -1,6 +1,8 @@
 // Author: Omar Zapata
 #include<TRInterface.h>
 #include<vector>
+#include<array>
+
 Double_t Function(Double_t x)
 {
   return x/(x-1);
@@ -14,6 +16,7 @@ r.SetVerbose(kTRUE);
 //creating variables
 TVectorD v(3);
 std::vector<Double_t> sv(3);
+std::array<Int_t,3>  a{ {1,2,3} };
 TString str("ROOTR");
 TMatrixD m(2,2);
 Int_t i=9;
@@ -43,6 +46,7 @@ r["b"]=123.456;
 r["i"]=i;
 r["d"]=d;
 r["f"]=f;
+r["array"]=a;
 (*gR)["s"]="ROOT";
 
 
@@ -65,6 +69,8 @@ std::cout<<"--------------------\n";
 gR->Parse("print(f)");
 std::cout<<"--------------------\n";
 gR->Parse("print(s)");
+std::cout<<"--------------------\n";
+gR->Parse("print(array)");
 std::cout<<"--------------------\n";
 
 //reassigning the variable s
