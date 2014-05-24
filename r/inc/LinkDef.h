@@ -58,6 +58,13 @@
 #pragma link C++ function  ROOT::R::TRObjectProxy::ToArray<TArrayF,Float_t>();
 #pragma link C++ function  ROOT::R::TRObjectProxy::ToArray<TArrayI,Int_t>();
 
+#pragma link C++ function  ROOT::R::TRObjectProxy::ToArray<TArrayI,Int_t>();
+
+
+#if __cplusplus > 199711L
+
+#endif
+
 #pragma link C++ function  ROOT::R::TRObjectProxy::ToMatrix<Double_t>();
 
 #pragma link C++ global gR;

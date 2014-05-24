@@ -18,6 +18,11 @@
 #ifndef ROOT_R_RExports
 #include<RExports.h>
 #endif
+
+#if __cplusplus > 199711L
+#include<array>
+#endif
+
 //________________________________________________________________________________________________________
 /**
    This is a class to get ROOT's objects from R's objects
