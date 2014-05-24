@@ -6753,13 +6753,14 @@ if test ! "x$enable_r" = "xno"; then
 #          RCPPLIBSSTATUS=$?
          for i in `echo 'cat(.libPaths())'   | $REXE --vanilla --slave 2> /dev/null`:
          do
-             RCPPLIBSPATHS=" $RCPPLIBSPATHS $i/Rcpp/lib $i/Rcpp/libs"
+             RCPPLIBSPATHS=" $RCPPLIBSPATHS $i/Rcpp/lib "
          done
 
-         check_library "Rcpp" $RCPPLIBSPATHS 
+         check_library "libRcpp" "" "" $RCPPLIBSPATHS 
          
          if test ! "x$found_lib" = "x"; then
-                    RCPPLIBS="$found_dir$found_lib"
+                    RCPPLIBS="$found_dir -lRcpp "
+                    RCPPLIBS="$RCPPLIBS -Wl,-rpath,$(expr substr $found_dir 3 ${#found_dir})"
          else
                     #cblas not found
                     RCPPLIBS=""
