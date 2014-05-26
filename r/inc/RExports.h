@@ -51,15 +51,10 @@
 //pragma to disable warnings on Rcpp which have
 //so many noise compiling
 #if defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Wunknown-pragmas"
 #pragma GCC diagnostic ignored "-Wshadow"
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 #endif
-
-// #if  defined(__CINT__)
-// #include<compilerdata.h>
-// gSystem->AddIncludePath(RINCLUDEPATH);
-// gSystem->AddLinkedLibs(RLINKEDLIBS);
-// #endif
 
 
 #include<RcppCommon.h>

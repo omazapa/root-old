@@ -4,8 +4,9 @@
 //the known function and the fitted function
 //Author: Omar Zapata
 #include<TRInterface.h>
+#include<TRandom.h>
 
-TCanvas * SimpleFitting(){
+TCanvas *SimpleFitting(){
    TCanvas *c1 = new TCanvas("c1","Curve Fitting",700,500);
    c1->SetGrid();
 
