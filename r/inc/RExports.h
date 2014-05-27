@@ -77,4 +77,7 @@ namespace Rcpp {
 }
 #include<Rcpp.h>//this headers should be called after templates definitions
 #include<RInside.h>
+
+#define ROOTR_MODULE RCPP_MODULE
+#define LOAD_ROOTR_MODULE LOAD_RCPP_MODULE
 #endif

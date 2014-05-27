@@ -53,6 +53,12 @@ namespace ROOT {
 
          ClassDef(TRFunction, 0) //
       };
+      
+      //template function required to create modules
+      template<class T> void function( const char* name_,T fun, const char* docstring = 0)
+      {
+	Rcpp::function(name_,fun,docstring);
+      }
 
    }
 }

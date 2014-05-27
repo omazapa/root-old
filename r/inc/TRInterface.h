@@ -90,7 +90,7 @@ namespace ROOT {
          void Assign(const TRFunction &fun, const TString & name);
 
          void Interactive();
-
+	 
          Binding operator[](const TString& name);
 
          TRInterface& Instance() {
