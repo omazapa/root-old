@@ -26,6 +26,7 @@ RDH          := $(MODDIRI)/RExports.h \
                 $(MODDIRI)/TRInterface.h \
                 $(MODDIRI)/TRObjectProxy.h \
                 $(MODDIRI)/TRFunction.h \
+                $(MODDIRI)/TRGraph.h \
                 $(MODDIRI)/compilerdata.h 
 
 RH    := $(RDH) 

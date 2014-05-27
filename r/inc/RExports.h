@@ -78,6 +78,14 @@ namespace Rcpp {
 #include<Rcpp.h>//this headers should be called after templates definitions
 #include<RInside.h>
 
+namespace ROOT {
+   namespace R {
+      //reference to internal ROOTR's Module that call ROOT's classes in R 
+      extern  VARIABLE_IS_NOT_USED SEXP ModuleSymRef;
+   }
+}
+
 #define ROOTR_MODULE RCPP_MODULE
-#define LOAD_ROOTR_MODULE LOAD_RCPP_MODULE
+
+#define LOAD_ROOTR_MODULE(NAME) Rf_eval( Rf_lang2( ( ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef ), _rcpp_module_boot_##NAME() ), R_GlobalEnv )
 #endif

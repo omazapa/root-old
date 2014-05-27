@@ -115,7 +115,7 @@ using namespace ROOT::R;
 ClassImp(TRInterface)
 
 // extern SEXP rcompgen_rho;
-
+extern "C" SEXP _rcpp_module_boot_ROOTR();
 //______________________________________________________________________________
 TRInterface::TRInterface(const int argc, const char *argv[], const bool loadRcpp, const bool verbose, const bool interactive):TObject()
 {
@@ -135,7 +135,12 @@ TRInterface::TRInterface(const int argc, const char *argv[], const bool loadRcpp
    RComp_getFileCompSym   = Rf_install(".getFileComp");
    RComp_retrieveCompsSym = Rf_install(".retrieveCompletions");
    rl_attempted_completion_function = R_custom_completion;
+   this->LoadModule();
+}
 
+void ROOT::R::TRInterface::LoadModule()
+{
+   this->Assign(Rf_eval( Rf_lang2( ( ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef ), _rcpp_module_boot_ROOTR() ), R_GlobalEnv ),"ROOTR");
 }
 
 //______________________________________________________________________________

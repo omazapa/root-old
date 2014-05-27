@@ -26,6 +26,8 @@
 
 #pragma link C++ class ROOT::R::TRObjectProxy+;
 
+#pragma link C++ class ROOT::R::TRGraph;
+
 #pragma link C++ global gR;
 
 #endif

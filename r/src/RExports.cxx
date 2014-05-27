@@ -47,3 +47,8 @@ namespace Rcpp {
       return TMatrixD(mat.rows(), mat.cols(), mat.begin(), "F");
    }
 }
+namespace ROOT {
+  namespace R{
+    VARIABLE_IS_NOT_USED SEXP ModuleSymRef= NULL;
+  }    
+}
