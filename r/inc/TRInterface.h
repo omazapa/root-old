@@ -95,18 +95,14 @@ namespace ROOT {
 	 
          Binding operator[](const TString& name);
 
-         TRInterface& Instance() {
-            return *this;
-         }
-         TRInterface* InstancePtr() {
-            return this;
-         }
+         static TRInterface& Instance();
+         static TRInterface* InstancePtr();
 
          ClassDef(TRInterface, 0)
       };
    }
 }
 
-R__EXTERN ROOT::R::TRInterface *gR;
+
 
 #endif

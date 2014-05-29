@@ -9,19 +9,19 @@
  * For the licensing terms see $ROOTSYS/LICENSE.                         *
  * For the list of contributors see $ROOTSYS/README/CREDITS.             *
  *************************************************************************/
-#ifndef ROOT_R_TRGraph
-#define ROOT_R_TRGraph
+#ifndef ROOT_R_TCanvas
+#define ROOT_R_TCanvas
 
 #ifndef ROOT_R_RExports
 #include<RExports.h>
 #endif
 
-#ifndef ROOT_TGraph
-#include<TGraph.h>
+#ifndef ROOT_TCanvas
+#include<TCanvas.h>
 #endif
 //________________________________________________________________________________________________________
 /**
-   This is TGraph class for R
+   This is TCanvas class for R
 
 
    @ingroup R
@@ -30,16 +30,17 @@
 namespace ROOT {
    namespace R {
 
-      class TRGraph:public TObject{
+      class TRCanvas:public TObject{
       protected:
-         TGraph *graph;
+         TCanvas *c;
       public:
-         TRGraph();
-	 TRGraph(const TRGraph&);
-         TRGraph(Int_t n, std::vector<double> x,std::vector<double> y);
-         ~TRGraph(){delete graph;}
-         void Draw(std::string options=std::string(""));
-	 ClassDef(TRGraph, 0)
+         TRCanvas();
+	 TRCanvas(const TRCanvas&);
+         TRCanvas(std::string name,std::string tittle);
+         ~TRCanvas(){delete c;}
+         void Draw();
+         void Draw(std::string options);
+	 ClassDef(TRCanvas, 0)
       };
    }
 }

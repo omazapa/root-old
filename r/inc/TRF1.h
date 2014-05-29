@@ -37,6 +37,7 @@ namespace ROOT {
          TRF1();
 	 TRF1(const TRF1&);
          TRF1(std::string name,std::string formula);
+	 ~TRF1(){delete f1;}
 	 std::vector<Double_t> Eval(std::vector<Double_t> x);
 	 Double_t Eval(Double_t x);
          void Draw();
