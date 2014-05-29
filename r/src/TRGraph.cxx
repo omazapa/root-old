@@ -27,7 +27,7 @@ void TRGraph::Draw(std::string options)
   graph->Draw(options.c_str());
 }
 
-ROOTR_MODULE(ROOTR) {
+ROOTR_MODULE(ROOTR_TRGraph) {
     Rcpp::class_<ROOT::R::TRGraph>( "TRGraph" )
     .constructor<int,std::vector<Double_t>,std::vector<Double_t> >()
     .method( "Draw", &ROOT::R::TRGraph::Draw )    
