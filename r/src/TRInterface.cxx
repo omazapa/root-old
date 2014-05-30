@@ -120,6 +120,7 @@ ClassImp(TRInterface)
 extern "C" SEXP _rcpp_module_boot_ROOTR_TRF1();
 extern "C" SEXP _rcpp_module_boot_ROOTR_TRGraph();
 extern "C" SEXP _rcpp_module_boot_ROOTR_TRCanvas();
+extern "C" SEXP _rcpp_module_boot_ROOTR_TRRint();
 static ROOT::R::TRInterface *gR=NULL;
 static Bool_t statusModules;
 
@@ -151,10 +152,12 @@ void ROOT::R::TRInterface::LoadModule()
    this->Assign(Rf_eval( Rf_lang2( ( ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef ), _rcpp_module_boot_ROOTR_TRF1() ), R_GlobalEnv ),"ROOTR_TRF1");
    this->Assign(Rf_eval( Rf_lang2( ( ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef ), _rcpp_module_boot_ROOTR_TRGraph() ), R_GlobalEnv ),"ROOTR_TRGraph");
    this->Assign(Rf_eval( Rf_lang2( ( ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef ), _rcpp_module_boot_ROOTR_TRCanvas() ), R_GlobalEnv ),"ROOTR_TRCanvas");
+   this->Assign(Rf_eval( Rf_lang2( ( ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef ), _rcpp_module_boot_ROOTR_TRRint() ), R_GlobalEnv ),"ROOTR_TRRint");
    this->Parse("ROOTR <- c()");
-   this->Parse("ROOTR$TRF1 <- function(name,formula){ new(ROOTR_TRF1$TRF1, name, formula) }"); 
+   this->Parse("ROOTR$TRF1     <- function(name,formula){ new(ROOTR_TRF1$TRF1, name, formula) }"); 
    this->Parse("ROOTR$TRGraph  <- function(n,x,y){ new(ROOTR_TRGraph$TRGraph, n,x,y) }"); 
-   this->Parse("ROOTR$TRCanvas  <- function(name,tittle=''){ new(ROOTR_TRCanvas$TRCanvas, name,tittle) }"); 
+   this->Parse("ROOTR$TRCanvas <- function(name,tittle=''){ new(ROOTR_TRCanvas$TRCanvas, name,tittle) }"); 
+   this->Parse("ROOTR$TRRint   <- function(name,args=c('')){ new(ROOTR_TRRint$TRRint,name,args) }"); 
    statusModules=kTRUE;
   }
 }
@@ -237,7 +240,7 @@ TRInterface* TRInterface::InstancePtr()
 	      const char *R_argv[] = {"rootr", "--gui=none", "--no-save", "--no-readline", "--silent", "--vanilla", "--slave"};
               gR = new ROOT::R::TRInterface(7, R_argv, true, false, false);
 	    }
-// 	    gR->LoadModule();
+	    gR->LoadModule();
             return gR;
 }
 
