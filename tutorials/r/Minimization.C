@@ -29,7 +29,7 @@ TVectorD RosenBrockGrad(const TVectorD xx )
 
 void Minimization()
 {
- ROOT::R::TRInterface &r=gR->Instance();
+   ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
  
  //passsing RosenBrock function to R
  r["RosenBrock"]=ROOT::R::TRFunction(RosenBrock);

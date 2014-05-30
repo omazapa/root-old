@@ -27,7 +27,7 @@ double BreitWignerWrap( double x){
 void Integration()
 {
 
-  ROOT::R::TRInterface &r=gR->Instance();
+  ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
   
   r["BreitWigner"]=ROOT::R::TRFunction(BreitWignerVectorized);
   

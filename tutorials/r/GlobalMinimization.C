@@ -37,7 +37,7 @@ Double_t Rastrigin(const TVectorD xx)
 void GlobalMinimization()
 {
  TBenchmark bench;
- ROOT::R::TRInterface &r=gR->Instance();
+ ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
  //loading DEoptim
  r.Parse("suppressMessages(library(DEoptim, quietly = TRUE))");
 //  r.Parse("require(DEoptim)"); //this prints information about authors
@@ -89,4 +89,5 @@ void GlobalMinimization()
  r.Parse("plot(result1,type='o',pch='.')");
  r.Parse("x11(title='Rastrigin Convergence')");
  r.Parse("plot(result2,type='o',pch='.')");
+//  r.Parse("print(result1)");
 }

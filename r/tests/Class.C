@@ -20,22 +20,19 @@ public:
 ROOTR_MODULE(rootr) {
     Rcpp::class_<TRF1>( "TRF1" )
     .constructor<std::string,std::string>()
-//     .field( "min", &Uniform::min )
-//     .field( "max", &Uniform::max )
     .method( "Eval", &TRF1::Eval )
     .method( "Draw", &TRF1::Draw )    
-//     .method( "range", &uniformRange )
     ;
 }
 
 
 void Class()
 {
-//    gR->SetVerbose(kFALSE);
-   (*gR)["rootr"]=LOAD_ROOTR_MODULE(rootr);
+   ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
+   r["rootr"]=LOAD_ROOTR_MODULE(rootr);
    
-   gR->Parse("TRF1 <- rootr$TRF1") ;
-   gR->Parse("u <- new(TRF1,'dilog','TMath::DiLog(x)')") ;
-   gR->Parse("print(u$Eval( 0.0 ))");
-   gR->Parse("u$Draw()");
+   r.Parse("TRF1 <- rootr$TRF1") ;
+   r.Parse("u <- new(TRF1,'dilog','TMath::DiLog(x)')") ;
+   r.Parse("print(u$Eval( 0.0 ))");
+   r.Parse("u$Draw()");
 }

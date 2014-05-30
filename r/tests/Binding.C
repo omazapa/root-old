@@ -9,9 +9,6 @@ Double_t Function(Double_t x)
 }
 
 void Binding(){
-
-ROOT::R::TRInterface &r=gR->Instance();
-r.SetVerbose(kTRUE);
 //creating variables
 TVectorD v(3);
 std::vector<Double_t> sv(3);
@@ -36,6 +33,9 @@ m[0][1]=1.01;
 m[1][0]=2.01;
 m[1][1]=3.01;
 
+ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
+r.SetVerbose(kTRUE);
+
 //testing operators binding
 r["a"]=1;
 r["v"]=v;
@@ -46,42 +46,42 @@ r["i"]=i;
 r["d"]=d;
 r["f"]=f;
 r["array"]=a;
-(*gR)["s"]="ROOT";
+r["s"]="ROOT";
 
 
 //printting results
 std::cout<<"-----------Printing Results---------\n";
-gR->Parse("print(a)");
+r.Parse("print(a)");
 std::cout<<"--------------------\n";
-gR->Parse("print(v)");
+r.Parse("print(v)");
 std::cout<<"--------------------\n";
-gR->Parse("print(sv)");
+r.Parse("print(sv)");
 std::cout<<"--------------------\n";
-gR->Parse("print(m)");
+r.Parse("print(m)");
 std::cout<<"--------------------\n";
-gR->Parse("print(b)");
+r.Parse("print(b)");
 std::cout<<"--------------------\n";
-gR->Parse("print(i)");
+r.Parse("print(i)");
 std::cout<<"--------------------\n";
-gR->Parse("print(d)");
+r.Parse("print(d)");
 std::cout<<"--------------------\n";
-gR->Parse("print(f)");
+r.Parse("print(f)");
 std::cout<<"--------------------\n";
-gR->Parse("print(s)");
+r.Parse("print(s)");
 std::cout<<"--------------------\n";
-gR->Parse("print(array)");
+r.Parse("print(array)");
 std::cout<<"--------------------\n";
 
 //reassigning the variable s
 r["s"]=str;//string with string
-gR->Parse("print(s)");
+r.Parse("print(s)");
 
 std::cout<<"--------------------\n";
-(*gR)["d"]=str;//double with string
-gR->Parse("print(d)");
+r["d"]=str;//double with string
+r.Parse("print(d)");
 
-(*gR)["Function"]=ROOT::R::TRFunction(Function);
-gR->Parse("print(Function(-1))");
+r["Function"]=ROOT::R::TRFunction(Function);
+r.Parse("print(Function(-1))");
 
-gR->Parse("print(Function(1))");//division by zero producess Inf.
+r.Parse("print(Function(1))");//division by zero producess Inf.
 }

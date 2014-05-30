@@ -1,4 +1,4 @@
-//script to test TRFunction
+//script to test pass function into a module
 #include<TRInterface.h>
 #include<TMath.h>
 
@@ -13,9 +13,10 @@ ROOTR_MODULE(rootr){
     ROOT::R::function( "hello", &hello );
 }
 
-void F1()
+void FunModule()
 {
-   gR->SetVerbose(kFALSE);
-   (*gR)["rootr"]=LOAD_ROOTR_MODULE(rootr);
-   gR->ParseEval("print(rootr$hello('world ','ROOTR'))") ;
+  ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
+   r.SetVerbose(kFALSE);
+   r["rootr"]=LOAD_ROOTR_MODULE(rootr);
+   r.Parse("print(rootr$hello('world ','ROOTR'))") ;
 }

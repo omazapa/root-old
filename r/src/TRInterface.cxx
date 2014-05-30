@@ -11,8 +11,6 @@
 
 #include<TRint.h>
 
-// static const char *argvs[] = {"rootr", "--no-save", "--silent"};
-// ROOT::R::TRInterface *gR = new ROOT::R::TRInterface(3, argvs, true, false, true);
 //______________________________________________________________________________
 /* Begin_Html
 <center><h2>TRInterface class</h2></center>
@@ -236,9 +234,10 @@ TRInterface* TRInterface::InstancePtr()
 {
 	    if(!gR)
 	    {
-	      const char *argvs[] = {"rootr", "--no-save", "--silent"};
-              gR = new ROOT::R::TRInterface(3, argvs, true, false, true);
+	      const char *R_argv[] = {"rootr", "--gui=none", "--no-save", "--no-readline", "--silent", "--vanilla", "--slave"};
+              gR = new ROOT::R::TRInterface(7, R_argv, true, false, false);
 	    }
+// 	    gR->LoadModule();
             return gR;
 }
 
