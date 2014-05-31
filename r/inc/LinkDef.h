@@ -31,5 +31,4 @@
 #pragma link C++ class ROOT::R::TRF1+;
 #pragma link C++ class ROOT::R::TRRint+;
 
-
 #endif

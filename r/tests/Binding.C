@@ -34,7 +34,7 @@ m[1][0]=2.01;
 m[1][1]=3.01;
 
 ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
-r.SetVerbose(kTRUE);
+// r.SetVerbose(kTRUE);
 
 //testing operators binding
 r["a"]=1;
@@ -84,4 +84,12 @@ r["Function"]=ROOT::R::TRFunction(Function);
 r.Parse("print(Function(-1))");
 
 r.Parse("print(Function(1))");//division by zero producess Inf.
+
+r<<"print('hello ')"<<std::string("print('world ')");
+r["x"]=123;
+Int_t x;
+x=r["x"];
+std::cout<<x<<std::endl;
+
+
 }

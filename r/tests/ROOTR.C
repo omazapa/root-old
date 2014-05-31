@@ -1,10 +1,6 @@
 //script to test Modules
 #include<TRInterface.h>
 
-// Double_t myFunc(Double_t x) {
-//       return cos(x);
-//    }
-
 void ROOTR()
 {
    ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
@@ -25,11 +21,10 @@ void ROOTR()
 //    r.Parse("print(i$Eval(c(0,1)))");
 //    r.Parse("i$Draw()");
    
-   r.Parse("gApp<-ROOTR$TRRint('ROOTR')");
-   r.Parse("gApp$ProcessLine('#include<Math/SpecFuncMathMore.h>')");
+//    r.Parse("gApp<-ROOTR$TRRint('ROOTR')");
+//    r.Parse("gApp$ProcessLine('#include<Math/SpecFuncMathMore.h>')");
    
 //    r.Parse("print(i$Eval(0))");
 //    r.Parse("print(i$Eval(c(0,1)))");
 //    r.Parse("i$Draw()");
-   
 }

@@ -48,7 +48,7 @@ namespace ROOT {
       protected:
          RInside *fR;
       public:
-         //Proxy class to use operators for assignation Ex: r["name"]=object;
+         //Proxy class to use operators for assignation Ex: r["name"]=object; or x=r["x"]
          class Binding {
          public:
             Binding(TRInterface *rnt, TString name): fInterface(rnt), fName(name) {}
@@ -65,6 +65,9 @@ namespace ROOT {
                //The method assign is not a template for a function
                fInterface->Assign(fun, fName);
                return *this;
+            }
+            template <typename T> operator T() {
+               return fInterface->ParseEval(fName);
             }
          private:
             TRInterface *fInterface;
@@ -94,14 +97,16 @@ namespace ROOT {
          void Interactive();
 	 
          Binding operator[](const TString& name);
-
          static TRInterface& Instance();
          static TRInterface* InstancePtr();
 
          ClassDef(TRInterface, 0)
       };
+       
    }
 }
+
+inline ROOT::R::TRInterface& operator<<(ROOT::R::TRInterface &r,TString code){  r.Parse(code);  return r; }
 
 
 
