@@ -87,9 +87,24 @@ r.Parse("print(Function(1))");//division by zero producess Inf.
 
 r<<"print('hello ')"<<std::string("print('world ')");
 r["x"]=123;
+r["y"]=321;
+
 Int_t x;
 x=r["x"];
 std::cout<<x<<std::endl;
 
+r["y"]>>x;
+std::cout<<x<<std::endl;
+
+r<<"mat<-matrix(c(1,2,3,4),nrow=2)";
+
+TMatrixD mat(2,2);
+r["mat"]>>mat;
+
+r["m"]<<mat;
+
+// mat=r["mat"];
+
+mat.Print();
 
 }

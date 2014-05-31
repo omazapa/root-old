@@ -16,7 +16,7 @@ namespace Rcpp {
    }
    template<> TString as(SEXP s)
    {
-      return TString(::Rcpp::as<const char*>(s));
+      return TString(::Rcpp::as<const char *>(s));
    }
 //TVectorD
    template<> SEXP wrap(const TVectorD &v)
@@ -48,7 +48,7 @@ namespace Rcpp {
    }
 }
 namespace ROOT {
-  namespace R{
-    VARIABLE_IS_NOT_USED SEXP ModuleSymRef= NULL;
-  }    
+   namespace R {
+      VARIABLE_IS_NOT_USED SEXP ModuleSymRef = NULL;
+   }
 }

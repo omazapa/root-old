@@ -38,14 +38,14 @@ namespace ROOT {
 
          TRFunction(const TRFunction &fun);
          //________________________________________________________________________________________________________
-         template<class T> TRFunction(T fun){
+         template<class T> TRFunction(T fun) {
             //template constructor that supports a lot
             // of function's prototypes
             f = new Rcpp::InternalFunction(fun);
          }
-         
+
          //________________________________________________________________________________________________________
-         template<class T> void SetFunction(T fun){
+         template<class T> void SetFunction(T fun) {
             //template method that supports a lot
             // of function's prototypes
             f = new Rcpp::InternalFunction(fun);
@@ -53,12 +53,12 @@ namespace ROOT {
 
          ClassDef(TRFunction, 0) //
       };
-      
+
       //________________________________________________________________________________________________________
-      template<class T> void function( const char* name_,T fun, const char* docstring = 0)
+      template<class T> void function(const char *name_, T fun, const char *docstring = 0)
       {
-       //template function required to create modules using the macro ROOTR_MODULE
-	Rcpp::function(name_,fun,docstring);
+         //template function required to create modules using the macro ROOTR_MODULE
+         Rcpp::function(name_, fun, docstring);
       }
 
    }

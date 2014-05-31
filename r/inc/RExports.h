@@ -54,6 +54,7 @@
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
 #pragma GCC diagnostic ignored "-Wshadow"
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #endif
 
 
@@ -80,7 +81,7 @@ namespace Rcpp {
 
 namespace ROOT {
    namespace R {
-      //reference to internal ROOTR's Module that call ROOT's classes in R 
+      //reference to internal ROOTR's Module that call ROOT's classes in R
       extern  VARIABLE_IS_NOT_USED SEXP ModuleSymRef;
    }
 }

@@ -121,11 +121,11 @@ extern "C" SEXP _rcpp_module_boot_ROOTR_TRF1();
 extern "C" SEXP _rcpp_module_boot_ROOTR_TRGraph();
 extern "C" SEXP _rcpp_module_boot_ROOTR_TRCanvas();
 extern "C" SEXP _rcpp_module_boot_ROOTR_TRRint();
-static ROOT::R::TRInterface *gR=NULL;
+static ROOT::R::TRInterface *gR = NULL;
 static Bool_t statusModules;
 
 //______________________________________________________________________________
-TRInterface::TRInterface(const int argc, const char *argv[], const bool loadRcpp, const bool verbose, const bool interactive):TObject()
+TRInterface::TRInterface(const int argc, const char *argv[], const bool loadRcpp, const bool verbose, const bool interactive): TObject()
 {
 // The command line arguments are by deafult argc=0 and argv=NULL,
 // The verbose mode is by default disabled but you can enable it to show procedures information in stdout/stderr
@@ -143,23 +143,23 @@ TRInterface::TRInterface(const int argc, const char *argv[], const bool loadRcpp
    RComp_getFileCompSym   = Rf_install(".getFileComp");
    RComp_retrieveCompsSym = Rf_install(".retrieveCompletions");
    rl_attempted_completion_function = R_custom_completion;
-   statusModules=kFALSE;
+   statusModules = kFALSE;
 }
 
 void ROOT::R::TRInterface::LoadModule()
 {
-  if(!statusModules){
-   this->Assign(Rf_eval( Rf_lang2( ( ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef ), _rcpp_module_boot_ROOTR_TRF1() ), R_GlobalEnv ),"ROOTR_TRF1");
-   this->Assign(Rf_eval( Rf_lang2( ( ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef ), _rcpp_module_boot_ROOTR_TRGraph() ), R_GlobalEnv ),"ROOTR_TRGraph");
-   this->Assign(Rf_eval( Rf_lang2( ( ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef ), _rcpp_module_boot_ROOTR_TRCanvas() ), R_GlobalEnv ),"ROOTR_TRCanvas");
-   this->Assign(Rf_eval( Rf_lang2( ( ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef ), _rcpp_module_boot_ROOTR_TRRint() ), R_GlobalEnv ),"ROOTR_TRRint");
-   this->Parse("ROOTR <- c()");
-   this->Parse("ROOTR$TRF1     <- function(name,formula){ new(ROOTR_TRF1$TRF1, name, formula) }"); 
-   this->Parse("ROOTR$TRGraph  <- function(n,x,y){ new(ROOTR_TRGraph$TRGraph, n,x,y) }"); 
-   this->Parse("ROOTR$TRCanvas <- function(name,tittle=''){ new(ROOTR_TRCanvas$TRCanvas, name,tittle) }"); 
-   this->Parse("ROOTR$TRRint   <- function(name,args=c('')){ new(ROOTR_TRRint$TRRint,name,args) }"); 
-   statusModules=kTRUE;
-  }
+   if (!statusModules) {
+      this->Assign(Rf_eval(Rf_lang2((ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef), _rcpp_module_boot_ROOTR_TRF1()), R_GlobalEnv), "ROOTR_TRF1");
+      this->Assign(Rf_eval(Rf_lang2((ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef), _rcpp_module_boot_ROOTR_TRGraph()), R_GlobalEnv), "ROOTR_TRGraph");
+      this->Assign(Rf_eval(Rf_lang2((ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef), _rcpp_module_boot_ROOTR_TRCanvas()), R_GlobalEnv), "ROOTR_TRCanvas");
+      this->Assign(Rf_eval(Rf_lang2((ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef), _rcpp_module_boot_ROOTR_TRRint()), R_GlobalEnv), "ROOTR_TRRint");
+      this->Parse("ROOTR <- c()");
+      this->Parse("ROOTR$TRF1     <- function(name,formula){ new(ROOTR_TRF1$TRF1, name, formula) }");
+      this->Parse("ROOTR$TRGraph  <- function(n,x,y){ new(ROOTR_TRGraph$TRGraph, n,x,y) }");
+      this->Parse("ROOTR$TRCanvas <- function(name,tittle=''){ new(ROOTR_TRCanvas$TRCanvas, name,tittle) }");
+      this->Parse("ROOTR$TRRint   <- function(name,args=c('')){ new(ROOTR_TRRint$TRRint,name,args) }");
+      statusModules = kTRUE;
+   }
 }
 
 //______________________________________________________________________________
@@ -203,13 +203,13 @@ void TRInterface::SetVerbose(Bool_t status)
 }
 
 //______________________________________________________________________________
-TRInterface::Binding TRInterface::operator[](const TString& name)
+TRInterface::Binding TRInterface::operator[](const TString &name)
 {
    return Binding(this, name);
 }
 
 //______________________________________________________________________________
-void TRInterface::Assign(const TRFunction &obj, const TString & name)
+void TRInterface::Assign(const TRFunction &obj, const TString &name)
 {
    //This method lets you pass c++ functions to R environment.
    fR->assign(*obj.f, name.Data());
@@ -222,7 +222,7 @@ void TRInterface::Interactive()
    //pass to ROOT calling the apropiate method.
 
    while (kTRUE) {
-      char * line = readline("[r]:");
+      char *line = readline("[r]:");
       if (!line) continue;
       if (std::string(line) == ".q") break;
       Parse(line, false);
@@ -233,19 +233,21 @@ void TRInterface::Interactive()
 
 
 //______________________________________________________________________________
-TRInterface* TRInterface::InstancePtr()
+TRInterface *TRInterface::InstancePtr()
 {
-	    if(!gR)
-	    {
-	      const char *R_argv[] = {"rootr", "--gui=none", "--no-save", "--no-readline", "--silent", "--vanilla", "--slave"};
-              gR = new ROOT::R::TRInterface(7, R_argv, true, false, false);
-	    }
-	    gR->LoadModule();
-            return gR;
+   if (!gR) {
+      const char *R_argv[] = {"rootr", "--gui=none", "--no-save", "--no-readline", "--silent", "--vanilla", "--slave"};
+      gR = new ROOT::R::TRInterface(7, R_argv, true, false, false);
+   }
+   gR->LoadModule();
+   return gR;
 }
 
 //______________________________________________________________________________
-TRInterface& TRInterface::Instance()
+TRInterface &TRInterface::Instance()
 {
- return  *ROOT::R::TRInterface::InstancePtr();
+   return  *ROOT::R::TRInterface::InstancePtr();
 }
+
+
+

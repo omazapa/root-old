@@ -30,18 +30,20 @@
 namespace ROOT {
    namespace R {
 
-      class TRRint:public TObject{
+      class TRRint: public TObject {
       protected:
          TRint *r;
-	 Bool_t useIntenalApp;
+         Bool_t useIntenalApp;
       public:
          TRRint();
-	 TRRint(const TRRint&);
-         TRRint(std::string name,std::vector<std::string> args);
-	 ~TRRint(){delete r;}
-	 Long_t ProcessLine(std::string line);
+         TRRint(const TRRint &);
+         TRRint(std::string name, std::vector<std::string> args);
+         ~TRRint() {
+            delete r;
+         }
+         Long_t ProcessLine(std::string line);
 
-	 ClassDef(TRRint, 0)
+         ClassDef(TRRint, 0)
       };
    }
 }

@@ -46,13 +46,8 @@ using namespace ROOT::R;
 ClassImp(TRObjectProxy)
 
 //______________________________________________________________________________
-TRObjectProxy::TRObjectProxy(SEXP xx):TObject(), x(xx) { }
+TRObjectProxy::TRObjectProxy(SEXP xx): TObject(), x(xx) { }
 
-//______________________________________________________________________________
-// TString TRObjectProxy::ToString()
-// {
-//    return TString(::Rcpp::as<std::string>(x));
-// }
 
 //______________________________________________________________________________
 void TRObjectProxy::operator=(SEXP xx)

@@ -30,19 +30,21 @@
 namespace ROOT {
    namespace R {
 
-      class TRF1:public TObject{
+      class TRF1: public TObject {
       protected:
          TF1 *f1;
       public:
          TRF1();
-	 TRF1(const TRF1&);
-         TRF1(std::string name,std::string formula);
-	 ~TRF1(){delete f1;}
-	 std::vector<Double_t> Eval(std::vector<Double_t> x);
-	 Double_t Eval(Double_t x);
+         TRF1(const TRF1 &);
+         TRF1(std::string name, std::string formula);
+         ~TRF1() {
+            delete f1;
+         }
+         std::vector<Double_t> Eval(std::vector<Double_t> x);
+         Double_t Eval(Double_t x);
          void Draw();
          void Draw(std::string options);
-	 ClassDef(TRF1, 0)
+         ClassDef(TRF1, 0)
       };
    }
 }

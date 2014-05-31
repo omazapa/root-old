@@ -28,10 +28,21 @@ namespace ROOT {
       private:
          Rcpp::RObject x;
       public:
-         TRObjectProxy():TObject() {};
+         TRObjectProxy(): TObject() {};
          TRObjectProxy(SEXP xx);
 
          void operator=(SEXP xx);
+	 
+	 template<class T> T as()
+	 {
+	  return ::Rcpp::as<T>(x);
+	 }
+	 
+	 template<class T> T operator=(TRObjectProxy &obj)
+	 {
+	  return ::Rcpp::as<T>(obj);
+	 }
+	 
          template <typename T> operator T() {
             return ::Rcpp::as<T>(x);
          }

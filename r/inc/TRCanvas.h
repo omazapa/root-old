@@ -30,17 +30,19 @@
 namespace ROOT {
    namespace R {
 
-      class TRCanvas:public TObject{
+      class TRCanvas: public TObject {
       protected:
          TCanvas *c;
       public:
          TRCanvas();
-	 TRCanvas(const TRCanvas&);
-         TRCanvas(std::string name,std::string tittle);
-         ~TRCanvas(){delete c;}
+         TRCanvas(const TRCanvas &);
+         TRCanvas(std::string name, std::string tittle);
+         ~TRCanvas() {
+            delete c;
+         }
          void Draw();
          void Draw(std::string options);
-	 ClassDef(TRCanvas, 0)
+         ClassDef(TRCanvas, 0)
       };
    }
 }

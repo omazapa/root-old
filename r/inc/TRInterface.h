@@ -48,27 +48,41 @@ namespace ROOT {
       protected:
          RInside *fR;
       public:
-         //Proxy class to use operators for assignation Ex: r["name"]=object; or x=r["x"]
+         //Proxy class to use operators for assignation Ex: r["name"]=object
          class Binding {
          public:
             Binding(TRInterface *rnt, TString name): fInterface(rnt), fName(name) {}
-            Binding& operator=(const Binding& obj) {
+            Binding &operator=(const Binding &obj) {
                fInterface = obj.fInterface;
                fName = obj.fName;
                return *this;
             }
-            template <class T> Binding& operator=(const T &data) {
+            template <class T> Binding &operator=(const T &data) {
                fInterface->Assign<T>(data, fName);
                return *this;
             }
-            Binding& operator=(const TRFunction &fun) {
+            Binding &operator=(const TRFunction &fun) {
                //The method assign is not a template for a function
                fInterface->Assign(fun, fName);
                return *this;
             }
-            template <typename T> operator T() {
+
+
+            template <class T> Binding &operator >>(T &var) {
+               var=fInterface->ParseEval(fName).as<T>();
+               return *this;
+            }
+
+
+            template <class T> Binding &operator <<(T &var) {
+               fInterface->Assign<T>(var, fName);
+               return *this;
+            }
+
+            template <class T> operator T() {
                return fInterface->ParseEval(fName);
             }
+
          private:
             TRInterface *fInterface;
             TString fName;
@@ -82,32 +96,35 @@ namespace ROOT {
          void  Parse(const TString &code, Bool_t exception = kFALSE);
 
          TRObjectProxy ParseEval(const TString &code, Bool_t exception = kFALSE);
-	 
-	 void LoadModule();
+
+         void LoadModule();
 
          //______________________________________________________________________________
-         template<typename T >void Assign(const T &var, const TString & name) {
+         template<typename T >void Assign(const T &var, const TString &name) {
             // This method lets you pass variables from ROOT to R.
             // The template T should be a supported ROOT datatype and
             // the TString's name is the name of the variable in the R enviroment.
             fR->assign<T>(var, name.Data());
          }
-         void Assign(const TRFunction &fun, const TString & name);
+         void Assign(const TRFunction &fun, const TString &name);
 
          void Interactive();
-	 
-         Binding operator[](const TString& name);
-         static TRInterface& Instance();
-         static TRInterface* InstancePtr();
+
+         Binding operator[](const TString &name);
+         static TRInterface &Instance();
+         static TRInterface *InstancePtr();
 
          ClassDef(TRInterface, 0)
       };
-       
+
    }
 }
 
-inline ROOT::R::TRInterface& operator<<(ROOT::R::TRInterface &r,TString code){  r.Parse(code);  return r; }
-
+inline ROOT::R::TRInterface &operator<<(ROOT::R::TRInterface &r, TString code)
+{
+   r.Parse(code);
+   return r;
+}
 
 
 #endif
