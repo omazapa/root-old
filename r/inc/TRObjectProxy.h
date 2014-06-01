@@ -32,17 +32,15 @@ namespace ROOT {
          TRObjectProxy(SEXP xx);
 
          void operator=(SEXP xx);
-	 
-	 template<class T> T As()
-	 {
-	  return ::Rcpp::as<T>(x);
-	 }
-	 
-	 template<class T> T operator=(TRObjectProxy &obj)
-	 {
-	  return ::Rcpp::as<T>(obj);
-	 }
-	 
+
+         template<class T> T As() {
+            return ::Rcpp::as<T>(x);
+         }
+
+         template<class T> T operator=(TRObjectProxy &obj) {
+            return ::Rcpp::as<T>(obj);
+         }
+
          template <typename T> operator T() {
             return ::Rcpp::as<T>(x);
          }

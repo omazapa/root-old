@@ -37,7 +37,7 @@ Double_t Rastrigin(const TVectorD xx)
 void GlobalMinimization()
 {
  TBenchmark bench;
- ROOT::R::TRInterface r;
+ ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
  //loading DEoptim
  r<<"suppressMessages(library(DEoptim, quietly = TRUE))";
  

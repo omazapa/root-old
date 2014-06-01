@@ -18,7 +18,7 @@ public:
 
 
 ROOTR_MODULE(rootr) {
-    Rcpp::class_<TRF1>( "TRF1" )
+    ROOT::R::class_<TRF1>( "TRF1" )
     .constructor<std::string,std::string>()
     .method( "Eval", &TRF1::Eval )
     .method( "Draw", &TRF1::Draw )    
@@ -29,10 +29,10 @@ ROOTR_MODULE(rootr) {
 void Class()
 {
    ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
-   r["rootr"]=LOAD_ROOTR_MODULE(rootr);
+   r["rootr"]<<LOAD_ROOTR_MODULE(rootr);
    
-   r.Parse("TRF1 <- rootr$TRF1") ;
-   r.Parse("u <- new(TRF1,'dilog','TMath::DiLog(x)')") ;
-   r.Parse("print(u$Eval( 0.0 ))");
-   r.Parse("u$Draw()");
+   r<<"TRF1 <- rootr$TRF1";
+   r<<"u <- new(TRF1,'dilog','TMath::DiLog(x)')";
+   r<<"print(u$Eval( 0.0 ))";
+   r<<"u$Draw()";
 }

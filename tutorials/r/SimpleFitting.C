@@ -40,14 +40,15 @@ TCanvas *SimpleFitting(){
    mg->Add(gr2);
    //passing data to Rfot fitting
      ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
-   r["x"]=TVectorD(n, x1);
-   r["y"]=TVectorD(n, y1);
+   r["x"]<<TVectorD(n, x1);
+   r["y"]<<TVectorD(n, y1);
    //creating a R data frame
-   r.Parse("ds<-data.frame(x=x,y=y)");
+   r<<"ds<-data.frame(x=x,y=y)";
    //fitting x and y to X^power using Nonlinear Least Squares
-   r.Parse("m <- nls(y ~ I(x^power),data = ds, start = list(power = 1),trace = T)");
+   r<<"m <- nls(y ~ I(x^power),data = ds, start = list(power = 1),trace = T)";
    //getting the exponent
-   Double_t power=r.ParseEval("summary(m)$coefficients[1]");
+   Double_t power;
+   r["summary(m)$coefficients[1]"]>>power;
 
    TF1 *f_fitted=new TF1("f_fitted","pow(x,[0])",0,1);
    f_fitted->SetParameter(0,power);

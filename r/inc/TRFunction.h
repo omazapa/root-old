@@ -53,14 +53,6 @@ namespace ROOT {
 
          ClassDef(TRFunction, 0) //
       };
-
-      //________________________________________________________________________________________________________
-      template<class T> void function(const char *name_, T fun, const char *docstring = 0)
-      {
-         //template function required to create modules using the macro ROOTR_MODULE
-         Rcpp::function(name_, fun, docstring);
-      }
-
    }
 }
 

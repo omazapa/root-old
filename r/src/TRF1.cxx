@@ -10,7 +10,7 @@ TRF1::TRF1(): TObject()
 }
 
 //______________________________________________________________________________
-TRF1::TRF1(const TRF1 &f):TObject(f)
+TRF1::TRF1(const TRF1 &f): TObject(f)
 {
    f1 = f.f1;
 }

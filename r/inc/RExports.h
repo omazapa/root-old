@@ -74,26 +74,28 @@ namespace Rcpp {
 
    template<> SEXP wrap(const TMatrixD &m);
    template<> TMatrixD as(SEXP) ;
-   template<class T,size_t i> std::array<T,i> as(SEXP &obj)
+   template<class T, size_t i> std::array<T, i> as(SEXP &obj)
    {
-      std::vector<T> v=Rcpp::as<std::vector<T> >(obj);
-      std::array<T,i> a;
+      std::vector<T> v = Rcpp::as<std::vector<T> >(obj);
+      std::array<T, i> a;
       std::copy(v.begin(), v.end(), a.begin());
       return a;
    }
-   
-    namespace traits {
-        template <typename T,size_t i>
-        class Exporter<std::array<T,i> > {
-            public:
-            Exporter(SEXP x){
-	      t=Rcpp::as<T,i>(x);
-	    }
-            std::array<T,i> get() {return t;}
-            private:
-                std::array<T,i> t;
-        } ;  
-  }      
+
+   namespace traits {
+      template <typename T, size_t i>
+      class Exporter<std::array<T, i> > {
+      public:
+         Exporter(SEXP x) {
+            t = Rcpp::as<T, i>(x);
+         }
+         std::array<T, i> get() {
+            return t;
+         }
+      private:
+         std::array<T, i> t;
+      } ;
+   }
 }
 #include<Rcpp.h>//this headers should be called after templates definitions
 #include<RInside.h>
@@ -102,6 +104,17 @@ namespace ROOT {
    namespace R {
       //reference to internal ROOTR's Module that call ROOT's classes in R
       extern  VARIABLE_IS_NOT_USED SEXP ModuleSymRef;
+      template<class T> class class_: public Rcpp::class_<T> {
+      public:
+         class_(const char *name_, const char *doc = 0): Rcpp::class_<T>(name_, doc) {}
+      };
+
+      //________________________________________________________________________________________________________
+      template<class T> void function(const char *name_, T fun, const char *docstring = 0)
+      {
+         //template function required to create modules using the macro ROOTR_MODULE
+         Rcpp::function(name_, fun, docstring);
+      }
    }
 }
 

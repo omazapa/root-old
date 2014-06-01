@@ -17,6 +17,6 @@ void FunModule()
 {
   ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
    r.SetVerbose(kFALSE);
-   r["rootr"]=LOAD_ROOTR_MODULE(rootr);
-   r.Parse("print(rootr$hello('world ','ROOTR'))") ;
+   r["rootr"]<<LOAD_ROOTR_MODULE(rootr);
+   r<<"print(rootr$hello('world ','ROOTR'))";
 }

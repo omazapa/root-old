@@ -74,10 +74,10 @@ namespace ROOT {
             }
 
             template <class T> Binding &operator >>(T &var) {
-               var=fInterface->ParseEval(fName).As<T>();
+               var = fInterface->ParseEval(fName).As<T>();
                return *this;
             }
-            
+
             template <class T> Binding &operator <<(T var) {
                fInterface->Assign<T>(var, fName);
                return *this;
@@ -120,7 +120,6 @@ namespace ROOT {
 
          ClassDef(TRInterface, 0)
       };
-
    }
 }
 
