@@ -37,16 +37,16 @@ ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
 // r.SetVerbose(kTRUE);
 
 //testing operators binding
-r["a"]=1;
-r["v"]=v;
-r["sv"]=sv;
-r["m"]=m;
-r["b"]=123.456;
-r["i"]=i;
-r["d"]=d;
+r["a"]<<1;
+r["v"]<<v;
+r["sv"]<<sv;
+r["m"]<<m;
+r["b"]<<123.456;
+r["i"]<<i;
+r["d"]<<d;
 r["f"]=f;
-r["array"]=a;
-r["s"]="ROOT";
+r["array"]<<a;
+r["s"]<<"ROOT";
 
 
 //printting results
@@ -73,11 +73,11 @@ r.Parse("print(array)");
 std::cout<<"--------------------\n";
 
 //reassigning the variable s
-r["s"]=str;//string with string
+r["s"]<<str;//string with string
 r.Parse("print(s)");
 
 std::cout<<"--------------------\n";
-r["d"]=str;//double with string
+r["d"]<<str;//double with string
 r.Parse("print(d)");
 
 r["Function"]=ROOT::R::TRFunction(Function);

@@ -69,19 +69,23 @@ namespace ROOT {
 
 
             template <class T> Binding &operator >>(T &var) {
-               var=fInterface->ParseEval(fName).as<T>();
+               var=fInterface->ParseEval(fName).As<T>();
                return *this;
             }
-
-
-            template <class T> Binding &operator <<(T &var) {
+            
+            template <class T> Binding &operator <<(T var) {
                fInterface->Assign<T>(var, fName);
                return *this;
             }
 
-            template <class T> operator T() {
+            template <class T> operator &T() {
                return fInterface->ParseEval(fName);
             }
+            
+            template<class T> void Assign(T var)
+	    {
+	      fInterface->Assign<T>(var,fName);
+	    }
 
          private:
             TRInterface *fInterface;
@@ -126,5 +130,9 @@ inline ROOT::R::TRInterface &operator<<(ROOT::R::TRInterface &r, TString code)
    return r;
 }
 
+// inline ROOT::R::TRInterface::Binding &operator <<(ROOT::R::TRInterface::Binding &b,Int_t &var) {
+//                b.Assign<Int_t>(var);
+//                return b;
+// }
 
 #endif

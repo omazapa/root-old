@@ -37,57 +37,56 @@ Double_t Rastrigin(const TVectorD xx)
 void GlobalMinimization()
 {
  TBenchmark bench;
- ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
+ ROOT::R::TRInterface r;
  //loading DEoptim
- r.Parse("suppressMessages(library(DEoptim, quietly = TRUE))");
-//  r.Parse("require(DEoptim)"); //this prints information about authors
+ r<<"suppressMessages(library(DEoptim, quietly = TRUE))";
  
 //  passing RosenBrock function to R
- r["GenRosenBrock"]=ROOT::R::TRFunction(GenRosenBrock);
+ r["GenRosenBrock"]<<ROOT::R::TRFunction(GenRosenBrock);
 
  //maximun number of iterations 
- r["MaxIter"]=5000;
+ r["MaxIter"]<<5000;
  //n = size of vector that is an argument for GenRosenBrock
- r["n"]=3;
+ r["n"]<<3;
  //lower limits
- r.Parse("ll<-rep(-25, n)");
+ r<<"ll<-rep(-25, n)";
  //upper limits
- r.Parse("ul<-rep(25, n)");
+ r<<"ul<-rep(25, n)";
  
  bench.Start("GlobalMinimizationRosenBrock");
  //calling minimization and timing it.
- r.Parse("result1<-DEoptim(fn=GenRosenBrock,lower=ll,upper=ul,control=list(NP=10*n,itermax=MaxIter,trace=FALSE))");
+ r<<"result1<-DEoptim(fn=GenRosenBrock,lower=ll,upper=ul,control=list(NP=10*n,itermax=MaxIter,trace=FALSE))";
  std::cout<<"-----------------------------------------"<<std::endl;
  std::cout<<"RosenBrock's minimum in: "<<std::endl;
- r.Parse("print(result1$optim$bestmem)");
+ r<<"print(result1$optim$bestmem)";
  std::cout<<"Bechmark Times"<<std::endl;
 //  printing times
  bench.Show("GlobalMinimizationRosenBrock");
 
  
  //passing RosenBrock function to R
- r["Rastrigin"]=ROOT::R::TRFunction(Rastrigin);
+ r["Rastrigin"]<<ROOT::R::TRFunction(Rastrigin);
  //maximun number of iterations 
- r["MaxIter"]=2000;
+ r["MaxIter"]<<2000;
  //n = size of a vector which is an argument for Rastrigin
- r["n"]=3;
+ r["n"]<<3;
  //lower limits
- r.Parse("ll<-rep(-5, n)");
+ r<<"ll<-rep(-5, n)";
  //upper limits
- r.Parse("ul<-rep(5, n)");
+ r<<"ul<-rep(5, n)";
  
  bench.Start("GlobalMinimizationRastrigin");
  //calling minimization and timing it.
- r.Parse("result2<-DEoptim(fn=Rastrigin,lower=ll,upper=ul,control=list(NP=10*n,itermax=MaxIter,trace=FALSE))");
+ r<<"result2<-DEoptim(fn=Rastrigin,lower=ll,upper=ul,control=list(NP=10*n,itermax=MaxIter,trace=FALSE))";
  std::cout<<"-----------------------------------------"<<std::endl;
  std::cout<<"Rastrigin's minimum in: "<<std::endl;
- r.Parse("print(result2$optim$bestmem)");
+ r<<"print(result2$optim$bestmem)";
  std::cout<<"Bechmark Times"<<std::endl;
  //printing times
  bench.Show("GlobalMinimizationRastrigin");
- r.Parse("x11(title='RosenBrock Convergence')");
- r.Parse("plot(result1,type='o',pch='.')");
- r.Parse("x11(title='Rastrigin Convergence')");
- r.Parse("plot(result2,type='o',pch='.')");
+ r<<"x11(title='RosenBrock Convergence')";
+ r<<"plot(result1,type='o',pch='.')";
+ r<<"x11(title='Rastrigin Convergence')";
+ r<<"plot(result2,type='o',pch='.')";
 //  r.Parse("print(result1)");
 }

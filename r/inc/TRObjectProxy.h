@@ -33,7 +33,7 @@ namespace ROOT {
 
          void operator=(SEXP xx);
 	 
-	 template<class T> T as()
+	 template<class T> T As()
 	 {
 	  return ::Rcpp::as<T>(x);
 	 }
