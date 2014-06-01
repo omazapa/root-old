@@ -67,6 +67,11 @@ namespace ROOT {
                return *this;
             }
 
+            Binding &operator<<(const TRFunction &fun) {
+               //The method assign is not a template for a function
+               fInterface->Assign(fun, fName);
+               return *this;
+            }
 
             template <class T> Binding &operator >>(T &var) {
                var=fInterface->ParseEval(fName).As<T>();
