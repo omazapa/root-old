@@ -44,22 +44,22 @@ r["m"]<<m;
 r["b"]<<123.456;
 r["i"]<<i;
 r["d"]<<d;
-r["f"]=f;
+r["f"]<<f;
 r["array"]<<a;
 r["s"]<<"ROOT";
 
 
 //printting results
 std::cout<<"-----------Printing Results---------\n";
-r.Parse("print(a)");
+r<<"print(a)";
 std::cout<<"--------------------\n";
-r.Parse("print(v)");
+r<<"print(v)";
 std::cout<<"--------------------\n";
-r.Parse("print(sv)");
+r<<"print(sv)";
 std::cout<<"--------------------\n";
-r.Parse("print(m)");
+r<<"print(m)";
 std::cout<<"--------------------\n";
-r.Parse("print(b)");
+r<<"print(b)";
 std::cout<<"--------------------\n";
 r.Parse("print(i)");
 std::cout<<"--------------------\n";
@@ -74,16 +74,16 @@ std::cout<<"--------------------\n";
 
 //reassigning the variable s
 r["s"]<<str;//string with string
-r.Parse("print(s)");
+r<<"print(s)";
 
-std::cout<<"--------------------\n";
-r["d"]<<str;//double with string
-r.Parse("print(d)");
+// std::cout<<"--------------------\n";
+// r["d"]<<str;//double with string
+// r<<"print(d)";
 
 r["Function"]=ROOT::R::TRFunction(Function);
-r.Parse("print(Function(-1))");
+r<<"print(Function(-1))";
 
-r.Parse("print(Function(1))");//division by zero producess Inf.
+r<<"print(Function(1))";//division by zero producess Inf.
 
 r<<"print('hello ')"<<std::string("print('world ')");
 r["x"]=123;
@@ -103,8 +103,21 @@ r["mat"]>>mat;
 
 r["m"]<<mat;
 
-// mat=r["mat"];
+Double_t b;
+Int_t aa;
+TString str2;
+r["a"]>>aa;
+r["v"]>>v;
+r["sv"]>>sv;
+r["m"]>>m;
+r["b"]>>b;
+r["i"]>>i;
+r["d"]>>d;
+r["f"]>>f;
+r["array"]>>a;
+r["s"]>>str2;
 
 mat.Print();
+std::cout<<" array={"<<a[0]<<","<<a[1]<<","<<a[2]<<"}";
 
 }

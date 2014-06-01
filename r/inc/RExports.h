@@ -44,9 +44,9 @@
 #include<string>
 #include<vector>
 //support for std c++11 classes
-#if __cplusplus > 199711L
+// #if __cplusplus > 199711L
 #include<array>
-#endif
+// #endif
 
 //pragma to disable warnings on Rcpp which have
 //so many noise compiling
@@ -74,7 +74,26 @@ namespace Rcpp {
 
    template<> SEXP wrap(const TMatrixD &m);
    template<> TMatrixD as(SEXP) ;
-
+   template<class T,size_t i> std::array<T,i> as(SEXP &obj)
+   {
+      std::vector<T> v=Rcpp::as<std::vector<T> >(obj);
+      std::array<T,i> a;
+      std::copy(v.begin(), v.end(), a.begin());
+      return a;
+   }
+   
+    namespace traits {
+        template <typename T,size_t i>
+        class Exporter<std::array<T,i> > {
+            public:
+            Exporter(SEXP x){
+	      t=Rcpp::as<T,i>(x);
+	    }
+            std::array<T,i> get() {return t;}
+            private:
+                std::array<T,i> t;
+        } ;  
+  }      
 }
 #include<Rcpp.h>//this headers should be called after templates definitions
 #include<RInside.h>
