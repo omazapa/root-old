@@ -13,13 +13,7 @@
 
 <p>
 The TRObjectProxy class lets you obtain ROOT's objects from R's objects.<br>
-It has some basic template methods to convert R's objects into ROOT's datatypes<br>
-<UL>
-<LI>ToScalar(): Returns Double_t and Int_t
-<LI>ToArray():  Returns TArray class objects
-<LI>ToVector(): Returns TVectorT class objects
-<LI>ToMatrix(): Returns TMatrixT class objects
-</UL>
+It has some basic template opetarors to convert R's objects into ROOT's datatypes<br>
 </p>
 A simple example<br>
 <p>
@@ -30,14 +24,10 @@ End_Html
 #include<TRInterface.h>
 void Proxy()
 {
+ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
 ROOT::R::TRObjectProxy obj;
-obj=gR->ParseEval("seq(1,10)");
-#if defined(__ACLIC__)
-//for ACLiC support you should set the template type
-TVectorD v=obj.ToVector<Double_t>();
-#else
-TVectorD v=obj.ToVector();
-#endif
+obj=r.ParseEval("seq(1,10)");
+TVectorD v=obj;
 v.Print();
 }
 */

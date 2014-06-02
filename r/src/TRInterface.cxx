@@ -20,14 +20,12 @@ The TRInterface class lets you procces R code from ROOT.<br>
 You can call R libraries and their functions, plot results in R or ROOT,<br>
 and use the power of ROOT and R at the same time.<br>
 It also lets you pass scalars, vectors and matrices from ROOT to R<br>
-and from R to ROOT using TRObjectProxy.<br>
-<br>
-To plot in R environment you should first call the method Xwin() to initiliaze the window's system<br>
-before calling the class' plotting methods.<br>
-<br>
+and from R to ROOT using TRObjectProxy; but you can to use overloaded opetarors [],<< and >> <br>
+to work with ROOTR like work with streams of data.<br>
+
 <i style="color:red;">NOTE</i> In the same way that TROOT class has an unique global object, gROOT,<br>
-TRInterface has gR. More objects of TRInterface class can not be instantiated, but you can create objects using the methods
-TRInterface& Instance() and TRInterface* InstancePtr() to create your own objects or just to use directly a gR object.<br>
+TRInterface can have just one. More objects of TRInterface class can not be instantiated, but you can create objects using the static methods
+TRInterface& Instance() and TRInterface* InstancePtr() to create your own objects.<br>
 <br>
 </p>
 Show an example below:
@@ -74,15 +72,16 @@ Begin_Macro(source)
    mg->Add(gr2);
 
    //passing x and y values to R for fitting
-   gR->Assign(TVectorD(n, x1), "x");
-   gR->Assign(TVectorD(n, y1), "y");
+   ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
+   r["x"]<<TVectorD(n, x1);
+   r["y"]<<TVectorD(n, y1);
    //creating a R data frame
-   gR->Parse("ds<-data.frame(x=x,y=y)");
+   r<<"ds<-data.frame(x=x,y=y)";
    //fitting x and y to X^power using Nonlinear Least Squares
-   gR->Parse("m <- nls(y ~ I(x^power),data = ds, start = list(power = 1),trace = T)");
+   r<<"m <- nls(y ~ I(x^power),data = ds, start = list(power = 1),trace = T)";
    //getting the fitted value (power)
-   ROOT::R::TRObjectProxy robj=gR->ParseEval("summary(m)$coefficients[1]");
-   Double_t power=robj.ToScalar();
+   Double_t power;
+   r["summary(m)$coefficients[1]"]>>power;
 
    TF1 *f_fitted=new TF1("f_fitted","pow(x,[0])",0,1);
    f_fitted->SetParameter(0,power);

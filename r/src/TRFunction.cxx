@@ -78,29 +78,22 @@ TVectorD RosenBrockGrad(const TVectorD xx )
 
 void Minimization()
 {
-#if defined(__CINT__) && !defined(__MAKECINT__)
-  cout << "WARNING: This tutorial can run only using ACliC, you must run it by doing: " << endl;
-  cout << "cd  $ROOTSYS/tutorials/r/" << endl;
-  cout << "\t .x Minimization.C+" << endl;
-  return;
-#endif
- ROOT::R::TRInterface r=gR->Instance();
-
+ ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
  //passing RosenBrock function to R
- r["RosenBrock"]=ROOT::R::TRFunction(RosenBrock);
+ r["RosenBrock"]<<ROOT::R::TRFunction(RosenBrock);
 
  //passing RosenBrockGrad function to R
- r["RosenBrockGrad"]=ROOT::R::TRFunction(RosenBrockGrad);
+ r["RosenBrockGrad"]<<ROOT::R::TRFunction(RosenBrockGrad);
 
  //the option "method" could be "Nelder-Mead", "BFGS", "CG", "L-BFGS-B", "SANN","Brent"
  //the option "control" lets you put some constraints like:
  //"maxit" The maximum number of iterations
  //"abstol" The absolute convergence tolerance.
  //"reltol" Relative convergence tolerance.
- r.Parse("result <- optim( c(0.01,0.01), RosenBrock,method='BFGS',control = list(maxit = 1000000) )");
+ r<<"result <- optim( c(0.01,0.01), RosenBrock,method='BFGS',control = list(maxit = 1000000) )";
 
  //Getting results from R
- TVectorD  min=r.ParseEval("result$par").ToVector<Double_t>();
+ TVectorD  min=r.ParseEval("result$par");
 
  std::cout.precision(8);
  //printing results
@@ -109,10 +102,10 @@ void Minimization()
  std::cout<<"Value at minimum ="<<RosenBrock(min)<<std::endl;
 
  //using the gradient
- r.Parse("optimHess(result$par, RosenBrock, RosenBrockGrad)");
- r.Parse("hresult <- optim(c(-1.2,1), RosenBrock, NULL, method = 'BFGS', hessian = TRUE)");
+ r<<"optimHess(result$par, RosenBrock, RosenBrockGrad)";
+ r<<"hresult <- optim(c(-1.2,1), RosenBrock, NULL, method = 'BFGS', hessian = TRUE)";
  //getting the minimum calculated with the gradient
- TVectorD  hmin=r.ParseEval("hresult$par").ToVector<Double_t>();
+ TVectorD  hmin=r.ParseEval("hresult$par");
 
  //printing results
  std::cout<<"-----------------------------------------"<<std::endl;

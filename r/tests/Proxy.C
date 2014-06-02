@@ -3,6 +3,7 @@
 //script to test RExport a TRobjectProxy
 void Proxy()
 {
+  ROOT::R::TRInterface *gR=ROOT::R::TRInterface::InstancePtr();
   gR->SetVerbose(kTRUE);
    //////////////////////////
    //Getting values from R //
@@ -29,9 +30,9 @@ void Proxy()
    
    std::cout << d << " " << f << " " << i << std::endl;
 
-   /////////////////////////
-   //Passing values to R  //
-   /////////////////////////
+  ////////////////////////
+  //Passing values to R  //
+  /////////////////////////
 
    std::cout << "======Passing values to R ======\n";
    gR->Assign(s, "s");

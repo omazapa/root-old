@@ -31,32 +31,31 @@ Double_t fun4(Double_t x)
 
 void Functions()
 {
-   gR->SetVerbose(kFALSE);
+   ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
+   r.SetVerbose(kFALSE);
 
-   gR->Assign(ROOT::R::TRFunction(funv), "funv");
-   gR->Parse("print(funv(c(2,3)))");
+   r["funv"]<<ROOT::R::TRFunction(funv);
+   r<<"print(funv(c(2,3)))";
 
-   gR->Assign(ROOT::R::TRFunction(funm), "funm");
-   gR->Parse("cat(funm(matrix(c(1,2,3,4),2,2)))");
+   r["funm"]<<ROOT::R::TRFunction(funm);
+   r<<"cat(funm(matrix(c(1,2,3,4),2,2)))";
 
-   gR->Assign(ROOT::R::TRFunction(funs), "funs");
+   r["funs"]<<ROOT::R::TRFunction(funs);
 
-   gR->Parse("cat(funs('ROOTR'))");
+   r<<"cat(funs('ROOTR'))";
 
-   gR->Assign(ROOT::R::TRFunction(TMath::DiLog), "DiLog");
-   gR->Parse("print(DiLog(2))");
+   r["DiLog"]<<ROOT::R::TRFunction(TMath::DiLog);
+   r<<"print(DiLog(2))";
    
-   gR->Parse("x <- seq(0,10,0.01)");
-   gR->Parse("y <- NULL ");
-   gR->Parse("for(i in seq(along=x)) { \
+   r<<"x <- seq(0,10,0.01)";
+   r<<"y <- NULL ";
+   r<<"for(i in seq(along=x)) { \
 		y <- c(y,DiLog(i)) \
-	     }");
+	     }";
    
    ROOT::R::TRFunction f4;
    f4.SetFunction(fun4);
-   gR->Assign(f4,"fun4");
-   gR->Parse("print(fun4(1))");
-//    gR->Parse("cat(x)");
-//    gR->Parse("cat(y)");
+   r["fun4"]<<f4;
+   r<<"print(fun4(1))";
 
 }
