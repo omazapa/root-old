@@ -16,12 +16,12 @@ void ROOTR()
    r<<"u <-TRGraph(length(x),x,dlnorm(x))" ;//TGraph(int,double*,double*)
    r<<"u$Draw()";
    
-   r<<"c2<-ROOTR$TRCanvas('c2')";
+   r<<"c2<-ROOTR$TRCanvas('c2','DiLog from TMath')";
    r<<"o<- ROOTR$TRF1('dilog','TMath::DiLog(x)')";
    r<<"o$Draw('')";
-   
-   r<<"c3<-ROOTR$TRCanvas('c3')";
-   r<<"i <- ROOTR$TRF1('f2','[0]*myFunc([1]*x)')";
+ 
+   r<<"c3<-ROOTR$TRCanvas('c3','Cust')";
+   r<<"i <- ROOTR$TRF1('f2','[0]*myFunc([1]*x)')"; 
    r<<"i$SetRange(0,2*pi)";
    r<<"i$SetParameter(0,4)";
    r<<"i$SetParameter(1,pi/2)";
