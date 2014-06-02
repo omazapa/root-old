@@ -30,17 +30,13 @@
 namespace ROOT {
    namespace R {
 
-      class TRGraph: public TObject {
-      protected:
-         TGraph *graph;
+      class TRGraph: public TGraph {
       public:
          TRGraph();
          TRGraph(const TRGraph &);
          TRGraph(Int_t n, std::vector<double> x, std::vector<double> y);
-         ~TRGraph() {
-            delete graph;
-         }
-         void Draw(std::string options = std::string(""));
+	 void Draw();
+         void Draw(std::string options);
          ClassDef(TRGraph, 0)
       };
    }

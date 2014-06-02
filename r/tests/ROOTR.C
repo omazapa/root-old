@@ -14,16 +14,19 @@ void ROOTR()
    r<<"x<-seq(0,2*pi,by=.1)";
    r<<"c1<-ROOTR$TRCanvas('c1','dlnorm')";
    r<<"u <-TRGraph(length(x),x,dlnorm(x))" ;//TGraph(int,double*,double*)
-   r<<"u$Draw('')";
+   r<<"u$Draw()";
    
    r<<"c2<-ROOTR$TRCanvas('c2')";
    r<<"o<- ROOTR$TRF1('dilog','TMath::DiLog(x)')";
    r<<"o$Draw('')";
    
    r<<"c3<-ROOTR$TRCanvas('c3')";
-   r<<"i <- ROOTR$TRF1('f2','myFunc(x)')";
+   r<<"i <- ROOTR$TRF1('f2','[0]*myFunc([1]*x)')";
+   r<<"i$SetRange(0,2*pi)";
+   r<<"i$SetParameter(0,4)";
+   r<<"i$SetParameter(1,pi/2)";
    r<<"print(i$Eval(0))";
-   r<<"print(i$Eval(c(0,1)))";
+   r<<"print(i$Eval(c(0,pi)))";
    r<<"i$Draw()";
    
    r<<"gApp<-ROOTR$TRRint('ROOTR')";

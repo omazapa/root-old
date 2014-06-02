@@ -12,7 +12,7 @@ TRRint::TRRint(): TObject()
 }
 
 //______________________________________________________________________________
-TRRint::TRRint(const TRRint &ri)
+TRRint::TRRint(const TRRint &ri):TObject(ri)
 {
    r = ri.r;
 }
@@ -20,17 +20,15 @@ TRRint::TRRint(const TRRint &ri)
 //______________________________________________________________________________
 TRRint::TRRint(std::string name, std::vector<std::string> args)
 {
-//   Int_t argc=args.size();
-//   Char_t **cargs;
-//   *cargs=new Char_t[argc];
-//   for(Int_t i=0;i<argc;i++)
-//   {
-//     cargs[i]=new Char_t[args[i].size()];
-//     strcmp(cargs[i],args[i].c_str());
-//   }
+  Int_t argc=args.size();
+  Char_t *cargs[argc];
+  for(Int_t i=0;i<argc;i++)
+  {
+    cargs[i]=new Char_t[args[i].size()];
+    strcmp(cargs[i],args[i].c_str());
+  }
 
-//   r=new TRint(name.c_str(),&argc,cargs,0,0,kTRUE);
-   if (!gApplication)  r = new TRint(name.c_str(), 0, 0, 0, 0, kTRUE);
+   if (!gApplication)  r = new TRint(name.c_str(), &argc, cargs, 0, 0, kTRUE);
    else useIntenalApp = kTRUE;
 }
 

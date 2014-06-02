@@ -4,33 +4,37 @@
 using namespace ROOT::R;
 ClassImp(TRGraph)
 //______________________________________________________________________________
-TRGraph::TRGraph(): TObject()
+TRGraph::TRGraph(): TGraph()
 {
-   graph = new TGraph;
 }
 
 //______________________________________________________________________________
-TRGraph::TRGraph(const TRGraph &g)
+TRGraph::TRGraph(const TRGraph &g):TGraph(g)
 {
-   graph = g.graph;
 }
 
 //______________________________________________________________________________
-TRGraph::TRGraph(Int_t n, std::vector<Double_t> x, std::vector<Double_t> y)
+TRGraph::TRGraph(Int_t n, std::vector<Double_t> x, std::vector<Double_t> y):TGraph(n, x.data(), y.data())
 {
-   graph = new TGraph(n, (const Double_t *)x.data(), (const Double_t *)y.data());
+}
+
+//______________________________________________________________________________
+void TRGraph::Draw()
+{
+   TGraph::Draw();
 }
 
 //______________________________________________________________________________
 void TRGraph::Draw(std::string options)
 {
-   graph->Draw(options.c_str());
+   TGraph::Draw(options.c_str());
 }
 
 ROOTR_MODULE(ROOTR_TRGraph)
 {
-   Rcpp::class_<ROOT::R::TRGraph>("TRGraph")
+   ROOT::R::class_<ROOT::R::TRGraph>("TRGraph")
    .constructor<int, std::vector<Double_t>, std::vector<Double_t> >()
-   .method("Draw", &ROOT::R::TRGraph::Draw)
-   ;
+   .method("Draw", (void (ROOT::R::TRGraph::*)())(&ROOT::R::TRGraph::Draw))
+   .method("Draw", (void (ROOT::R::TRGraph::*)(std::string))(&ROOT::R::TRGraph::Draw))
+  ;
 }
