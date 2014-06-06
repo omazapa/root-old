@@ -34,7 +34,6 @@
 #endif
 #include <sys/stat.h>
 
-
 static const char *R__GetDeclSourceFileName(const clang::Decl* D)
 {
    clang::ASTContext& ctx = D->getASTContext();
@@ -52,7 +51,7 @@ static const char *R__GetDeclSourceFileName(const clang::Decl* D)
    }
    else {
       return "invalid";
-   }   
+   }
 }
 
 #if MATCH_ON_INSTANTIATION_LOCATION
@@ -68,13 +67,10 @@ static const char *R__GetDeclSourceFileName(const clang::ClassTemplateSpecializa
    }
    else {
       return "invalid";
-   }   
+   }
 }
 #endif
 
-/******************************************************************
- * R__matchfilename(srcfilename,filename)
- ******************************************************************/
 static bool R__match_filename(const char *srcname,const char *filename)
 {
    if (srcname==0) {
@@ -83,7 +79,7 @@ static bool R__match_filename(const char *srcname,const char *filename)
    if((strcmp(srcname,filename)==0)) {
       return true;
    }
-   
+
 #ifdef G__WIN32
    G__FastAllocString i1name(_MAX_PATH);
    G__FastAllocString fullfile(_MAX_PATH);
@@ -186,7 +182,7 @@ void BaseSelectionRule::PrintAttributes(int level) const
 { 
    PrintAttributes(std::cout, level);
 }
-
+#include <unistd.h>
 BaseSelectionRule::EMatchType BaseSelectionRule::Match(const clang::NamedDecl *decl, 
                                                        const std::string& name, 
                                                        const std::string& prototype,
@@ -261,10 +257,8 @@ BaseSelectionRule::EMatchType BaseSelectionRule::Match(const clang::NamedDecl *d
       const char *file_name = R__GetDeclSourceFileName(decl);
       bool hasFileMatch = ((fHasFileNameAttribute &&
            //FIXME It would be much better to cache the rule stat result and compare to the clang::FileEntry
-           (R__match_filename(file_name_value.c_str(),file_name))) 
-          ||
-          (fHasFilePatternAttribute &&
-           CheckPattern(file_name, file_pattern_value, fFileSubPatterns, isLinkdef)));
+           (R__match_filename(file_name_value.c_str(),file_name))) ||
+           (fHasFilePatternAttribute && CheckPattern(file_name, file_pattern_value, fFileSubPatterns, isLinkdef)));
 
 #if MATCH_ON_INSTANTIATION_LOCATION
       if (!hasFileMatch) {
@@ -299,13 +293,13 @@ BaseSelectionRule::EMatchType BaseSelectionRule::Match(const clang::NamedDecl *d
             return kNoMatch;
          }
          if (fHasPatternAttribute) {
-         if (CheckPattern(name, pattern_value, fSubPatterns, isLinkdef)) {
-            const_cast<BaseSelectionRule*>(this)->SetMatchFound(true);
-            return kFile;
-         }
+            if (CheckPattern(name, pattern_value, fSubPatterns, isLinkdef)) {
+               const_cast<BaseSelectionRule*>(this)->SetMatchFound(true);
+               return kPattern;
+            }
          } else {
             const_cast<BaseSelectionRule*>(this)->SetMatchFound(true);
-            return kFile;
+            return kName;
          }
       }
       
@@ -329,13 +323,8 @@ BaseSelectionRule::EMatchType BaseSelectionRule::Match(const clang::NamedDecl *d
          return kPattern;
       }
    }
-   
-#if NOT_WORKING_AND_CURRENTLY_NOT_NEEDED
-   std::string proto_name_value;
-   bool has_proto_name_attribute = GetAttributeValue(kProtoNameID, proto_name_value);
-   std::string proto_pattern_value;
-   bool has_proto_pattern_attribute = GetAttributeValue(kProtoPatternID, proto_pattern_value);
-   
+
+
    // do we have matching against the proto_name (or proto_pattern)  attribute and if yes - select or veto
    // The following selects functions on whether the requested prototype exactly matches the
    // prototype issued by SelectionRules::GetFunctionPrototype which relies on
@@ -350,20 +339,15 @@ BaseSelectionRule::EMatchType BaseSelectionRule::Match(const clang::NamedDecl *d
    // the user input string and the clang provided string).
    // Using lookup form cling would be probably be a better choice.
    if (!prototype.empty()) {
-      if (has_proto_name_attribute && 
-          (proto_name_value==prototype)) {
-         
+      if (fHasProtoNameAttribute && fProtoName==prototype) {
          const_cast<BaseSelectionRule*>(this)->SetMatchFound(true);
          return kName;
       }
-      if (has_proto_pattern_attribute && 
-          CheckPattern(prototype, proto_pattern_value, fSubPatterns, isLinkdef))  {
+      if (fHasProtoPatternAttribute && CheckPattern(prototype, fProtoPattern, fSubPatterns, isLinkdef))  {
          const_cast<BaseSelectionRule*>(this)->SetMatchFound(true);
-         return kPattern; 
+         return kPattern;
       }
    }
-}
-#endif
 
    return kNoMatch;
 }

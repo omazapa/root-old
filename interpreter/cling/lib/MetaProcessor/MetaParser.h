@@ -33,6 +33,7 @@ namespace cling {
   //                            ClassCommand | GCommand | StoreStateCommand |
   //                            CompareStateCommand | StatsCommand | undoCommand
   //                 LCommand := 'L' FilePath
+  //                 TCommand := 'T' FilePath
   //                 >Command := '>' FilePath
   //                 qCommand := 'q'
   //                 XCommand := 'x' FilePath[ArgList] | 'X' FilePath[ArgList]
@@ -80,10 +81,12 @@ namespace cling {
     bool isCommand(MetaSema::ActionResult& actionResult,
                    Value* resultValue);
     bool isLCommand(MetaSema::ActionResult& actionResult);
+    bool isTCommand(MetaSema::ActionResult& actionResult);
     bool isRedirectCommand(MetaSema::ActionResult& actionResult);
     bool isExtraArgList();
     bool isXCommand(MetaSema::ActionResult& actionResult,
                     Value* resultValue);
+    bool isAtCommand();
     bool isqCommand();
     bool isUCommand(MetaSema::ActionResult& actionResult);
     bool isICommand();

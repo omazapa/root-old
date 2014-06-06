@@ -586,7 +586,8 @@ if(builtin_xrootd)
     XROOTD
     URL http://xrootd.org/download/v${xrootd_version}/xrootd-${xrootd_version}.tar.gz
     INSTALL_DIR ${CMAKE_BINARY_DIR}
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+    CMAKE_ARGS -DENABLE_PERL=FALSE
+               -DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
                -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
                -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}
                -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
@@ -732,6 +733,7 @@ if(cling)
   set(CLING_LIBRARIES ${BINARY_DIR}/lib/libclingInterpreter.a
                       ${BINARY_DIR}/lib/libclingMetaProcessor.a
                       ${BINARY_DIR}/lib/libclingUtils.a
+                      ${BINARY_DIR}/lib/libclingCtagsExtension.a
                       ${LLVM_LIBRARIES})
   #--Additional flags obtained from llvm-config --cxxflags
   set(CLING_CXXFLAGS "-fvisibility-inlines-hidden -fno-strict-aliasing -Wno-unused-parameter -Wwrite-strings -Wno-long-long -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS")

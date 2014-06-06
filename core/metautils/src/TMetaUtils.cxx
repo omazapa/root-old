@@ -424,8 +424,11 @@ void TClingLookupHelper::GetPartiallyDesugaredName(std::string &nameLong)
    clang::QualType t = lh.findType(nameLong, ToLHDS(WantDiags()));
    if (!t.isNull()) {
       clang::QualType dest = cling::utils::Transform::GetPartiallyDesugaredType(fInterpreter->getCI()->getASTContext(), t, fNormalizedCtxt->GetConfig(), true /* fully qualify */);
-      if (!dest.isNull() && (dest != t))
+      if (!dest.isNull() && (dest != t)) {
+         // getAsStringInternal() appends.
+         nameLong.clear();
          dest.getAsStringInternal(nameLong, fInterpreter->getCI()->getASTContext().getPrintingPolicy());
+      }
    }
 }
 
@@ -470,6 +473,8 @@ bool TClingLookupHelper::GetPartiallyDesugaredNameWithScopeHandling(const std::s
          // The scope suppression is required for getting rid of the anonymous part of the name of a class defined in an anonymous namespace.
          // This gives us more control vs not using the clang::ElaboratedType and relying on the Policy.SuppressUnwrittenScope which would
          // strip both the anonymous and the inline namespace names (and we probably do not want the later to be suppressed).
+         // getAsStringInternal() appends.
+         result.clear();
          dest.getAsStringInternal(result, policy);
          // Strip the std::
          if (strncmp(result.c_str(), "std::", 5) == 0) {
@@ -1084,11 +1089,21 @@ std::string ROOT::TMetaUtils::GetQualifiedName(const clang::Type &type, const cl
    return result;
 }
 
+// //______________________________________________________________________________
+// void ROOT::TMetaUtils::GetQualifiedName(std::string &qual_name, const clang::NamespaceDecl &cl)
+// {
+//    GetQualifiedName(qual_name,cl);
+// }
+//
+// //----
+// std::string ROOT::TMetaUtils::GetQualifiedName(const clang::NamespaceDecl &cl){
+//    return GetQualifiedName(cl);
+// }
+
 //______________________________________________________________________________
-void ROOT::TMetaUtils::GetQualifiedName(std::string &qual_name, const clang::NamespaceDecl &cl)
+void ROOT::TMetaUtils::GetQualifiedName(std::string &qual_name, const clang::NamedDecl &cl)
 {
    // This implementation does not rely on GetFullyQualifiedTypeName
-   // It is done for namespaces, no type involved.
    llvm::raw_string_ostream stream(qual_name);
    clang::PrintingPolicy policy( cl.getASTContext().getPrintingPolicy() );
    policy.SuppressTagKeyword = true; // Never get the class or struct keyword
@@ -1104,11 +1119,12 @@ void ROOT::TMetaUtils::GetQualifiedName(std::string &qual_name, const clang::Nam
 }
 
 //----
-std::string ROOT::TMetaUtils::GetQualifiedName(const clang::NamespaceDecl &cl){
+std::string ROOT::TMetaUtils::GetQualifiedName(const clang::NamedDecl &cl){
    std::string result;
    ROOT::TMetaUtils::GetQualifiedName(result, cl);
    return result;
 }
+
 
 //______________________________________________________________________________
 void ROOT::TMetaUtils::GetQualifiedName(std::string &qual_name, const clang::RecordDecl &recordDecl)
@@ -4144,10 +4160,36 @@ clang::QualType ROOT::TMetaUtils::ReSubstTemplateArg(clang::QualType input, cons
          if (decl->getKind() == clang::Decl::ClassTemplatePartialSpecialization) {
             const clang::ClassTemplatePartialSpecializationDecl *spec = llvm::dyn_cast<clang::ClassTemplatePartialSpecializationDecl>(decl);
 
-            for (unsigned arg = 0; arg < spec->getTemplateArgs().size() && arg <= index; ++arg) {
-               if (!spec->getTemplateArgs().get(arg).isDependent())
-               {
-                 ++index;
+            unsigned int depth = substType->getReplacedParameter()->getDepth();
+
+            const TemplateArgument *instanceArgs = spec->getTemplateArgs().data();
+            unsigned int instanceNArgs = spec->getTemplateArgs().size();
+
+            // Search for the 'right' replacement.
+
+            for(unsigned int A = 0; A < instanceNArgs; ++A) {
+               if (instanceArgs[A].getKind() == clang::TemplateArgument::Type) {
+                  clang::QualType argQualType = instanceArgs[A].getAsType();
+
+                  const clang::TemplateTypeParmType *replacementType;
+
+                  replacementType = llvm::dyn_cast<clang::TemplateTypeParmType>(argQualType);
+
+                  if (!replacementType) {
+                     const clang::SubstTemplateTypeParmType *argType
+                        = llvm::dyn_cast<clang::SubstTemplateTypeParmType>(argQualType);
+                     if (argType) {
+                        clang::QualType replacementQT = argType->getReplacementType();
+                        replacementType = llvm::dyn_cast<clang::TemplateTypeParmType>(replacementQT);
+                     }
+                  }
+                  if (replacementType &&
+                      depth == replacementType->getDepth() &&
+                      index == replacementType->getIndex() )
+                  {
+                     index = A;
+                     break;
+                  }
                }
             }
             replacedCtxt = spec->getSpecializedTemplate();
@@ -4348,6 +4390,24 @@ void ROOT::TMetaUtils::SetPathsForRelocatability(std::vector<std::string>& cling
       while (std::getline(envInclPathsStream, inclPath, ':')) {
          clingArgs.push_back("-I");
          clingArgs.push_back(inclPath);
+      }
+   }
+}
+
+//______________________________________________________________________________
+void ROOT::TMetaUtils::ReplaceAll(std::string& str, const std::string& from, const std::string& to,bool recurse)
+{
+   if(from.empty())
+      return;
+   size_t start_pos = 0;
+   bool changed=true;
+   while (changed){
+      changed=false;
+      start_pos = 0;
+      while((start_pos = str.find(from, start_pos)) != std::string::npos) {
+         str.replace(start_pos, from.length(), to);
+         start_pos += to.length();
+         if (recurse) changed = true;
       }
    }
 }

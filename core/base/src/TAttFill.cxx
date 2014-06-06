@@ -52,12 +52,27 @@ Begin_Macro(source)
 End_Macro
 
 Begin_Html
+
+<h4>Color transparency</h4>
+<tt>SetFillColorAlpha()</tt>, allows to set a transparent color.
+In the following example the fill color of the histogram <tt>histo</tt>
+is set to blue with a transparency of 35%. The color <tt>kBlue</tt>
+itself remains fully opaque.
+<p>
+<pre>
+histo->SetFillColorAlpha(kBlue, 0.35);
+</pre>
+<p>
+The transparency is available on all platforms when the <tt>flagOpenGL.CanvasPreferGL</tt> is set to <tt>1</tt>
+in <tt>$ROOTSYS/etc/system.rootrc</tt>, or on Mac with the Cocoa backend. On the file output
+it is visible with PDF, PNG, Gif, JPEG, SVG ... but not PostScript.
+
 <h4>The ROOT Color Wheel.</h4>
 The wheel contains the recommended 216 colors to be used in web applications.
 The colors in the Color Wheel are created by TColor::CreateColorWheel.
 <p>Using this color set for your text, background or graphics will give your
 application a consistent appearance across different platforms and browsers.
-<p>Colors are grouped by hue, the aspect most important in human perception 
+<p>Colors are grouped by hue, the aspect most important in human perception
 Touching color chips have the same hue, but with different brightness and vividness.
 <p>Colors of slightly different hues <b>clash</b>. If you intend to display
 colors of the same hue together, you should pick them from the same group.
@@ -79,13 +94,13 @@ Begin_Macro(source)
    return w->GetCanvas();
 }
 End_Macro
-      
+
 Begin_Html
 <h4>Special case forcing black&white output.</h4>
 If the current style fill area color is set to 0, then ROOT will force
 a black&white output for all objects with a fill area defined and independently
 of the object fill style.
-   
+
 <a name="F2"></a><h3>Fill Area style</h3>
 The fill area style defines the pattern used to fill a polygon.
 The fill area style of any class inheriting from <tt>TAttFill</tt> can
@@ -102,17 +117,19 @@ method <tt>GetFillStyle</tt>.
    <li>  4000 to 4100 the window is 100% transparent to 100% opaque. </li>
 </ul>
       The pad transparency is visible in binary outputs files like gif, jpg, png etc ..
-      but not in vector graphics output files like PS, PDF and SVG.
+      but not in vector graphics output files like PS, PDF and SVG. This convention
+      (fill style > 4000) is kept for backward compatibility. It is better to use
+      the color transparency instead.
 </ul>
 
 pattern_number can have any value from 1 to 25 (see table), or any
 value from 100 to 999. For the latest the numbering convention is the following:
 <pre>
       pattern_number = ijk      (FillStyle = 3ijk)
- 
+
       i (1-9) : specify the space between each hatch
                 1 = 1/2mm  9 = 6mm
- 
+
       j (0-9) : specify angle between 0 and 90 degrees
                 0 = 0
                 1 = 10
@@ -124,7 +141,7 @@ value from 100 to 999. For the latest the numbering convention is the following:
                 7 = 70
                 8 = 80
                 9 = 90
-  
+
       k (0-9) : specify angle between 90 and 180 degrees
                 0 = 180
                 1 = 170
@@ -241,4 +258,14 @@ void TAttFill::SetFillAttributes()
    // Invoke the DialogCanvas Fill attributes.
 
    TVirtualPadEditor::UpdateFillAttributes(fFillColor,fFillStyle);
+}
+
+
+//______________________________________________________________________________
+void TAttFill::SetFillColorAlpha(Color_t fcolor, Float_t falpha)
+{
+   // Set a transparent fill color. falpha defines the percentage of
+   // the color opacity from 0. (fully transparent) to 1. (fully opaque).
+
+   fFillColor = TColor::GetColorTransparent(fcolor, falpha);
 }

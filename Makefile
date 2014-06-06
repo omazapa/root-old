@@ -307,6 +307,9 @@ endif
 ifeq ($(BUILDR),yes)
 MODULES      += r
 endif
+ifeq ($(BUILDHTTP),yes)
+MODULES      += net/http
+endif
 
 -include MyModules.mk   # allow local modules
 
@@ -327,7 +330,8 @@ MODULES      += core/unix core/winnt graf2d/x11 graf2d/x11ttf \
                 geom/geocad geom/gdml graf3d/eve net/glite misc/memstat \
                 math/genvector net/bonjour graf3d/gviz3d graf2d/gviz \
                 proof/proofbench proof/afdsmgrd graf2d/ios \
-                graf2d/quartz graf2d/cocoa core/macosx math/vc math/vdt
+                graf2d/quartz graf2d/cocoa core/macosx math/vc math/vdt \
+                net/http
 MODULES      := $(sort $(MODULES))   # removes duplicates
 endif
 
@@ -488,8 +492,6 @@ ifeq ($(PLATFORM),ios)
    POSTBIN       += staticlib
 endif
 
-POSTBIN       += etc/allDict.cxx.pch
-
 MAKEDEP        = $(RMKDEP)
 MAKELIB        = $(ROOT_SRCDIR)/build/unix/makelib.sh $(MKLIBOPTIONS)
 MAKEDIST      := $(ROOT_SRCDIR)/build/unix/makedist.sh
@@ -516,6 +518,9 @@ endif
 COMPILEDATA   = include/compiledata.h
 ROOTRC        = etc/system.rootrc
 ROOTMAP       = etc/system.rootmap
+ROOTPCH       = etc/allDict.cxx.pch
+
+POSTBIN       += $(ROOTPCH)
 
 ##### Extra libs needed for "static" target #####
 
@@ -800,7 +805,7 @@ $(COREDS): $(COREDICTHDEP) $(COREL) $(ROOTCLINGSTAGE1DEP) $(LLVMDEP)
 	$(MAKEDIR)
 	@echo "Generating dictionary $@..."
 	$(ROOTCLINGSTAGE1) -f $@ -s lib/libCore.$(SOEXT) -c $(COREDICTCXXFLAGS) \
-	   $(COREDICTH) $(COREL0)
+	   $(COREDICTH) $(COREL0) && touch lib/libCore_rdict.pcm
 
 $(call pcmname,$(CORELIB)): $(COREDS)
 	$(noop)
@@ -816,7 +821,7 @@ $(COREMAP): $(COREDICTHDEP) $(COREL) $(ROOTCLINGSTAGE1DEP) $(LLVMDEP)
 	@echo "Generating rootmap $@..."
 	$(ROOTCLINGSTAGE1) -r $(COREDS) -s lib/libCore.$(SOEXT) \
 	   $(call rootmapModule, lib/libCore.$(SOEXT)) -c $(COREDICTCXXFLAGS) \
-	   $(COREDICTH) $(COREL0) && touch lib/libCore_rdict.pcm
+	   $(COREDICTH) $(COREL0)
 
 map::   $(ALLMAPS)
 
@@ -1047,9 +1052,9 @@ version: $(ROOTEXE)
 
 staticlib: $(ROOTALIB)
 
-static: $(ROOTA)
+static: $(ROOTA) $(ROOTPCH)
 
-$(ROOTA) $(PROOFSERVA): $(ROOTALIB) $(MAKESTATIC) $(STATICOBJLIST)
+$(ROOTA) $(PROOFSERVA): $(ROOTALIB) $(MAKESTATIC) $(STATICOBJLIST) $(ROOTEXEO) $(PROOFSERVO)
 	@$(MAKESTATIC) $(PLATFORM) "$(CXX)" "$(CC)" "$(LD)" "$(LDFLAGS)" \
 	   "$(XLIBS)" "$(SYSLIBS)" "$(STATICEXTRALIBS)" $(STATICOBJLIST)
 
@@ -1065,7 +1070,7 @@ changelog:
 releasenotes:
 	@$(MAKERELNOTES)
 
-etc/allDict.cxx.pch: $(ROOTCLINGSTAGE1DEP) $(ALLHDRS) $(CLINGETCPCH) $(ORDER_) $(ALLLIBS)
+$(ROOTPCH): $(ROOTCLINGSTAGE1DEP) $(ALLHDRS) $(CLINGETCPCH) $(ORDER_) $(ALLLIBS)
 	@$(MAKEONEPCM) $(ROOT_SRCDIR) "$(MODULES)" $(CLINGETCPCH)
 
 ifeq ($(BUILDX11),yes)

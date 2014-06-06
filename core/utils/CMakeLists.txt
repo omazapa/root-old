@@ -14,7 +14,20 @@ ROOT_EXECUTABLE(rootcling src/LinkdefReader.cxx src/DictSelectionReader.cxx
                           $<TARGET_OBJECTS:Clib>
                           $<TARGET_OBJECTS:MetaUtils> 
                           $<TARGET_OBJECTS:MetaUtilsLLVM>
-                          LIBRARIES RIO ${CLING_LIBRARIES} ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_TINFO_LIBS})
+                          $<TARGET_OBJECTS:RIOObjs>
+                          $<TARGET_OBJECTS:ThreadObjs>
+                          $<TARGET_OBJECTS:Base>
+                          $<TARGET_OBJECTS:Cont>
+                          $<TARGET_OBJECTS:Lzma>
+                          $<TARGET_OBJECTS:Zip>
+                          $<TARGET_OBJECTS:Meta>
+                          $<TARGET_OBJECTS:TextInput>
+                          ${macosx_objects}
+                          ${unix_objects}
+                          ${winnt_objects}
+                          LIBRARIES ${PCRE_LIBRARIES} ${LZMA_LIBRARIES} ${ZLIB_LIBRARY} 
+                                    ${CLING_LIBRARIES} ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT} 
+                                    ${CMAKE_TINFO_LIBS} ${corelinklibs})
 
 add_dependencies(rootcling CLING LLVMRES)
 
@@ -22,6 +35,8 @@ add_custom_command(TARGET rootcling POST_BUILD
                    COMMAND ln -f rootcling rootcint
                    COMMAND ln -f rootcling genreflex
                    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+set_directory_properties(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES 
+                         "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/rootcint;${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/genreflex")
 
 install(PROGRAMS  ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/rootcint
                   ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/genreflex
@@ -63,9 +78,7 @@ foreach(file  Interpreter/DynamicExprInfo.h
               Interpreter/InvocationOptions.h
               Interpreter/RuntimeException.h
               Interpreter/RuntimeUniverse.h
-              Interpreter/Value.h
-              Interpreter/ValuePrinter.h
-              Interpreter/ValuePrinterInfo.h )
+              Interpreter/Value.h)
   get_filename_component(path ${file} PATH)
   list(APPEND files_to_copy COMMAND cmake -E copy ${clinginclude}/cling/${file} ${CMAKE_BINARY_DIR}/etc/cling/${file})
   install(FILES ${clinginclude}/cling/${file} DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/cling/${path})

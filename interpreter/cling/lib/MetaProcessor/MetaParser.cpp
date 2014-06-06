@@ -116,7 +116,8 @@ namespace cling {
     if (resultValue)
       *resultValue = Value();
     return isLCommand(actionResult)
-      || isXCommand(actionResult, resultValue)
+      || isXCommand(actionResult, resultValue) ||isTCommand(actionResult)
+      || isAtCommand()
       || isqCommand() || isUCommand(actionResult) || isICommand()
       || isOCommand() || israwInputCommand() || isprintDebugCommand()
       || isdynamicExtensionsCommand() || ishelpCommand() || isfileExCommand()
@@ -137,6 +138,27 @@ namespace cling {
       if (getCurTok().is(tok::raw_ident)) {
         result = true;
         actionResult = m_Actions->actOnLCommand(getCurTok().getIdent());
+        consumeToken();
+        if (getCurTok().is(tok::comment)) {
+          consumeAnyStringToken(tok::eof);
+          m_Actions->actOnComment(getCurTok().getIdent());
+        }
+      }
+    }
+    // TODO: Some fine grained diagnostics
+    return result;
+  }
+
+  // T := 'T' FilePath Comment
+  // FilePath := AnyString
+  // AnyString := .*^('\t' Comment)
+  bool MetaParser::isTCommand(MetaSema::ActionResult& actionResult) {
+    bool result = false;
+    if (getCurTok().is(tok::ident) && getCurTok().getIdent().equals("T")) {
+      consumeAnyStringToken(tok::comment);
+      if (getCurTok().is(tok::raw_ident)) {
+        result = true;
+        actionResult = m_Actions->actOnTCommand(getCurTok().getIdent());
         consumeToken();
         if (getCurTok().is(tok::comment)) {
           consumeAnyStringToken(tok::eof);
@@ -285,7 +307,9 @@ namespace cling {
   }
 
   bool MetaParser::isICommand() {
-    if (getCurTok().is(tok::ident) && getCurTok().getIdent().equals("I")) {
+    if (getCurTok().is(tok::ident) &&
+        (   getCurTok().getIdent().equals("I")
+         || getCurTok().getIdent().equals("include"))) {
       consumeAnyStringToken(tok::eof);
       llvm::StringRef path;
       if (getCurTok().is(tok::raw_ident))
@@ -328,6 +352,17 @@ namespace cling {
       }
     }
 
+    return false;
+  }
+
+  bool MetaParser::isAtCommand() {
+    if (getCurTok().is(tok::at) // && getCurTok().getIdent().equals("@")
+        ) {
+      consumeToken();
+      skipWhitespace();
+      m_Actions->actOnAtCommand();
+      return true;
+    }
     return false;
   }
 
