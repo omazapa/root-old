@@ -18,6 +18,7 @@ set( LLVM_LINK_COMPONENTS
 
 add_cling_library(clingInterpreter
   AutoSynthesizer.cpp
+  AutoloadingTransform.cpp
   BackendPass.cpp
   CheckEmptyTransactionTransformer.cpp
   CIFactory.cpp
@@ -42,7 +43,6 @@ add_cling_library(clingInterpreter
   TransactionUnloader.cpp
   Value.cpp
   ValuePrinter.cpp
-  ValuePrinterInfo.cpp
   ValuePrinterSynthesizer.cpp
 
   LINK_LIBS

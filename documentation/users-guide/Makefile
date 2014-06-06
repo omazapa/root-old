@@ -1,5 +1,5 @@
 MDFILES=ROOTUsersGuide.md Preface.md Introduction.md GettingStarted.md \
-	Histograms.md Graphs.md FittingHistograms.md ALittleC++.md CINT.md \
+	Histograms.md Graphs.md FittingHistograms.md ALittleC++.md Cling.md \
 	ObjectOwnership.md Graphics.md FoldersTasks.md InputOutput.md \
 	Trees.md MathLibraries.md LinearAlgebra.md AddingaClass.md \
 	CollectionClasses.md PhysicsVectors.md Geometry.md PythonRuby.md \
@@ -69,7 +69,7 @@ pdf_chapters: $(PDFFILES)
 	@echo Generating HTML chapter: $@
 	@( OFFSET=$$( for F in $(MDFILES) ; do echo $$F ; done | \
 	   grep -n "^$^$$" | head -n1 | cut -d: -f1 ) && \
-	   let OFFSET-- && \
+	   OFFSET=`expr $$OFFSET - 1` && \
 	   pandoc $(OPTIONS) $(OPTIONSHTML) --number-offset $$OFFSET $^ -o $@ )
 
 html_chapters: $(HTMLFILES)

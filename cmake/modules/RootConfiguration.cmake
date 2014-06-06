@@ -330,6 +330,7 @@ set(buildroofit ${value${roofit}})
 set(buildminuit2 ${value${minuit2}})
 set(buildunuran ${value${unuran}})
 set(buildgdml ${value${gdml}})
+set(buildhttp ${value${http}})
 set(buildtable ${value${table}})
 set(buildtmva ${value${tmva}})
 
@@ -478,7 +479,7 @@ else()
   execute_process(COMMAND ${CMAKE_SOURCE_DIR}/build/unix/compiledata.sh include/compiledata.h "${CXX}" ""
        "${CMAKE_CXX_FLAGS_${uppercase_CMAKE_BUILD_TYPE}}"
 	     "${CMAKE_CXX_FLAGS}" "${CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS}" "${CMAKE_EXE_FLAGS}" "${LibSuffix}" "${SYSLIBS}"
-	     "${libdir}" "-lCore" "-Rint" "${incdir}" "" "" "${ROOT_ARCHITECTURE}" "" "${explicitlink}" )
+	     "${libdir}" "-lCore" "-lRint" "${incdir}" "" "" "${ROOT_ARCHITECTURE}" "" "${explicitlink}" )
 endif()
 
 configure_file(${CMAKE_SOURCE_DIR}/config/root-config.in ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/root-config @ONLY)

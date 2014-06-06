@@ -28,7 +28,7 @@
 TProtoClass::TProtoClass(TClass* cl):
    TNamed(*cl), fBase(cl->GetListOfBases()), fData(cl->GetListOfDataMembers()),
    fSizeof(cl->Size()), fCanSplit(cl->fCanSplit), fStreamerType(cl->fStreamerType),
-   fProperty(cl->fProperty)
+   fProperty(cl->fProperty),fClassProperty(cl->fClassProperty)
 {
    // Initialize a TProtoClass from a TClass.
    fPRealData = new TList();
@@ -98,30 +98,37 @@ Bool_t TProtoClass::FillTClass(TClass* cl) {
    cl->fSizeof = fSizeof;
    cl->fCanSplit = fCanSplit;
    cl->fProperty = fProperty;
+   cl->fClassProperty = fClassProperty;
    cl->fStreamerType = fStreamerType;
 
    // Update pointers to TClass
-   for (auto base: *cl->fBase) {
-      ((TBaseClass*)base)->SetClass(cl);
+   if (cl->fBase) {
+      for (auto base: *cl->fBase) {
+         ((TBaseClass*)base)->SetClass(cl);
+      }
    }
-   for (auto dm: *cl->fData) {
-      ((TDataMember*)dm)->SetClass(cl);
+   if (cl->fData) {
+      for (auto dm: *cl->fData) {
+         ((TDataMember*)dm)->SetClass(cl);
+      }
+      ((TListOfDataMembers*)cl->fData)->SetClass(cl);
    }
-   ((TListOfDataMembers*)cl->fData)->SetClass(cl);
 
    TClass* currentRDClass = cl;
-   for (TObject* element: *fPRealData) {
-      if (element->IsA() == TObjString::Class()) {
-         currentRDClass = TClass::GetClass(element->GetName());
-         if (!currentRDClass) {
-            Error("TProtoClass::FillTClass()", "Cannot find TClass for %s; skipping its members.",
-                  element->GetName());
-         }
-      } else {
-         if (!currentRDClass) continue;
-         TProtoRealData* prd = (TProtoRealData*)element;
-         if (TRealData* rd = prd->CreateRealData(currentRDClass)) {
-            cl->fRealData->AddLast(rd);
+   if (fPRealData) {
+      for (TObject* element: *fPRealData) {
+         if (element->IsA() == TObjString::Class()) {
+            currentRDClass = TClass::GetClass(element->GetName());
+            if (!currentRDClass) {
+               Error("TProtoClass::FillTClass()", "Cannot find TClass for %s; skipping its members.",
+                     element->GetName());
+            }
+         } else {
+            if (!currentRDClass) continue;
+            TProtoRealData* prd = (TProtoRealData*)element;
+            if (TRealData* rd = prd->CreateRealData(currentRDClass)) {
+               cl->fRealData->AddLast(rd);
+            }
          }
       }
    }
@@ -130,7 +137,7 @@ Bool_t TProtoClass::FillTClass(TClass* cl) {
 
    fBase = 0;
    fData = 0;
-   fPRealData->Delete();
+   if (fPRealData) fPRealData->Delete();
    delete fPRealData;
    fPRealData = 0;
 

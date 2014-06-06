@@ -109,7 +109,12 @@ namespace cling {
     if (!i->isPrintingDebug())
       return;
     const CompilerInstance& CI = *m_Interpreter->getCI();
-    CodeGenerator* CG = i->getCodeGenerator();
+    CodeGenerator* CG = i->m_IncrParser->getCodeGenerator();
+
+    // The ClangInternalState constructor can provoke deserialization,
+    // we need a transaction.
+    PushTransactionRAII pushedT(i);
+
     m_State.reset(new ClangInternalState(CI.getASTContext(),
                                          CI.getPreprocessor(),
                                          CG ? CG->GetModule() : 0,
@@ -118,6 +123,10 @@ namespace cling {
   }
 
   Interpreter::StateDebuggerRAII::~StateDebuggerRAII() {
+    // The ClangInternalState destructor can provoke deserialization,
+    // we need a transaction.
+    PushTransactionRAII pushedT(m_Interpreter);
+
     pop();
   }
 
@@ -143,8 +152,9 @@ namespace cling {
     return *m_IncrParser->getParser();
   }
 
-  CodeGenerator* Interpreter::getCodeGenerator() const {
-    return m_IncrParser->getCodeGenerator();
+  bool Interpreter::isInSyntaxOnlyMode() const {
+    return getCI()->getFrontendOpts().ProgramAction
+      == clang::frontend::ParseSyntaxOnly;
   }
 
   Interpreter::Interpreter(int argc, const char* const *argv,
@@ -177,9 +187,9 @@ namespace cling {
                                                      /*SkipFunctionBodies*/false,
                                                      /*isTemp*/true), this));
 
-    if (m_IncrParser->hasCodeGenerator()) {
+    if (!isInSyntaxOnlyMode()) {
       llvm::Module* theModule = m_IncrParser->getCodeGenerator()->GetModule();
-      m_Executor.reset(new IncrementalExecutor(theModule));
+      m_Executor.reset(new IncrementalExecutor(theModule, SemaRef.Diags));
     }
 
     llvm::SmallVector<Transaction*, 2> IncrParserTransactions;
@@ -268,7 +278,7 @@ namespace cling {
 #endif
     declare("#include \"cling/Interpreter/RuntimeUniverse.h\"");
 
-    if (getCodeGenerator()) {
+    if (!isInSyntaxOnlyMode()) {
       // Set up the gCling variable if it can be used
       std::stringstream initializer;
       initializer << "namespace cling {namespace runtime { "
@@ -276,11 +286,21 @@ namespace cling {
                   << (uintptr_t)this << ";} }";
       declare(initializer.str());
     }
-
-    declare("#include \"cling/Interpreter/ValuePrinter.h\"");
   }
 
   void Interpreter::IncludeCRuntime() {
+    // Set up the gCling variable if it can be used
+    std::stringstream initializer;
+    initializer << "void* gCling=(void*)" << (uintptr_t)this << ';';
+    declare(initializer.str());
+    // declare("void setValueNoAlloc(void* vpI, void* vpSVR, void* vpQT);");
+    // declare("void setValueNoAlloc(void* vpI, void* vpV, void* vpQT, float value);");
+    // declare("void setValueNoAlloc(void* vpI, void* vpV, void* vpQT, double value);");
+    // declare("void setValueNoAlloc(void* vpI, void* vpV, void* vpQT, long double value);");
+    // declare("void setValueNoAlloc(void* vpI, void* vpV, void* vpQT, unsigned long long value);");
+    // declare("void setValueNoAlloc(void* vpI, void* vpV, void* vpQT, const void* value);");
+    // declare("void* setValueWithAlloc(void* vpI, void* vpV, void* vpQT);");
+
     declare("#include \"cling/Interpreter/CValuePrinter.h\"");
   }
 
@@ -323,7 +343,7 @@ namespace cling {
   void Interpreter::storeInterpreterState(const std::string& name) const {
     // This may induce deserialization
     PushTransactionRAII RAII(this);
-    CodeGenerator* CG = getCodeGenerator();
+    CodeGenerator* CG = m_IncrParser->getCodeGenerator();
     ClangInternalState* state
       = new ClangInternalState(getCI()->getASTContext(),
                                getCI()->getPreprocessor(),
@@ -469,7 +489,6 @@ namespace cling {
     CO.ResultEvaluation = (bool)V;
     CO.DynamicScoping = isDynamicLookupEnabled();
     CO.Debug = isPrintingDebug();
-
     if (EvaluateInternal(input, CO, V, T) == Interpreter::kFailure) {
       return Interpreter::kFailure;
     }
@@ -603,7 +622,7 @@ namespace cling {
   }
 
   Interpreter::CompilationResult Interpreter::emitAllDecls(Transaction* T) {
-    assert(getCodeGenerator() && "No CodeGenerator?");
+    assert(!isInSyntaxOnlyMode() && "No CodeGenerator?");
     m_IncrParser->markWholeTransactionAsUsed(T);
     m_IncrParser->codeGenTransaction(T);
 
@@ -663,8 +682,25 @@ namespace cling {
 
     if (kind == tok::raw_identifier && !Tok.needsCleaning()) {
       StringRef keyword(Tok.getRawIdentifierData(), Tok.getLength());
-      if (keyword.equals("using"))
-        return false;
+      if (keyword.equals("using")) {
+        // FIXME: Using definitions and declarations should be decl extracted.
+        // Until we have that, don't wrap them if they are the only input.
+        const char* cursor = keyword.data();
+        cursor = strchr(cursor, ';'); // advance to end of using decl / def.
+        if (!cursor) {
+          // Using decl / def without trailing ';' means input consists of only
+          // that using decl /def: should not wrap.
+          return false;
+        }
+        // Skip whitespace after ';'
+        do ++cursor;
+        while (*cursor && isspace(*cursor));
+        if (!*cursor)
+          return false;
+        // There is "more" - let's assume this input consists of a using
+        // declaration or definition plus some code that should be wrapped.
+        return true;
+      }
       if (keyword.equals("extern"))
         return false;
       if (keyword.equals("namespace"))
@@ -686,7 +722,7 @@ namespace cling {
 
   void Interpreter::WrapInput(std::string& input, std::string& fname) {
     fname = createUniqueWrapper();
-    input.insert(0, "void " + fname + "(cling::Value*) {\n ");
+    input.insert(0, "void " + fname + "(void* vpClingValue) {\n ");
     input.append("\n;\n}");
   }
 
@@ -695,7 +731,7 @@ namespace cling {
     if (getCI()->getDiagnostics().hasErrorOccurred())
       return kExeCompilationError;
 
-    if (!m_IncrParser->hasCodeGenerator()) {
+    if (isInSyntaxOnlyMode()) {
       return kExeNoCodeGen;
     }
 
@@ -834,11 +870,11 @@ namespace cling {
     //  Compile the wrapper code.
     //
     const llvm::GlobalValue* GV = 0;
-    if (!getCodeGenerator())
+    if (isInSyntaxOnlyMode())
       return 0;
 
     if (ifUnique)
-      GV = getCodeGenerator()->GetModule()->getNamedValue(name);
+      GV = getLastTransaction()->getModule()->getNamedValue(name);
 
     if (!GV) {
       const FunctionDecl* FD = DeclareCFunction(name, code, withAccessControl);
@@ -847,7 +883,7 @@ namespace cling {
       //  Get the wrapper function pointer
       //  from the ExecutionEngine (the JIT).
       //
-      GV = getCodeGenerator()->GetModule()->getNamedValue(name);
+      GV = getLastTransaction()->getModule()->getNamedValue(name);
     }
 
     if (!GV)
@@ -945,10 +981,21 @@ namespace cling {
               || lastT->getState() == Transaction::kRolledBack)
              && "Not committed?");
       if (lastT->getIssuedDiags() != Transaction::kErrors) {
+        Value resultV;
+        if (!V)
+          V = &resultV;
         if (!lastT->getWrapperFD()) // no wrapper to run
           return Interpreter::kSuccess;
-        else if (RunFunction(lastT->getWrapperFD(), V) < kExeFirstError)
+        else if (RunFunction(lastT->getWrapperFD(), V) < kExeFirstError){
+          if (lastT->getCompilationOpts().ValuePrinting
+              != CompilationOptions::VPDisabled
+              && V->isValid()
+              // the !V->needsManagedAllocation() case is handled by
+              // dumpIfNoStorage.
+              && V->needsManagedAllocation())
+            V->dump();
           return Interpreter::kSuccess;
+        }
       }
       if (V)
         *V = Value();
@@ -1090,7 +1137,7 @@ namespace cling {
 
   Interpreter::ExecutionResult
   Interpreter::runStaticInitializersOnce(const Transaction& T) const {
-    assert(m_IncrParser->hasCodeGenerator() && "Running on what?");
+    assert(!isInSyntaxOnlyMode() && "Running on what?");
     assert(T.getState() == Transaction::kCommitted && "Must be committed");
     // Forward to IncrementalExecutor; should not be called by
     // anyone except for IncrementalParser.
@@ -1105,7 +1152,8 @@ namespace cling {
       module->eraseNamedMetadata(IdentMetadata);
 
     // Reset the module builder to clean up global initializers, c'tors, d'tors
-    getCodeGenerator()->HandleTranslationUnit(getCI()->getASTContext());
+    ASTContext& C = getCI()->getASTContext();
+    m_IncrParser->getCodeGenerator()->HandleTranslationUnit(C);
 
     return ConvertExecutionResult(ExeRes);
   }
@@ -1129,9 +1177,9 @@ namespace cling {
   void* Interpreter::getAddressOfGlobal(llvm::StringRef SymName,
                                         bool* fromJIT /*=0*/) const {
     // Return a symbol's address, and whether it was jitted.
-    if (!m_IncrParser->hasCodeGenerator())
+    if (isInSyntaxOnlyMode())
       return 0;
-    llvm::Module* module = getCodeGenerator()->GetModule();
+    llvm::Module* module = getLastTransaction()->getModule();
     return m_Executor->getAddressOfGlobal(module, SymName, fromJIT);
   }
 

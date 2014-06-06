@@ -889,7 +889,7 @@ TClass::TClass() :
    fStreamer(0), fIsA(0), fGlobalIsA(0), fIsAMethod(0),
    fMerge(0), fResetAfterMerge(0), fNew(0), fNewArray(0), fDelete(0), fDeleteArray(0),
    fDestructor(0), fDirAutoAdd(0), fStreamerFunc(0), fSizeof(-1),
-   fCanSplit(-1), fProperty(0), fHasRootPcmInfo(kFALSE), fCanLoadClassInfo(kFALSE), fVersionUsed(kFALSE),
+   fCanSplit(-1), fProperty(0), fClassProperty(0), fHasRootPcmInfo(kFALSE), fCanLoadClassInfo(kFALSE), fVersionUsed(kFALSE),
    fIsOffsetStreamerSet(kFALSE), fOffsetStreamer(0), fStreamerType(TClass::kDefault),
    fState(kNoInfo),
    fCurrentInfo(0), fRefStart(0), fRefProxy(0),
@@ -915,7 +915,7 @@ TClass::TClass(const char *name, Bool_t silent) :
    fStreamer(0), fIsA(0), fGlobalIsA(0), fIsAMethod(0),
    fMerge(0), fResetAfterMerge(0), fNew(0), fNewArray(0), fDelete(0), fDeleteArray(0),
    fDestructor(0), fDirAutoAdd(0), fStreamerFunc(0), fSizeof(-1),
-   fCanSplit(-1), fProperty(0), fHasRootPcmInfo(kFALSE), fCanLoadClassInfo(kFALSE), fVersionUsed(kFALSE),
+   fCanSplit(-1), fProperty(0), fClassProperty(0), fHasRootPcmInfo(kFALSE), fCanLoadClassInfo(kFALSE), fVersionUsed(kFALSE),
    fIsOffsetStreamerSet(kFALSE), fOffsetStreamer(0), fStreamerType(TClass::kDefault),
    fState(kNoInfo),
    fCurrentInfo(0), fRefStart(0), fRefProxy(0),
@@ -961,7 +961,7 @@ TClass::TClass(const char *name, Version_t cversion, Bool_t silent) :
    fStreamer(0), fIsA(0), fGlobalIsA(0), fIsAMethod(0),
    fMerge(0), fResetAfterMerge(0), fNew(0), fNewArray(0), fDelete(0), fDeleteArray(0),
    fDestructor(0), fDirAutoAdd(0), fStreamerFunc(0), fSizeof(-1),
-   fCanSplit(-1), fProperty(0), fHasRootPcmInfo(kFALSE), fCanLoadClassInfo(kFALSE), fVersionUsed(kFALSE),
+   fCanSplit(-1), fProperty(0), fClassProperty(0), fHasRootPcmInfo(kFALSE), fCanLoadClassInfo(kFALSE), fVersionUsed(kFALSE),
    fIsOffsetStreamerSet(kFALSE), fOffsetStreamer(0), fStreamerType(TClass::kDefault),
    fState(kNoInfo),
    fCurrentInfo(0), fRefStart(0), fRefProxy(0),
@@ -987,7 +987,7 @@ TClass::TClass(ClassInfo_t *classInfo, Version_t cversion,
    fStreamer(0), fIsA(0), fGlobalIsA(0), fIsAMethod(0),
    fMerge(0), fResetAfterMerge(0), fNew(0), fNewArray(0), fDelete(0), fDeleteArray(0),
    fDestructor(0), fDirAutoAdd(0), fStreamerFunc(0), fSizeof(-1),
-   fCanSplit(-1), fProperty(0), fHasRootPcmInfo(kFALSE), fCanLoadClassInfo(kFALSE), fVersionUsed(kFALSE),
+   fCanSplit(-1), fProperty(0), fClassProperty(0), fHasRootPcmInfo(kFALSE), fCanLoadClassInfo(kFALSE), fVersionUsed(kFALSE),
    fIsOffsetStreamerSet(kFALSE), fOffsetStreamer(0), fStreamerType(TClass::kDefault),
    fState(kNoInfo),
    fCurrentInfo(0), fRefStart(0), fRefProxy(0),
@@ -1042,7 +1042,7 @@ TClass::TClass(const char *name, Version_t cversion,
    fStreamer(0), fIsA(0), fGlobalIsA(0), fIsAMethod(0),
    fMerge(0), fResetAfterMerge(0), fNew(0), fNewArray(0), fDelete(0), fDeleteArray(0),
    fDestructor(0), fDirAutoAdd(0), fStreamerFunc(0), fSizeof(-1),
-   fCanSplit(-1), fProperty(0), fHasRootPcmInfo(kFALSE), fCanLoadClassInfo(kFALSE), fVersionUsed(kFALSE),
+   fCanSplit(-1), fProperty(0), fClassProperty(0), fHasRootPcmInfo(kFALSE), fCanLoadClassInfo(kFALSE), fVersionUsed(kFALSE),
    fIsOffsetStreamerSet(kFALSE), fOffsetStreamer(0), fStreamerType(TClass::kDefault),
    fState(kNoInfo),
    fCurrentInfo(0), fRefStart(0), fRefProxy(0),
@@ -1071,7 +1071,7 @@ TClass::TClass(const char *name, Version_t cversion,
    fStreamer(0), fIsA(0), fGlobalIsA(0), fIsAMethod(0),
    fMerge(0), fResetAfterMerge(0), fNew(0), fNewArray(0), fDelete(0), fDeleteArray(0),
    fDestructor(0), fDirAutoAdd(0), fStreamerFunc(0), fSizeof(-1),
-   fCanSplit(-1), fProperty(0), fHasRootPcmInfo(kFALSE), fCanLoadClassInfo(kFALSE), fVersionUsed(kFALSE),
+   fCanSplit(-1), fProperty(0), fClassProperty(0), fHasRootPcmInfo(kFALSE), fCanLoadClassInfo(kFALSE), fVersionUsed(kFALSE),
    fIsOffsetStreamerSet(kFALSE), fOffsetStreamer(0), fStreamerType(TClass::kDefault),
    fState(kHasTClassInit),
    fCurrentInfo(0), fRefStart(0), fRefProxy(0),
@@ -1135,6 +1135,7 @@ void TClass::Init(const char *name, Version_t cversion,
    // See also TCling::GenerateTClass() which will update fClassVersion after creation!
    fStreamerInfo   = new TObjArray(fClassVersion+2+10,-1); // +10 to read new data by old
    fProperty       = -1;
+   fClassProperty  = -1;
 
    ResetInstanceCount();
 
@@ -1378,6 +1379,7 @@ TClass::TClass(const TClass& cl) :
   fSizeof(cl.fSizeof),
   fCanSplit(cl.fCanSplit),
   fProperty(cl.fProperty),
+  fClassProperty(cl.fClassProperty),
   fCanLoadClassInfo(cl.fCanLoadClassInfo),
   fVersionUsed(cl.fVersionUsed),
   fIsOffsetStreamerSet(cl.fIsOffsetStreamerSet),
@@ -2093,6 +2095,16 @@ Bool_t TClass::CanSplit() const
 }
 
 //______________________________________________________________________________
+Long_t TClass::ClassProperty() const
+{
+   // Return the C++ property of this class, eg. is abstract, has virtual base
+   // class, see EClassProperty in TDictionary.h
+
+   if (fProperty == -1) Property();
+   return fClassProperty;
+}
+
+//______________________________________________________________________________
 TObject *TClass::Clone(const char *new_name) const
 {
    // Create a Clone of this TClass object using a different name but using the same 'dictionary'.
@@ -2649,7 +2661,8 @@ TClass *TClass::GetClass(const char *name, Bool_t load, Bool_t silent)
 
    if (!name || !name[0]) return 0;
    R__LOCKGUARD(gInterpreterMutex);
-   if (!gROOT->GetListOfClasses())    return 0;
+   if (!gROOT->GetListOfClasses())  return 0;
+   if (strstr(name, "<anonymous>")) return 0;
 
    if (strncmp(name,"class ",6)==0) name += 6;
    if (strncmp(name,"struct ",7)==0) name += 7;
@@ -2682,16 +2695,38 @@ TClass *TClass::GetClass(const char *name, Bool_t load, Bool_t silent)
       // Try the name where we strip out the STL default template arguments
       std::string resolvedName;
       splitname.ShortType(resolvedName, TClassEdit::kDropStlDefault);
-      if (resolvedName != name) cl = (TClass*)gROOT->GetListOfClasses()->FindObject(resolvedName.c_str());
+      if (resolvedName != name) {
+         cl = (TClass*)gROOT->GetListOfClasses()->FindObject(resolvedName.c_str());
+      } else {
+         // Signal that the resolved name is identical.
+         resolvedName.clear();
+      }
       if (!cl) {
          // Attempt to resolve typedefs
-         resolvedName = TClassEdit::ResolveTypedef(resolvedName.c_str(),kTRUE);
-         if (resolvedName != name) cl = (TClass*)gROOT->GetListOfClasses()->FindObject(resolvedName.c_str());
+         TDataType* dataType = (TDataType*)gROOT->GetListOfTypes()->FindObject(name);
+         if (resolvedName.empty()) {
+            // Make it available to Long64_t resolution below.
+            resolvedName = name;
+         } else if (!dataType) {
+            dataType = (TDataType*)gROOT->GetListOfTypes()->FindObject(resolvedName.c_str());
+         }
+         if (dataType)
+            cl = (TClass*)gROOT->GetListOfClasses()->FindObject(dataType->GetFullTypeName());
       }
       if (!cl) {
          // Try with Long64_t
          resolvedName = TClassEdit::GetLong64_Name(resolvedName);
          if (resolvedName != name) cl = (TClass*)gROOT->GetListOfClasses()->FindObject(resolvedName.c_str());
+      }
+
+      if (!cl) {
+         // Try after autoparsing the template.
+         std::string::size_type posLess = resolvedName.find('<');
+         if (posLess != std::string::npos) {
+            if (gCling->AutoParse(resolvedName.substr(0, posLess).c_str())) {
+               return TClass::GetClass(resolvedName.c_str(), load, silent);
+            }
+         }
       }
    }
 
@@ -2739,12 +2774,9 @@ TClass *TClass::GetClass(const char *name, Bool_t load, Bool_t silent)
 
          TDataType *objType = gROOT->GetType(name, kTRUE);
          if (objType) {
-            const char *typdfName = objType->GetTypeName();
-            if (typdfName && strcmp(typdfName, name)) {
-               TString alternateName(typdfName);
-               // TClass::GetClass might get call GetTypeName and thus
-               // re-use the static storage use by GetTypeName!
-               cl = TClass::GetClass(alternateName, load);
+            TString typdfName = objType->GetTypeName();
+            if (typdfName.Length() && typdfName != name) {
+               cl = TClass::GetClass(typdfName, load);
                return cl;
             }
          }
@@ -3349,20 +3381,137 @@ void TClass::GetMenuItems(TList *list)
    }
 }
 
+//______________________________________________________________________________
 Bool_t TClass::HasDictionary()
 {
    // Check whether a class has a dictionary or not.
 
-   return gInterpreter->HasDictionary(this);
+   if (gClassTable->GetDict(fName)) return true;
+
+   return false;
 }
 
-void TClass::GetMissingDictionaries(TObjArray& result, bool recurse)
+//______________________________________________________________________________
+void TClass::GetMissingDictionariesForBaseClasses(TCollection& result, bool recurse)
 {
-   // Get the classes that have a missing dictionary.
-   // Recurse over the data members using the flag recurse.
-   // By default is is not recursing on the data members.
+   // Verify the base classes always.
 
-   gInterpreter->GetMissingDictionaries(this, result, recurse);
+   TList* lb = GetListOfBases();
+   if (!lb) return;
+   TIter nextBase(lb);
+   TBaseClass* base = 0;
+   while ((base = (TBaseClass*)nextBase())) {
+      TClass* baseCl = base->Class();
+      if (baseCl) {
+            baseCl->GetMissingDictionariesWithRecursionCheck(result, recurse);
+      }
+   }
+}
+
+//______________________________________________________________________________
+void TClass::GetMissingDictionariesForMembers(TCollection& result, bool recurse)
+{
+   // Verify the Data Members.
+
+   TListOfDataMembers* ldm = (TListOfDataMembers*)GetListOfDataMembers();
+   if (!ldm) return ;
+   TIter nextMemb(ldm);
+   TDataMember * dm = 0;
+   while ((dm = (TDataMember*)nextMemb())) {
+      // If it is a built-in data type.
+      TClass* dmTClass = 0;
+      if (dm->GetDataType()) {
+         dmTClass = dm->GetDataType()->Class();
+         // Otherwise get the string representing the type.
+      } else if (dm->GetTypeName()) {
+            dmTClass = TClass::GetClass(dm->GetTypeName());
+      }
+      if (dmTClass) {
+            dmTClass->GetMissingDictionariesWithRecursionCheck(result, recurse);
+      }
+   }
+}
+
+//______________________________________________________________________________
+void TClass::GetMissingDictionariesWithRecursionCheck(TCollection& result, bool recurse)
+{
+   // From the second level of recursion onwards it is different state check.
+
+   if (result.FindObject(this)) return;
+
+   static TClassRef sCIString("string");
+   if (this == sCIString) return;
+
+   if (strncmp(fName, "pair<", 5) == 0) return;
+
+   if (!HasDictionary()) {
+      result.Add(this);
+   }
+   //Check whether a custom streamer
+   if (!TestBit(TClass::kHasCustomStreamerMember)) {
+      if (GetCollectionProxy()) {
+         // We need to look at the collection's content
+         // The collection has different kind of elements the check would be required.
+         TClass* t = 0;
+         if ((t = GetCollectionProxy()->GetValueClass())) {
+            if (!t->HasDictionary()) {
+               if (recurse) {
+                  t->GetMissingDictionariesWithRecursionCheck(result, recurse);
+               } else {
+                  result.Add(this);
+               }
+            }
+         }
+      } else {
+         if (recurse) {
+            GetMissingDictionariesForMembers(result, recurse);
+         }
+         GetMissingDictionariesForBaseClasses(result, recurse);
+      }
+   }
+}
+
+//______________________________________________________________________________
+void TClass::GetMissingDictionaries(THashTable& result, bool recurse)
+{
+   // Get the classes that have a missing dictionary starting from this one.
+   // With recurse = false the classes checked for missing dictionaries are:
+   //                      the class itself, all base classes, direct data members,
+   //                      and for collection proxies the container's
+   //                      elements without iterating over the element's data members;
+   // With recurse = true the classes checked for missing dictionaries are:
+   //                      the class itself, all base classes, recursing on the data members,
+   //                      and for the collection proxies recursiong on the elements of the
+   //                      collection and iterating over the element's data members.
+
+   // Top level recursion it different from the following levels of recursion.
+
+   if (result.FindObject(this)) return;
+
+   static TClassRef sCIString("string");
+   if (this == sCIString) return;
+
+   if (strncmp(fName, "pair<", 5) == 0) return;
+
+   if (!HasDictionary()) {
+      result.Add(this);
+   }
+   //Check whether a custom streamer
+   if (!TestBit(TClass::kHasCustomStreamerMember)) {
+      if (GetCollectionProxy()) {
+         // We need to look at the collection's content
+         // The collection has different kind of elements the check would be required.
+         TClass* t = 0;
+         if ((t = GetCollectionProxy()->GetValueClass())) {
+            if (!t->HasDictionary()) {
+               t->GetMissingDictionariesWithRecursionCheck(result, recurse);
+            }
+         }
+      } else {
+         GetMissingDictionariesForMembers(result, recurse);
+         GetMissingDictionariesForBaseClasses(result, recurse);
+      }
+   }
 }
 
 //______________________________________________________________________________
@@ -3392,7 +3541,7 @@ void TClass::RemoveRef(TClassRef *ref)
 }
 
 //______________________________________________________________________________
-void TClass::ReplaceWith(TClass *newcl, Bool_t recurse) const
+void TClass::ReplaceWith(TClass *newcl) const
 {
    // Inform the other objects to replace this object by the new TClass (newcl)
 
@@ -3403,28 +3552,13 @@ void TClass::ReplaceWith(TClass *newcl, Bool_t recurse) const
    TVirtualStreamerInfo *info;
    TList tobedeleted;
 
-   TString corename( TClassEdit::ResolveTypedef(newcl->GetName()) );
-
-   if ( strchr( corename.Data(), '<' ) == 0 ) {
-      // not a template, let's skip
-      recurse = kFALSE;
-   }
+   // Since we are in the process of replacing a TClass by a TClass
+   // coming from a dictionary, there is no point in loading any
+   // libraries during this search.
+   Bool_t autoload = gInterpreter->SetClassAutoloading(kFALSE);
 
    while ((acl = (TClass*)nextClass())) {
       if (acl == newcl) continue;
-
-      if (recurse && acl!=this) {
-
-         TString aclCorename( TClassEdit::ResolveTypedef(acl->GetName()) );
-
-         if (aclCorename == corename) {
-
-            // 'acl' represents the same class as 'newcl' (and this object)
-
-            acl->ReplaceWith(newcl, kFALSE);
-            tobedeleted.Add(acl);
-         }
-      }
 
       TIter nextInfo(acl->GetStreamerInfos());
       while ((info = (TVirtualStreamerInfo*)nextInfo())) {
@@ -3443,6 +3577,8 @@ void TClass::ReplaceWith(TClass *newcl, Bool_t recurse) const
       delete acl;
    }
    gInterpreter->UnRegisterTClassUpdate(this);
+
+   gInterpreter->SetClassAutoloading(autoload);
 }
 
 //______________________________________________________________________________
@@ -3476,6 +3612,8 @@ void TClass::ResetClassInfo()
 void TClass::ResetCaches()
 {
    // To clean out all caches.
+
+   R__ASSERT(!TestBit(kLoading) && "Resetting the caches does not make sense during loading!" );
 
    // Not owning lists, don't call Delete(), but unload
    if (fData)
@@ -5051,6 +5189,7 @@ Long_t TClass::Property() const
    if (HasInterpreterInfo()) {
 
       kl->fProperty = gCling->ClassInfo_Property(GetClassInfo());
+      kl->fClassProperty = gCling->ClassInfo_ClassProperty(GetClassInfo());
 
       // This code used to use ClassInfo_Has|IsValidMethod but since v6
       // they return true if the routine is defined in the class or any of
@@ -5444,7 +5583,8 @@ UInt_t TClass::GetCheckSum(ECheckSum code) const
 
          if ( prop&kIsStatic)             continue;
          name = tdm->GetName(); il = name.Length();
-         if ( (code > kNoEnum) && prop&kIsEnum) id = id*3 + 1;
+         if ( (code > kNoEnum) && code != kReflex && code != kReflexNoComment && prop&kIsEnum)
+            id = id*3 + 1;
 
          int i;
          for (i=0; i<il; i++) id = id*3+name[i];
@@ -5454,8 +5594,12 @@ UInt_t TClass::GetCheckSum(ECheckSum code) const
             if (TClassEdit::IsSTLCont(type))
                type = TClassEdit::ShortType( type, TClassEdit::kDropStlDefault );
             if (code == kReflex || code == kReflexNoComment) {
-               type.ReplaceAll("ULong64_t","unsigned long long");
-               type.ReplaceAll("Long64_t","long long");
+               if (prop&kIsEnum) {
+                  type = "int";
+               } else {
+                  type.ReplaceAll("ULong64_t","unsigned long long");
+                  type.ReplaceAll("Long64_t","long long");
+               }
             }
          } else {
             type = tdm->GetFullTypeName();
@@ -6038,8 +6182,8 @@ void TClass::RegisterStreamerInfo(TVirtualStreamerInfo *info)
       R__LOCKGUARD(gInterpreterMutex);
       Int_t slot = info->GetClassVersion();
       if (fStreamerInfo->GetSize() > (slot-fStreamerInfo->LowerBound())
-          && fStreamerInfo->At(slot) == 0
-          && fStreamerInfo->At(slot) == info) {
+          && fStreamerInfo->At(slot) != 0
+          && fStreamerInfo->At(slot) != info) {
          Error("RegisterStreamerInfo",
                "Register StreamerInfo for %s on non-empty slot (%d).",
                GetName(),slot);

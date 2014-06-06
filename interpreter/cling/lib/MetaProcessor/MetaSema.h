@@ -65,6 +65,12 @@ namespace cling {
     ///
     ActionResult actOnLCommand(llvm::StringRef file);
 
+    ///\brief T command prepares the tag files for giving semantic hints.
+    ///
+    ///\param[in] file - The directory to be loaded.
+    ///
+    ActionResult actOnTCommand(llvm::StringRef file);
+
     ///\brief < Redirect command.
     ///
     ///\param[in] file - The file where the output is redirected
@@ -101,6 +107,10 @@ namespace cling {
     ///\brief Actions to be performed on quit.
     ///
     void actOnqCommand();
+
+    ///\brief Actions to be performed on request to cancel continuation.
+    ///
+    void actOnAtCommand();
 
     ///\brief Unloads the last N inputs lines.
     ///

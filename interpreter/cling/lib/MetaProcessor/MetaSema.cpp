@@ -16,6 +16,7 @@
 #include "cling/Interpreter/Transaction.h"
 #include "cling/Interpreter/Value.h"
 #include "cling/MetaProcessor/MetaProcessor.h"
+#include "cling/TagsExtension/AutoloadCallback.h"
 
 #include "../lib/Interpreter/IncrementalParser.h"
 
@@ -28,6 +29,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
+#include "llvm/Support/Casting.h"
 
 
 #include "clang/Lex/Preprocessor.h"
@@ -70,6 +72,23 @@ namespace cling {
     return AR_Failure;
   }
 
+  MetaSema::ActionResult MetaSema::actOnTCommand(llvm::StringRef file) {
+      //llvm::outs()<<file<<": directory to be recursively tagged.\n";
+      AutoloadCallback *ctic
+        = static_cast<AutoloadCallback*>(m_Interpreter.getCallbacks());
+      //FIXME: Temporary Implementation
+      // May cause a segfault if .T is used when the CTags callback is not set
+      // This will require modifying Interpreter to 'know' about the extension
+      if (ctic){
+        auto path = m_Interpreter.lookupFileOrLibrary(file);
+        if(path != "")
+            file = path;
+        ctic->getTagManager()->AddTagFile(file);
+        return AR_Success;
+      }
+      else return AR_Failure;
+  }
+
   MetaSema::ActionResult MetaSema::actOnRedirectCommand(llvm::StringRef file,
                          MetaProcessor::RedirectionScope stream,
                          bool append) {
@@ -106,6 +125,10 @@ namespace cling {
 
   void MetaSema::actOnqCommand() {
     m_IsQuitRequested = true;
+  }
+
+  void MetaSema::actOnAtCommand() {
+    m_MetaProcessor.cancelContinuation();
   }
 
   MetaSema::ActionResult MetaSema::actOnUndoCommand(unsigned N/*=1*/) {
@@ -228,24 +251,48 @@ namespace cling {
   void MetaSema::actOnhelpCommand() const {
     std::string& metaString = m_Interpreter.getOptions().MetaString;
     llvm::raw_ostream& outs = m_MetaProcessor.getOuts();
-    outs << "Cling meta commands usage\n"
-      "Syntax: .Command [arg0 arg1 ... argN]\n"
+    outs << "\nCling (C/C++ interpreter) meta commands usage\n"
+      "All commands must be preceded by a '" << metaString << "', except\n"
+      "for the evaluation statement { }\n"
+      "===============================================================================\n"
+      "Syntax: " << metaString << "Command [arg0 arg1 ... argN]\n"
       "\n"
-         << metaString << "q\t\t\t\t- Exit the program\n"
-         << metaString << "L <filename>\t\t\t - Load file or library\n"
-         << metaString << "(x|X) <filename>[args]\t\t- Same as .L and runs a "
-      "function with signature "
-      "\t\t\t\tret_type filename(args)\n"
-         << metaString <<"I [path]\t\t\t- Shows the include path. If a path is "
-      "given - \n\t\t\t\tadds the path to the include paths\n"
-         << metaString <<"@ \t\t\t\t- Cancels and ignores the multiline input\n"
-         << metaString << "rawInput [0|1]\t\t\t- Toggle wrapping and printing "
-      "the execution\n\t\t\t\tresults of the input\n"
-         << metaString << "dynamicExtensions [0|1]\t- Toggles the use of the "
-      "dynamic scopes and the \t\t\t\tlate binding\n"
-         << metaString << "printDebug [0|1]\t\t\t- Toggles the printing of "
-      "input's corresponding \t\t\t\tstate changes\n"
-         << metaString << "help\t\t\t\t- Shows this information\n";
+      "   " << metaString << "L <filename>\t\t- Load the given file or library\n"
+      "   " << metaString << "(x|X) <filename>[args]\t- Same as .L and runs a "
+        "function with signature: ret_type filename(args)\n"
+      "   " << metaString << "> <filename>\t\t- Redirect command to a given file\n"
+        "\t\t\t\t  using '>' or '1>' redirects the stdout stream only\n"
+        "\t\t\t\t  using '2>' redirects the stderr stream only\n"
+        "\t\t\t\t  using '&>' (or '2>&1') redirects both stdout and stderr\n"
+        "\t\t\t\t  using '>>' appends to the given file\n"
+      "   " << metaString << "undo [n]\t\t\t- Unloads the last 'n' inputs lines\n"
+      "   " << metaString << "U <filename>\t\t- Unloads the given file\n"
+      "   " << metaString << "I [path]\t\t\t- Shows the include path. If a path is "
+        "given - adds the path to the include paths\n"
+      "   " << metaString << "O <level>\t\t\t- Sets the optimization level (0-3) "
+        "(not yet implemented)\n"
+      "   " << metaString << "class <name>\t\t- Prints out class <name> in a "
+        "CINT-like style\n"
+      "   " << metaString << "files \t\t\t- Prints out some CINT-like file "
+        "statistics\n"
+      "   " << metaString << "fileEx \t\t\t- Prints out some file statistics\n"
+      "   " << metaString << "g \t\t\t\t- Prints out information about global "
+        "variable 'name' - if no name is given, print them all\n"
+      "   " << metaString << "@ \t\t\t\t- Cancels and ignores the multiline input\n"
+      "   " << metaString << "rawInput [0|1]\t\t- Toggle wrapping and printing "
+        "the execution results of the input\n"
+      "   " << metaString << "dynamicExtensions [0|1]\t- Toggles the use of the "
+        "dynamic scopes and the late binding\n"
+      "   " << metaString << "printDebug [0|1]\t\t- Toggles the printing of "
+        "input's corresponding state changes\n"
+      "   " << metaString << "storeState <filename>\t- Store the interpreter's "
+        "state to a given file\n"
+      "   " << metaString << "compareState <filename>\t- Compare the interpreter's "
+        "state with the one saved in a given file\n"
+      "   " << metaString << "stats [name]\t\t- Show stats for various internal data "
+        "structures (only 'ast' for the time being)\n"
+      "   " << metaString << "help\t\t\t- Shows this information\n"
+      "   " << metaString << "q\t\t\t\t- Exit the program\n";
   }
 
   void MetaSema::actOnfileExCommand() const {
@@ -324,7 +371,7 @@ namespace cling {
       // Build the result
       clang::ASTContext& Ctx = m_Interpreter.getCI()->getASTContext();
       if (result) {
-        *result = Value(Ctx.IntTy, 0);
+        *result = Value(Ctx.IntTy, m_Interpreter);
         result->getAs<long long>() = ret;
       }
 

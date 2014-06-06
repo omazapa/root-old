@@ -9,7 +9,7 @@ set(IntegratedBuild ON)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-set(ROOTSYS ${CMAKE_SOURCE_DIR})
+set(ROOTSYS ${CMAKE_BINARY_DIR})
 set(HEADER_OUTPUT_PATH ${CMAKE_BINARY_DIR}/include)
 set(ROOT_INCLUDE_DIR ${HEADER_OUTPUT_PATH})
 
@@ -37,6 +37,7 @@ include(MacroEnsureVersion)
 #include(CTest)
 if(testing)
   enable_testing()
+  set(ROOTTEST_DIR "${CMAKE_SOURCE_DIR}/roottest")
 endif()
 
 #---Check if the user wants to build the project in the source directory------------------------
@@ -73,6 +74,7 @@ endif()
 if(roofit)
   add_subdirectory(roofit)
 endif()
+
 ROOT_ADD_TEST_SUBDIRECTORY(test)
 
 #---Global PCH-----------------------------------------------------------------------------------
@@ -99,8 +101,6 @@ include(PostInstalledSoftware)
 #---Configure and install various files neded later and for clients -----------------------------
 include(RootConfiguration)
 
-#install(EXPORT ${CMAKE_PROJECT_NAME}Exports DESTINATION cmake/modules) 
-
 #---Installation of project-wise artifacts-------------------------------------------------------
 if(NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_INSTALL_PREFIX)
   install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DOCDIR})
@@ -122,6 +122,20 @@ endif()
 #---Configure Testing using CTest----------------------------------------------------------------
 if(testing)
   include(RootCTest)
+  if(roottest)
+    find_package(Git REQUIRED)
+    if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/roottest)
+      execute_process(COMMAND ${GIT_EXECUTABLE} pull WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/roottest)
+      add_subdirectory(roottest)
+    elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../roottest)
+      add_subdirectory(../roottest roottest)
+    else()
+      message("-- Could not find roottest directory! Cloning from the repository...")
+      execute_process(COMMAND ${GIT_EXECUTABLE} clone http://root.cern.ch/git/roottest.git
+                      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+      add_subdirectory(roottest)
+    endif()
+  endif()
 endif()
 
 #---Packaging-------------------------------------------------------------------------------------

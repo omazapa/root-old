@@ -14,12 +14,12 @@ const char* b = "b" // CHECK: (const char *) "b"
    const char* n = 0 // CHECK: (const char *) <<<NULL>>
 
 struct C {int d;} E = {22};
-E // CHECK: (struct C) @0x{{[0-9A-Fa-f]{6,12}.}}
+E // CHECK: (struct C &) @0x{{[0-9A-Fa-f]{6,12}.}}
 E.d // CHECK: (int) 22
 
 #include <string>
 std::string s("xyz") 
-// CHECK: (std::string) @0x{{[0-9A-Fa-f]{6,12}.}}
+// CHECK: (std::string &) @0x{{[0-9A-Fa-f]{6,12}.}}
 // CHECK: c_str: "xyz"
 
 #include <limits.h>
@@ -55,7 +55,7 @@ std::string sarr[3] = {"A", "B", "C"} // CHECK: (std::string [3]) { @0x{{[0-9A-F
 typedef void (*F_t)(int);
 .rawInput
 F_t fp = 0;
-fp // CHECK: (F_t) 0x0
+fp // CHECK: (F_t) Function @0x0
 #include <stdio.h>
-fp = (F_t)printf // (F_t) 0x{{[0-9A-Fa-f]{6,12}.}}
+fp = (F_t)printf // CHECK: (F_t) Function @0x{{[0-9A-Fa-f]{6,12}.}}
 .q
