@@ -14,7 +14,7 @@ TRF1::TRF1(const TRF1 &f): TF1(f)
 }
 
 //______________________________________________________________________________
-TRF1::TRF1(std::string name, std::string formula):TF1(name.c_str(), formula.c_str())
+TRF1::TRF1(Char_t * name, Char_t * formula):TF1(name, formula)
 {
 }
 
@@ -43,7 +43,7 @@ ROOTR_MODULE(ROOTR_TRF1)
 {
 
    ROOT::R::class_<ROOT::R::TRF1>("TRF1","1-Dim ROOT's function class")
-   .constructor<std::string, std::string>()
+   .constructor<Char_t *, Char_t *>()
    .method("Eval", (std::vector<Double_t> (ROOT::R::TRF1::*)(std::vector<Double_t>))&ROOT::R::TRF1::Eval)
    .method("Eval", (Double_t (ROOT::R::TRF1::*)(Double_t))&ROOT::R::TRF1::Eval)
    .method("Draw", (void (ROOT::R::TRF1::*)())(&ROOT::R::TRF1::Draw))

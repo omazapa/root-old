@@ -75,6 +75,9 @@ namespace Rcpp {
 
    template<> SEXP wrap(const TMatrixD &m);
    template<> TMatrixD as(SEXP) ;
+   
+   Char_t* as(SEXP);
+   
    template<class T, size_t i> std::array<T, i> as(SEXP &obj)
    {
       std::vector<T> v = Rcpp::as<std::vector<T> >(obj);
@@ -97,6 +100,22 @@ namespace Rcpp {
          std::array<T, i> t;
       } ;
    }
+   
+      namespace traits {
+      template<>
+      class Exporter<Char_t*> {
+      public:
+         Exporter(SEXP x) {
+            t = Rcpp::as<std::string>(x);
+         }
+         Char_t* get() {
+            return const_cast<Char_t*>(t.c_str());
+         }
+      private:
+         std::string t;
+      } ;
+   }
+
 }
 #include<Rcpp.h>//this headers should be called after templates definitions
 #include<RInside.h>

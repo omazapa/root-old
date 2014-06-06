@@ -46,6 +46,11 @@ namespace Rcpp {
       NumericMatrix mat =::Rcpp::as<NumericMatrix>(m);
       return TMatrixD(mat.rows(), mat.cols(), mat.begin(), "F");
    }
+   
+   Char_t* as(SEXP str)
+   {
+    return const_cast<Char_t*>(Rcpp::as<std::string>(str).c_str()); 
+   }   
 }
 namespace ROOT {
    namespace R {
