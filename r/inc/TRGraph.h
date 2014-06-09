@@ -33,15 +33,13 @@ namespace ROOT {
       class TRGraph: public TGraph {
       public:
          TRGraph();
-         TRGraph(const TRGraph &);
          TRGraph(Int_t n, std::vector<double> x, std::vector<double> y);
-	 void Draw();
-         void Draw(std::string options);
+         void Draw();
          ClassDef(TRGraph, 0)
       };
    }
 }
-
+ROOTR_EXPOSED_CLASS_INTERNAL(TRGraph)
 
 
 #endif

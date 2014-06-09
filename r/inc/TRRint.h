@@ -31,17 +31,14 @@ namespace ROOT {
    namespace R {
 
       class TRRint: public TObject {
-      protected:
-         TRint *r;
-         Bool_t useIntenalApp;
       public:
          TRRint();
-         TRRint(const TRRint &);
-         TRRint(std::string name, std::vector<std::string> args);
+         TRRint(const char* name, std::vector<std::string> args);
          ~TRRint() {
-            delete r;
+            delete gApplication;
          }
-         Long_t ProcessLine(std::string line);
+         Long_t ProcessLine(const char* line);
+	 void Run(Bool_t retrn = kFALSE);
 
          ClassDef(TRRint, 0)
       };

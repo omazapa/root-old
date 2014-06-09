@@ -1,5 +1,5 @@
 #include<TRCanvas.h>
-
+#include<TApplication.h>
 
 using namespace ROOT::R;
 ClassImp(TRCanvas)
@@ -9,8 +9,9 @@ TRCanvas::TRCanvas(): TCanvas()
 }
 
 //______________________________________________________________________________
-TRCanvas::TRCanvas(std::string name, std::string tittle):TCanvas(name.c_str(), tittle.c_str())
+TRCanvas::TRCanvas(const char* name, const char* title, Int_t form): TCanvas(name, title,form)
 {
+  
 }
 
 //______________________________________________________________________________
@@ -19,19 +20,14 @@ void TRCanvas::Draw()
    TCanvas::Draw();
 }
 
-//______________________________________________________________________________
-void TRCanvas::Draw(std::string options)
-{
-   TCanvas::Draw(options.c_str());
-}
 
 
 ROOTR_MODULE(ROOTR_TRCanvas)
 {
 
    ROOT::R::class_<ROOT::R::TRCanvas>("TRCanvas")
-   .constructor<std::string, std::string>()
+   .constructor<const char*,const char*,Int_t>()
    .method("Draw", (void (ROOT::R::TRCanvas::*)())(&ROOT::R::TRCanvas::Draw))
    .method("Draw", (void (ROOT::R::TRCanvas::*)(std::string))(&ROOT::R::TRCanvas::Draw))
-   ;
+   .method("Write", (Int_t(ROOT::R::TRCanvas::*)(const char *, Int_t, Int_t))(&ROOT::R::TRCanvas::Write))   ;
 }

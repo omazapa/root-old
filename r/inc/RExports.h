@@ -75,9 +75,9 @@ namespace Rcpp {
 
    template<> SEXP wrap(const TMatrixD &m);
    template<> TMatrixD as(SEXP) ;
-   
-   Char_t* as(SEXP);
-   
+
+   Char_t *as(SEXP);
+
    template<class T, size_t i> std::array<T, i> as(SEXP &obj)
    {
       std::vector<T> v = Rcpp::as<std::vector<T> >(obj);
@@ -100,16 +100,16 @@ namespace Rcpp {
          std::array<T, i> t;
       } ;
    }
-   
-      namespace traits {
+
+   namespace traits {
       template<>
-      class Exporter<Char_t*> {
+      class Exporter<Char_t *> {
       public:
          Exporter(SEXP x) {
             t = Rcpp::as<std::string>(x);
          }
-         Char_t* get() {
-            return const_cast<Char_t*>(t.c_str());
+         Char_t *get() {
+            return const_cast<Char_t *>(t.c_str());
          }
       private:
          std::string t;
@@ -138,7 +138,20 @@ namespace ROOT {
    }
 }
 
+//macros redifined to be accord with the namespace
 #define ROOTR_MODULE RCPP_MODULE
+#define ROOTR_EXPOSED_CLASS RCPP_EXPOSED_CLASS
 
+//modified definiton to support ROOTR namespace
+#define ROOTR_EXPOSED_CLASS_INTERNAL(CLASS)\
+   namespace ROOT{                         \
+      namespace R{                         \
+         class CLASS;                      \
+      }}                                   \
+   RCPP_EXPOSED_CLASS_NODECL(ROOT::R::CLASS)
+
+
+
+//modified macro for ROOTR global Module Object Symbol Reference ROOT::R::ModuleSymRef
 #define LOAD_ROOTR_MODULE(NAME) Rf_eval( Rf_lang2( ( ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef ), _rcpp_module_boot_##NAME() ), R_GlobalEnv )
 #endif

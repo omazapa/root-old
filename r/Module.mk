@@ -30,9 +30,10 @@ RDH          := $(MODDIRI)/RExports.h \
                 $(MODDIRI)/TRF1.h \
                 $(MODDIRI)/TRCanvas.h \
                 $(MODDIRI)/TRRint.h \
+                $(MODDIRI)/TRFile.h \
                 $(MODDIRI)/compilerdata.h 
 
-RH    := $(RDH) 
+RH    := $(RDH)
 RS    := $(filter-out $(MODDIRS)/G__%,$(wildcard $(MODDIRS)/*.cxx))
 RO    := $(call stripsrc,$(RS:.cxx=.o))
 

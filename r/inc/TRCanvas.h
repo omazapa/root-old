@@ -33,14 +33,13 @@ namespace ROOT {
       class TRCanvas: public TCanvas {
       public:
          TRCanvas();
-         TRCanvas(std::string name, std::string tittle);
+         TRCanvas(const char* name, const char* title = "", Int_t form = 1);
          void Draw();
-         void Draw(std::string options);
          ClassDef(TRCanvas, 0)
       };
    }
 }
-
+ROOTR_EXPOSED_CLASS_INTERNAL(TRCanvas)
 
 
 #endif

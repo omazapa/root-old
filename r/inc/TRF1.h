@@ -29,20 +29,17 @@
 
 namespace ROOT {
    namespace R {
-
       class TRF1: public TF1 {
       public:
          TRF1();
-         TRF1(const TRF1 &);
-         TRF1(Char_t * name,Char_t *formula);
+         TRF1(Char_t *name, Char_t *formula);
          std::vector<Double_t> Eval(std::vector<Double_t> x);
          void Draw();
-         void Draw(std::string options);
          ClassDef(TRF1, 0)
       };
    }
 }
-
+ROOTR_EXPOSED_CLASS_INTERNAL(TRF1)
 
 
 #endif

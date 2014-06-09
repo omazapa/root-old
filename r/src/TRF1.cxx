@@ -9,12 +9,7 @@ TRF1::TRF1(): TF1()
 }
 
 //______________________________________________________________________________
-TRF1::TRF1(const TRF1 &f): TF1(f)
-{
-}
-
-//______________________________________________________________________________
-TRF1::TRF1(Char_t * name, Char_t * formula):TF1(name, formula)
+TRF1::TRF1(Char_t *name, Char_t *formula): TF1(name, formula)
 {
 }
 
@@ -32,23 +27,18 @@ void TRF1::Draw()
    TF1::Draw(0);
 }
 
-//______________________________________________________________________________
-void TRF1::Draw(std::string options)//overloaded beacause Chart* poiter is not supported in Rcpp
-{
-   TF1::Draw(options.c_str());
-}
-
 
 ROOTR_MODULE(ROOTR_TRF1)
 {
 
-   ROOT::R::class_<ROOT::R::TRF1>("TRF1","1-Dim ROOT's function class")
+   ROOT::R::class_<ROOT::R::TRF1>("TRF1", "1-Dim ROOT's function class")
    .constructor<Char_t *, Char_t *>()
    .method("Eval", (std::vector<Double_t> (ROOT::R::TRF1::*)(std::vector<Double_t>))&ROOT::R::TRF1::Eval)
    .method("Eval", (Double_t (ROOT::R::TRF1::*)(Double_t))&ROOT::R::TRF1::Eval)
    .method("Draw", (void (ROOT::R::TRF1::*)())(&ROOT::R::TRF1::Draw))
-   .method("Draw", (void (ROOT::R::TRF1::*)(std::string))(&ROOT::R::TRF1::Draw))
-   .method("SetRange", (void (ROOT::R::TRF1::*)(Double_t,Double_t))(&ROOT::R::TRF1::SetRange))
-   .method("SetParameter", (void (ROOT::R::TRF1::*)(Int_t,Double_t))(&ROOT::R::TRF1::SetParameter))
+   .method("Draw", (void (ROOT::R::TRF1::*)(const char*))(&ROOT::R::TRF1::Draw))
+   .method("SetRange", (void (ROOT::R::TRF1::*)(Double_t, Double_t))(&ROOT::R::TRF1::SetRange))
+   .method("SetParameter", (void (ROOT::R::TRF1::*)(Int_t, Double_t))(&ROOT::R::TRF1::SetParameter))
+   .method("Write", (Int_t(ROOT::R::TRF1::*)(const char *, Int_t, Int_t))(&ROOT::R::TRF1::Write))
    ;
 }
