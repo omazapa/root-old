@@ -10,7 +10,7 @@ TRRint::TRRint(): TObject()
 }
 
 //______________________________________________________________________________
-TRRint::TRRint(const char* name, std::vector<std::string> args)
+TRRint::TRRint(const char *name, std::vector<std::string> args)
 {
    Int_t argc = args.size();
    Char_t *cargs[argc];
@@ -29,7 +29,7 @@ Long_t TRRint::ProcessLine(const char *line)
 }
 
 
-void TRRint::Run(Bool_t retrn )
+void TRRint::Run(Bool_t retrn)
 {
    return gApplication->Run(retrn);
 }
@@ -38,7 +38,7 @@ ROOTR_MODULE(ROOTR_TRRint)
 {
 
    Rcpp::class_<ROOT::R::TRRint>("TRRint")
-   .constructor<const char*, std::vector<std::string> >()
+   .constructor<const char *, std::vector<std::string> >()
    .method("ProcessLine", &ROOT::R::TRRint::ProcessLine)
    .method("Run", &ROOT::R::TRRint::Run)
    ;

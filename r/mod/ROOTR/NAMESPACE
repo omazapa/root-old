@@ -1,4 +1,2 @@
-#useDynLib(ROOTR)
 exportPattern("^[[:alpha:]]+")
 import( Rcpp )
-importFrom(Rcpp, loadModule)

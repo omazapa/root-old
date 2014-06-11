@@ -25,6 +25,6 @@ ROOTR_MODULE(ROOTR_TRGraph)
    ROOT::R::class_<ROOT::R::TRGraph>("TRGraph")
    .constructor<int, std::vector<Double_t>, std::vector<Double_t> >()
    .method("Draw", (void (ROOT::R::TRGraph::*)())(&ROOT::R::TRGraph::Draw))
-   .method("Draw", (void (ROOT::R::TRGraph::*)(const char*))(&ROOT::R::TRGraph::Draw))
+   .method("Draw", (void (ROOT::R::TRGraph::*)(const char *))(&ROOT::R::TRGraph::Draw))
    ;
 }

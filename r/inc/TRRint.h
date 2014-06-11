@@ -33,12 +33,12 @@ namespace ROOT {
       class TRRint: public TObject {
       public:
          TRRint();
-         TRRint(const char* name, std::vector<std::string> args);
+         TRRint(const char *name, std::vector<std::string> args);
          ~TRRint() {
             delete gApplication;
          }
-         Long_t ProcessLine(const char* line);
-	 void Run(Bool_t retrn = kFALSE);
+         Long_t ProcessLine(const char *line);
+         void Run(Bool_t retrn = kFALSE);
 
          ClassDef(TRRint, 0)
       };

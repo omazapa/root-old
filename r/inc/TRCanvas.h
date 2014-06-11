@@ -33,7 +33,7 @@ namespace ROOT {
       class TRCanvas: public TCanvas {
       public:
          TRCanvas();
-         TRCanvas(const char* name, const char* title = "", Int_t form = 1);
+         TRCanvas(const char *name, const char *title = "", Int_t form = 1);
          void Draw();
          ClassDef(TRCanvas, 0)
       };

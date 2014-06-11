@@ -9,4 +9,3 @@ Description: ROOTR is a module for ROOT to call R functions using an R C++ inter
 License: LGPL
 Depends: methods, Rcpp (>= 0.10.6)
 LinkingTo: Rcpp
-#RcppModules: ROOTR_TRF1, ROOTR_TRGraph, ROOTR_TRCanvas, ROOTR_TRRint, ROOTR_TRFile
