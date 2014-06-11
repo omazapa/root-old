@@ -121,6 +121,7 @@ extern "C" SEXP _rcpp_module_boot_ROOTR_TRGraph();
 extern "C" SEXP _rcpp_module_boot_ROOTR_TRCanvas();
 extern "C" SEXP _rcpp_module_boot_ROOTR_TRRint();
 extern "C" SEXP _rcpp_module_boot_ROOTR_TRFile();
+extern "C" SEXP _rcpp_module_boot_ROOTR_TRSystem();
 static ROOT::R::TRInterface *gR = NULL;
 static Bool_t statusModules;
 
@@ -154,11 +155,13 @@ void ROOT::R::TRInterface::LoadModule()
       this->Assign(Rf_eval(Rf_lang2((ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef), _rcpp_module_boot_ROOTR_TRCanvas()), R_GlobalEnv), "ROOTR_TRCanvas");
       this->Assign(Rf_eval(Rf_lang2((ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef), _rcpp_module_boot_ROOTR_TRRint()), R_GlobalEnv), "ROOTR_TRRint");
       this->Assign(Rf_eval(Rf_lang2((ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef), _rcpp_module_boot_ROOTR_TRFile()), R_GlobalEnv), "ROOTR_TRFile");
+      this->Assign(Rf_eval(Rf_lang2((ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef), _rcpp_module_boot_ROOTR_TRSystem()), R_GlobalEnv), "ROOTR_TRSystem");
       this->Parse("TRF1     <- function(name,formula){ new(ROOTR_TRF1$TRF1, name, formula) }");
       this->Parse("TRGraph  <- function(n,x,y){ new(ROOTR_TRGraph$TRGraph, n,x,y) }");
       this->Parse("TRCanvas <- function(name,tittle='',form=1){ new(ROOTR_TRCanvas$TRCanvas, name,tittle,form) }");
       this->Parse("TRRint   <- function(name,args=c('')){ new(ROOTR_TRRint$TRRint,name,args) }");
       this->Parse("TRFile   <- function(fname,option='',ftitle='',compress=1){ new(ROOTR_TRFile$TRFile,fname,option,ftitle,compress) }");
+      this->Parse("TRSystem <- function(){ new(ROOTR_TRSystem$TRSystem) }");
       statusModules = kTRUE;
    }
 }
@@ -249,6 +252,4 @@ TRInterface &TRInterface::Instance()
 {
    return  *ROOT::R::TRInterface::InstancePtr();
 }
-
-
 

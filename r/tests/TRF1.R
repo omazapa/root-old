@@ -1,16 +1,14 @@
 require(ROOTR)
-gApp<-TRRint('ROOTR')
-gApp$ProcessLine('#include<Math/SpecFuncMathMore.h>')#loading MathMore to use Special Functions in TRF1 (required for airy)
+gApplication$ProcessLine('#include<Math/SpecFuncMathMore.h>')#loading MathMore to use Special Functions in TRF1 (required for airy)
 
-x<-seq(0,2*pi,by=.1)
-dilog<- TRF1('dilog','TMath::DiLog(x)')
-plot(x,dilog$Eval(x))
-# x11()
+c1    <- TCanvas('c1')
+dilog <- TF1('dilog','TMath::DiLog(x)')
+dilog$Draw()
 
-# lgamma<- TRF1('lgamma','ROOT::Math::lgamma(x)')
-# plot(x,lgamma$Eval(x))
-# x11()
-# 
-# airy<- TRF1('lgamma','ROOT::Math::airy_Ai(x)')
-# plot(x,airy$Eval(x))
-# 
+# c2     <- TCanvas('c2')
+# lgamma <- TF1('lgamma','ROOT::Math::lgamma(x)')
+# lgamma$Draw()
+# c2$Draw()
+# # c3     <- TRCanvas('c2')
+# airy   <- TRF1('lgamma','ROOT::Math::airy_Ai(x)')
+# airy$Draw()

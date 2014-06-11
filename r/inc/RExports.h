@@ -118,6 +118,7 @@ namespace Rcpp {
 
 }
 #include<Rcpp.h>//this headers should be called after templates definitions
+#undef HAVE_UINTPTR_T
 #include<RInside.h>
 
 namespace ROOT {

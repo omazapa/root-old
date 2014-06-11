@@ -31,6 +31,7 @@ RDH          := $(MODDIRI)/RExports.h \
                 $(MODDIRI)/TRCanvas.h \
                 $(MODDIRI)/TRRint.h \
                 $(MODDIRI)/TRFile.h \
+                $(MODDIRI)/TRSystem.h \
                 $(MODDIRI)/compilerdata.h 
 
 RH    := $(RDH)

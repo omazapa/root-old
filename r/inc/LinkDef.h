@@ -30,6 +30,7 @@
 #pragma link C++ class ROOT::R::TRCanvas+;
 #pragma link C++ class ROOT::R::TRF1+;
 #pragma link C++ class ROOT::R::TRRint+;
+#pragma link C++ class ROOT::R::TRSystem+;
 #pragma link C++ class ROOT::R::TRFile+;
 
 #endif
