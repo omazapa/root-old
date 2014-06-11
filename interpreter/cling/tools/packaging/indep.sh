@@ -84,14 +84,10 @@ function get_BIT {
 
 # Helper functions to prettify text like that in Debian Build logs
 function box_draw_header {
-  msg="cling ($(uname -m))$(date)"
-  spaces_no=$(echo "80 $(echo ${msg} | wc -m)" | awk '{printf "%d", $1 - $2 - 4}')
+  msg="cling ($(uname -m))$(date --rfc-2822)"
+  spaces_no=$(echo "80 $(echo ${msg} | wc -m)" | awk '{printf "%d", $1 - $2 - 3}')
   spacer=$(head -c ${spaces_no} < /dev/zero | tr '\0' ' ')
-  if [ ${OS} = "Cygwin" ]; then
-    msg="cling ($(uname -m))${spacer}$(date)"
-  else
-    msg="cling ($(uname -m))${spacer} $(date)"
-  fi
+  msg="cling ($(uname -m))${spacer}$(date --rfc-2822)"
   echo "\
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║ ${msg} ║
@@ -112,8 +108,8 @@ function box_draw {
 function fetch_llvm {
   box_draw "Fetch source files"
   # TODO: Change the URL to use the actual Git repo of Cling, rather than Github.
-  #       Use "git archive --remote=<url> ..." or similar to remove "curl" as dependency.
-  LLVMRevision=$(curl --silent https://raw.githubusercontent.com/ani07nov/cling/master/LastKnownGoodLLVMSVNRevision.txt)
+  #       Use "git archive --remote=<url> ..." or similar to remove "wget" as dependency.
+  LLVMRevision=$(wget -q -O- https://raw.githubusercontent.com/ani07nov/cling/master/LastKnownGoodLLVMSVNRevision.txt)
   echo "Last known good LLVM revision is: ${LLVMRevision}"
 
   if [ -d "${srcdir}" ]; then
@@ -146,16 +142,30 @@ function fetch_clang {
 
 # Fetch the sources for Cling
 function fetch_cling {
-  if [ -d "${srcdir}/tools/cling" ]; then
-    cd "${srcdir}/tools/cling"
+  if [ -d ${CLING_SRC_DIR} ]; then
+    cd ${CLING_SRC_DIR}
     git clean -f -x -d
     git fetch --tags
-    git checkout ${1}
-    git pull origin ${1}
+
+    if [ ${1} = "last-stable" ]; then
+      checkout_branch=$(git describe --match v* --abbrev=0 --tags | head -n 1)
+    elif [ ${1} = "master" ]; then
+      checkout_branch="master"
+    fi
+
+    git checkout ${checkout_branch}
+    git pull origin ${checkout_branch}
   else
-    git clone http://root.cern.ch/git/cling.git  "${srcdir}/tools/cling"
-    cd "${srcdir}/tools/cling"
-    git checkout ${1}
+    git clone http://root.cern.ch/git/cling.git  ${CLING_SRC_DIR}
+    cd ${CLING_SRC_DIR}
+
+    if [ ${1} = "last-stable" ]; then
+      checkout_branch=$(git describe --match v* --abbrev=0 --tags | head -n 1)
+    elif [ ${1} = "master" ]; then
+      checkout_branch="master"
+    fi
+
+    git checkout ${checkout_branch}
   fi
 }
 
@@ -215,7 +225,7 @@ function install_prefix {
     fi
 
     for f in $(find ${workdir}/install_tmp -type f -printf "%P\n"); do
-      grep -q $(basename $f)[[:space:]] $(dirname ${0})/dist-files.mk
+      grep -q $(basename $f)[[:space:]] ${HOST_CLING_SRC_DIR}/dist-files.mk
       if [ ${?} = 0 ]; then
         mkdir -p ${prefix}/$(dirname $f)
         cp ${workdir}/install_tmp/$f ${prefix}/$f

@@ -26,28 +26,33 @@
 workdir=~/ec/build
 srcdir=${workdir}/cling-src
 CLING_SRC_DIR=${srcdir}/tools/cling
+HOST_CLING_SRC_DIR=$(dirname $(readlink -f ${0}))
 
 # Import helper scripts here
-source $(dirname ${0})/indep.sh
-source $(dirname ${0})/debian/debianize.sh
-source $(dirname ${0})/windows/windows_dep.sh
+source ${HOST_CLING_SRC_DIR}/indep.sh
+source ${HOST_CLING_SRC_DIR}/debian/debianize.sh
+source ${HOST_CLING_SRC_DIR}/windows/windows_dep.sh
 
 function usage {
-  echo ""
-  echo "Cling Packaging Tool"
-  echo ""
-  echo "Usage: ./cpt.sh {arg}"
-  echo -e "    -h, --help\t\t\tDisplay this help and exit"
-  echo -e "    --check-requirements\tCheck if packages required by the script are installed"
-  echo -e "    --current-dev={tar,deb}\tCompile the latest development snapshot and produce a tarball/Debian package"
-  echo -e "    --last-stable={tar,deb}\tCompile the last stable snapshot and produce a tarball/Debian package"
-  echo -e "    --tarball-tag={tag}\t\tCompile the snapshot of a given tag and produce a tarball"
-  echo -e "    --deb-tag={tag}\t\tCompile the snapshot of a given tag and produce a Debian package"
+	cat <<- EOT
+  Cling Packaging Tool
+
+  Usage: ${0##/*/} [options]
+
+  Options:
+  -h|--help				Display this message and exit
+  -c|--check-requirements		Check if packages required by the script are installed
+  --current-dev={tar,deb}		Compile the latest development snapshot and produce a tarball/Debian package
+  --last-stable={tar,deb}		Compile the last stable snapshot and produce a tarball/Debian package
+  --tarball-tag={tag}			Compile the snapshot of a given tag and produce a tarball
+  --deb-tag={tag}			Compile the snapshot of a given tag and produce a Debian package
+
+EOT
 }
 
 while [ "${1}" != "" ]; do
-  if [ "${#}" != 1 ]; then
-    echo "Error: script can handle only one switch at a time"
+  if [ "${#}" != "1" ]; then
+    echo "Error: cannot handle multiple switches"
     usage
     exit
   fi
@@ -60,10 +65,16 @@ while [ "${1}" != "" ]; do
   echo "Distro Based On: ${DistroBasedOn}"
   echo "Pseudo Name: ${PSEUDONAME}"
   echo "Revision: ${REV}"
-  echo "Architecture: $(uname -m)"
+  echo -e "Architecture: $(uname -m)\n"
 
   PARAM=$(echo ${1} | awk -F= '{print $1}')
   VALUE=$(echo ${1} | awk -F= '{print $2}')
+
+  # Cannot cross-compile for Windows from any other OS
+  if [ "${OS}" != "Cygwin" -a "${VALUE}" = "nsis" ]; then
+    echo "Error: Cross-compilation for Windows not supported (yet)"
+    exit
+  fi
 
   case ${PARAM} in
     -h | --help)
@@ -74,29 +85,43 @@ while [ "${1}" != "" ]; do
         box_draw "Check if required softwares are available on this system"
         if [ "${DIST}" = "Ubuntu" ]; then
           check_ubuntu git
-          check_ubuntu curl
+          check_ubuntu wget
           check_ubuntu debhelper
           check_ubuntu devscripts
           check_ubuntu gnupg
           check_ubuntu python
-          echo -e "\nInstall/update the required packages by:"
-          echo -e "  sudo apt-get update"
-          echo -e "  sudo apt-get install git curl debhelper devscripts gnupg python"
+          echo -e "\nCPT will now attempt to update/install the requisite packages automatically. Do you want to continue?"
+          select yn in "Yes" "No"; do
+            case $yn in
+              Yes)
+                sudo apt-get update
+                sudo apt-get install git wget debhelper devscripts gnupg python
+                break
+                ;;
+              No)
+                cat <<- EOT
+Install/update the required packages by:
+  sudo apt-get update
+  sudo apt-get install git wget debhelper devscripts gnupg python
+EOT
+                break
+                ;;
+            esac
+          done
           exit
         elif [ "${OS}" = "Cygwin" ]; then
+          check_cygwin cygwin # Doesn't make much sense. This is for the appeasement of users.
           check_cygwin cmake
           check_cygwin git
           check_cygwin python
-          check_cygwin curl
+          check_cygwin wget
+          # Check Windows registry for keys that prove an MS Visual Studio 11.0 installation
           check_cygwin msvc
-          echo -e "\nPackages required in Windows (Cygwin):"
-          echo -e "  CMake"
-          echo -e "  MSYS Git or Git provided by Cygwin"
-          echo -e "  Python"
-          echo -e "  cURL - provided by Cygwin"
-          echo -e "  Cygwin"
-          echo -e "  Microsoft Visual Studio 11 (2012), with Microsoft Visual C++ 2012"
-          echo -e "\nRefer to the documentation of CPT for information on setting up your Windows environment."
+          cat <<- EOT
+Refer to the documentation of CPT for information on setting up your Windows environment.
+[tools/packaging/README.md]
+
+EOT
         fi
 
         ;;
@@ -122,10 +147,18 @@ while [ "${1}" != "" ]; do
           cleanup
         elif [ "${VALUE}" = "deb" ]; then
           compile ${workdir}/cling-${VERSION}
+          install_prefix
           test_cling
           tarball_deb
           debianize
           cleanup_deb
+	elif [ "${VALUE}" = "nsis" ]; then
+          compile ${workdir}/cling-$(get_DIST)$(get_BIT)-${VERSION}
+          install_prefix
+          test_cling
+          # NSIS compilation support TBA
+          # build_nsi
+          # cleanup
         fi
         ;;
     --last-stable)
@@ -136,8 +169,7 @@ while [ "${1}" != "" ]; do
         fi
         fetch_llvm
         fetch_clang
-        cd ${CLING_SRC_DIR}
-        fetch_cling $(git describe --match v* --abbrev=0 --tags | head -n 1)
+        fetch_cling last-stable
 
         if [ ${VALUE} = "tar" ]; then
           set_version
@@ -146,16 +178,25 @@ while [ "${1}" != "" ]; do
           else
             compile ${workdir}/cling-$(get_DIST)-$(get_REVISION)-$(get_BIT)bit-${VERSION}
           fi
+          install_prefix
           test_cling
           tarball
           cleanup
         elif [ ${VALUE} = "deb" ]; then
-          VERSION=$(git describe --match v* --abbrev=0 --tags | head -n 1 | sed s/v//g)
+          set_version
           compile ${workdir}/cling-${VERSION}
+          install_prefix
           test_cling
           tarball_deb
           debianize
           cleanup_deb
+	elif [ "${VALUE}" = "nsis" ]; then
+          compile ${workdir}/cling-$(get_DIST)$(get_BIT)-${VERSION}
+          install_prefix
+          test_cling
+          # NSIS compilation support TBA
+          # build_nsi
+          # cleanup
         fi
         ;;
     --tarball-tag)
@@ -164,6 +205,7 @@ while [ "${1}" != "" ]; do
         fetch_cling ${VALUE}
         VERSION=$(echo ${VALUE} | sed s/v//g)
         compile ${workdir}/cling-$(get_DIST)-$(get_REVISION)-$(get_BIT)bit-${VERSION}
+        install_prefix
         test_cling
         tarball
         cleanup
@@ -174,6 +216,7 @@ while [ "${1}" != "" ]; do
         fetch_cling ${VALUE}
         VERSION=$(echo ${VALUE} | sed s/v//g)
         compile ${workdir}/cling-${VERSION}
+        install_prefix
         test_cling
         tarball_deb
         debianize

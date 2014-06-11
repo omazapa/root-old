@@ -733,7 +733,6 @@ if(cling)
   set(CLING_LIBRARIES ${BINARY_DIR}/lib/libclingInterpreter.a
                       ${BINARY_DIR}/lib/libclingMetaProcessor.a
                       ${BINARY_DIR}/lib/libclingUtils.a
-                      ${BINARY_DIR}/lib/libclingCtagsExtension.a
                       ${LLVM_LIBRARIES})
   #--Additional flags obtained from llvm-config --cxxflags
   set(CLING_CXXFLAGS "-fvisibility-inlines-hidden -fno-strict-aliasing -Wno-unused-parameter -Wwrite-strings -Wno-long-long -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS")
@@ -837,6 +836,25 @@ if(davix)
     set(DAVIX_LIBRARIES ${DAVIX_LIBRARY})
 endif()
 
+#---Check for vc and its compatibility-----------------------------------------------
+if(vc)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL GNU)
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.5)
+      message(STATUS "VC requires GCC version >= 4.5; switching OFF 'vc' option")
+      set(vc OFF CACHE BOOL "" FORCE)
+    endif()
+  elseif (CMAKE_CXX_COMPILER_ID STREQUAL Clang)
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.0)
+      message(STATUS "VC requires Clang version >= 4.0; switching OFF 'vc' option")
+      set(vc OFF CACHE BOOL "" FORCE)
+    endif()
+  elseif (CMAKE_CXX_COMPILER_ID STREQUAL MSVC)
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 1600)  # equivalent to MSVC 2010
+      message(STATUS "VC requires MSVC version >= 2010; switching OFF 'vc' option")
+      set(vc OFF CACHE BOOL "" FORCE)
+    endif()
+  endif()
+endif()
 
 #---Report non implemented options---------------------------------------------------
 foreach(opt afs chirp clarens glite hdfs pch peac sapdb srp geocad)
