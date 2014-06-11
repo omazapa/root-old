@@ -11,6 +11,6 @@ require( Rcpp )
 require("methods") 
 loadRcppModules()
 ROOTSYS           <- Sys.getenv("ROOTSYS")
-ROOTRMODPATH      <- paste(ROOTSYS,'r/mod/scripts/ROOTRCORE.R',sep='/')
+ROOTRMODPATH      <- paste(ROOTSYS,'r/mod/ROOTRCORE.R',sep='/')
 source(ROOTRMODPATH)
 }

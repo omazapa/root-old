@@ -11,6 +11,6 @@ lgamma<- TRF1('lgamma','ROOT::Math::lgamma(x)')
 plot(x,lgamma$Eval(x))
 x11()
 
-airy<- TRF1('lgamma','ROOT::Math::airy_Ai(x)')
+airy<- TRF1('airy','ROOT::Math::airy_Ai(x)')
 plot(x,airy$Eval(x))
 
