@@ -35,15 +35,17 @@
 namespace ROOT {
    namespace R {
 
-      class TRSystem: public TSystem{
+      class TRSystem: public TSystem {
       private:
          TThread *th;
       public:
          TRSystem();
-	 ~TRSystem(){if(th) delete th;}
-	 void ProcessEventsLoop();
-	 
-        ClassDef(TRSystem, 0)
+         ~TRSystem() {
+            if (th) delete th;
+         }
+         void ProcessEventsLoop();
+
+         ClassDef(TRSystem, 0)
       };
    }
 }

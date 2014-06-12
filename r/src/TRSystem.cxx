@@ -9,8 +9,13 @@ TRSystem::TRSystem(): TSystem()
 
 void TRSystem::ProcessEventsLoop()
 {
-  th=new TThread( [] (void *args) { while(kTRUE){gSystem->ProcessEvents(); gSystem->Sleep(10);  }} );
-  th->Run();
+   th = new TThread([](void * args) {
+      while (kTRUE) {
+         gSystem->ProcessEvents();
+         gSystem->Sleep(10);
+      }
+   });
+   th->Run();
 }
 
 // void TRSystem::ProcessEvents()

@@ -25,7 +25,7 @@ void TRCanvas::Draw()
 ROOTR_MODULE(ROOTR_TRCanvas)
 {
 
-   ROOT::R::class_<ROOT::R::TRCanvas>("TRCanvas")
+   ROOT::R::class_<ROOT::R::TRCanvas>("TRCanvas", "A Canvas is an area mapped to a window directly under the control of the display manager. ")
    .constructor<const char *, const char *, Int_t>()
    .method("Draw", (void (ROOT::R::TRCanvas::*)())(&ROOT::R::TRCanvas::Draw))
    .method("Draw", (void (ROOT::R::TRCanvas::*)(std::string))(&ROOT::R::TRCanvas::Draw))
