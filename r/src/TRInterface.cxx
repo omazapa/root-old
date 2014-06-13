@@ -9,6 +9,11 @@
 #include"TRCompletion.h"
 #include<vector>
 
+extern "C"
+{
+#include <stdio.h>
+#include <stdlib.h>
+}
 #include<TRint.h>
 
 //______________________________________________________________________________
@@ -145,6 +150,7 @@ TRInterface::TRInterface(const int argc, const char *argv[], const bool loadRcpp
    RComp_retrieveCompsSym = Rf_install(".retrieveCompletions");
    rl_attempted_completion_function = R_custom_completion;
    statusModules = kFALSE;
+   ProcessEventsLoop();
 }
 
 void ROOT::R::TRInterface::LoadModule()
@@ -253,3 +259,20 @@ TRInterface &TRInterface::Instance()
    return  *ROOT::R::TRInterface::InstancePtr();
 }
 
+
+#undef _POSIX_C_SOURCE
+#include <R_ext/eventloop.h>
+
+void TRInterface::ProcessEventsLoop()
+{
+     th = new TThread([](void * args) {
+      while (kTRUE) {
+           fd_set *fd;
+           int usec=10000;
+           fd = R_checkActivity(usec, 0);
+           R_runHandlers(R_InputHandlers, fd);
+          gSystem->Sleep(10);
+      }
+   });
+   th->Run();
+}

@@ -20,6 +20,9 @@
 #include<TRFunction.h>
 #endif
 
+#ifndef ROOT_TThread
+#include<TThread.h>
+#endif
 /**
    @defgroup R R Interface for Statistical Computing
    \ref ROOTR was implemented using the
@@ -47,6 +50,7 @@ namespace ROOT {
       class TRInterface: public TObject {
       protected:
          RInside *fR;
+         TThread *th;
       public:
          //Proxy class to use operators for assignation Ex: r["name"]=object
          class Binding {
@@ -117,6 +121,8 @@ namespace ROOT {
          Binding operator[](const TString &name);
          static TRInterface &Instance();
          static TRInterface *InstancePtr();
+      protected:
+         void ProcessEventsLoop();
 
          ClassDef(TRInterface, 0)
       };
