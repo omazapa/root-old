@@ -117,12 +117,11 @@ namespace ROOT {
          void Assign(const TRFunction &fun, const TString &name);
 
          void Interactive();
+         void ProcessEventsLoop();
 
-         Binding operator[](const TString &name);
+	 Binding operator[](const TString &name);
          static TRInterface &Instance();
          static TRInterface *InstancePtr();
-      protected:
-         void ProcessEventsLoop();
 
          ClassDef(TRInterface, 0)
       };

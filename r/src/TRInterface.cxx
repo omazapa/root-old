@@ -129,6 +129,7 @@ extern "C" SEXP _rcpp_module_boot_ROOTR_TRFile();
 extern "C" SEXP _rcpp_module_boot_ROOTR_TRSystem();
 static ROOT::R::TRInterface *gR = NULL;
 static Bool_t statusModules;
+static Bool_t statusEventLoop;
 
 //______________________________________________________________________________
 TRInterface::TRInterface(const int argc, const char *argv[], const bool loadRcpp, const bool verbose, const bool interactive): TObject()
@@ -149,8 +150,8 @@ TRInterface::TRInterface(const int argc, const char *argv[], const bool loadRcpp
    RComp_getFileCompSym   = Rf_install(".getFileComp");
    RComp_retrieveCompsSym = Rf_install(".retrieveCompletions");
    rl_attempted_completion_function = R_custom_completion;
-   statusModules = kFALSE;
-   ProcessEventsLoop();
+   statusModules   = kFALSE;
+   statusEventLoop = kFALSE;
 }
 
 void ROOT::R::TRInterface::LoadModule()
@@ -250,6 +251,7 @@ TRInterface *TRInterface::InstancePtr()
       gR = new ROOT::R::TRInterface(7, R_argv, true, false, false);
    }
    gR->LoadModule();
+   gR->ProcessEventsLoop();
    return gR;
 }
 
@@ -263,8 +265,12 @@ TRInterface &TRInterface::Instance()
 #undef _POSIX_C_SOURCE
 #include <R_ext/eventloop.h>
 
+//______________________________________________________________________________
 void TRInterface::ProcessEventsLoop()
 {
+  //run the R's eventloop to process graphics events
+  if(!statusEventLoop)
+  {
      th = new TThread([](void * args) {
       while (kTRUE) {
            fd_set *fd;
@@ -275,4 +281,6 @@ void TRInterface::ProcessEventsLoop()
       }
    });
    th->Run();
+   statusEventLoop=kTRUE;
+  }
 }
