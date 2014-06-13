@@ -96,7 +96,7 @@ namespace ROOT {
             TString fName;
          };
          TRInterface(const int argc = 0, const char *argv[] = NULL, const bool loadRcpp = true, const bool verbose = false, const bool interactive = true);
-         ~TRInterface() {}
+         ~TRInterface();
 
          void SetVerbose(Bool_t status);
          Int_t ParseEval(const TString &code, TRObjectProxy  &ans); // parse line, returns in ans; error code rc
@@ -119,7 +119,7 @@ namespace ROOT {
          void Interactive();
          void ProcessEventsLoop();
 
-	 Binding operator[](const TString &name);
+         Binding operator[](const TString &name);
          static TRInterface &Instance();
          static TRInterface *InstancePtr();
 

@@ -3,7 +3,8 @@ require(ROOT)
 gApplication$ProcessLine('#include<Math/SpecFuncMathMore.h>')#loading MathMore to use Special Functions in TF1 (required for lgamma)
 
 dilog<- TF1('dilog','TMath::DiLog(x)')
-dilog$Draw() #plotting with ROOT's graphics system
+dilog$SetRange(0,2*pi)
+dilog$Draw('') #plotting with ROOT's graphics system
 
 x<-seq(0,2*pi,by=.1)
 lgamma<- TF1('lgamma','ROOT::Math::lgamma(x)')

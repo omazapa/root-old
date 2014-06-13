@@ -1,6 +1,5 @@
-require(ROOTR)
-gApplication$ProcessLine('#include<Math/SpecFuncMathMore.h>')#require to load MathMore's Special Function airy_Ai
-
+require(ROOT)
+gSystem$Load("libMathMore")#require to load MathMore's Special Function airy_Ai
 rfilein <- TFile('airy.root','read')
 f1 <- rfilein$Get('airy')
 f1$Draw()

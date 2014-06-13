@@ -154,15 +154,20 @@ TRInterface::TRInterface(const int argc, const char *argv[], const bool loadRcpp
    statusEventLoop = kFALSE;
 }
 
-void ROOT::R::TRInterface::LoadModule()
+TRInterface::~TRInterface()
+{
+   if (th) delete th;
+}
+
+void TRInterface::LoadModule()
 {
    if (!statusModules) {
-      this->Assign(Rf_eval(Rf_lang2((ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef), _rcpp_module_boot_ROOTR_TRF1()), R_GlobalEnv), "ROOTR_TRF1");
-      this->Assign(Rf_eval(Rf_lang2((ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef), _rcpp_module_boot_ROOTR_TRGraph()), R_GlobalEnv), "ROOTR_TRGraph");
-      this->Assign(Rf_eval(Rf_lang2((ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef), _rcpp_module_boot_ROOTR_TRCanvas()), R_GlobalEnv), "ROOTR_TRCanvas");
-      this->Assign(Rf_eval(Rf_lang2((ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef), _rcpp_module_boot_ROOTR_TRRint()), R_GlobalEnv), "ROOTR_TRRint");
-      this->Assign(Rf_eval(Rf_lang2((ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef), _rcpp_module_boot_ROOTR_TRFile()), R_GlobalEnv), "ROOTR_TRFile");
-      this->Assign(Rf_eval(Rf_lang2((ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef), _rcpp_module_boot_ROOTR_TRSystem()), R_GlobalEnv), "ROOTR_TRSystem");
+      this->Assign(Rf_eval(Rf_lang2((ModuleSymRef == NULL ? ModuleSymRef = Rf_install("Module") : ModuleSymRef), _rcpp_module_boot_ROOTR_TRF1()), R_GlobalEnv), "ROOTR_TRF1");
+      this->Assign(Rf_eval(Rf_lang2((ModuleSymRef == NULL ? ModuleSymRef = Rf_install("Module") : ModuleSymRef), _rcpp_module_boot_ROOTR_TRGraph()), R_GlobalEnv), "ROOTR_TRGraph");
+      this->Assign(Rf_eval(Rf_lang2((ModuleSymRef == NULL ? ModuleSymRef = Rf_install("Module") : ModuleSymRef), _rcpp_module_boot_ROOTR_TRCanvas()), R_GlobalEnv), "ROOTR_TRCanvas");
+      this->Assign(Rf_eval(Rf_lang2((ModuleSymRef == NULL ? ModuleSymRef = Rf_install("Module") : ModuleSymRef), _rcpp_module_boot_ROOTR_TRRint()), R_GlobalEnv), "ROOTR_TRRint");
+      this->Assign(Rf_eval(Rf_lang2((ModuleSymRef == NULL ? ModuleSymRef = Rf_install("Module") : ModuleSymRef), _rcpp_module_boot_ROOTR_TRFile()), R_GlobalEnv), "ROOTR_TRFile");
+      this->Assign(Rf_eval(Rf_lang2((ModuleSymRef == NULL ? ModuleSymRef = Rf_install("Module") : ModuleSymRef), _rcpp_module_boot_ROOTR_TRSystem()), R_GlobalEnv), "ROOTR_TRSystem");
       this->Parse("TF1     <- function(name,formula){ new(ROOTR_TRF1$TRF1, name, formula) }");
       this->Parse("TGraph  <- function(n,x,y){ new(ROOTR_TRGraph$TRGraph, n,x,y) }");
       this->Parse("TCanvas <- function(name,tittle='',form=1){ new(ROOTR_TRCanvas$TRCanvas, name,tittle,form) }");
@@ -248,7 +253,7 @@ TRInterface *TRInterface::InstancePtr()
 {
    if (!gR) {
       const char *R_argv[] = {"rootr", "--gui=none", "--no-save", "--no-readline", "--silent", "--vanilla", "--slave"};
-      gR = new ROOT::R::TRInterface(7, R_argv, true, false, false);
+      gR = new TRInterface(7, R_argv, true, false, false);
    }
    gR->LoadModule();
    gR->ProcessEventsLoop();
@@ -258,7 +263,7 @@ TRInterface *TRInterface::InstancePtr()
 //______________________________________________________________________________
 TRInterface &TRInterface::Instance()
 {
-   return  *ROOT::R::TRInterface::InstancePtr();
+   return  *TRInterface::InstancePtr();
 }
 
 
@@ -268,19 +273,18 @@ TRInterface &TRInterface::Instance()
 //______________________________________________________________________________
 void TRInterface::ProcessEventsLoop()
 {
-  //run the R's eventloop to process graphics events
-  if(!statusEventLoop)
-  {
-     th = new TThread([](void * args) {
-      while (kTRUE) {
-           fd_set *fd;
-           int usec=10000;
-           fd = R_checkActivity(usec, 0);
-           R_runHandlers(R_InputHandlers, fd);
-          gSystem->Sleep(10);
-      }
-   });
-   th->Run();
-   statusEventLoop=kTRUE;
-  }
+   //run the R's eventloop to process graphics events
+   if (!statusEventLoop) {
+      th = new TThread([](void * args) {
+         while (kTRUE) {
+            fd_set *fd;
+            int usec = 10000;
+            fd = R_checkActivity(usec, 0);
+            R_runHandlers(R_InputHandlers, fd);
+            gSystem->Sleep(10);
+         }
+      });
+      th->Run();
+      statusEventLoop = kTRUE;
+   }
 }

@@ -27,7 +27,7 @@
 
 //________________________________________________________________________________________________________
 /**
-   This is TSystem class for R
+   This is a gSystem wrap for R
 
 
    @ingroup R
@@ -35,7 +35,7 @@
 namespace ROOT {
    namespace R {
 
-      class TRSystem: public TSystem {
+      class TRSystem: public TObject {
       private:
          TThread *th;
       public:
@@ -44,6 +44,7 @@ namespace ROOT {
             if (th) delete th;
          }
          void ProcessEventsLoop();
+         Int_t   Load(const Char_t *module);
 
          ClassDef(TRSystem, 0)
       };

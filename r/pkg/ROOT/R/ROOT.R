@@ -10,7 +10,6 @@ require( Rcpp )
 {
 require("methods") 
 loadRcppModules()
-
 ROOTMACROSTATUS   <- FALSE
 ROOTSYSSTATUS     <- FALSE
 
@@ -38,3 +37,4 @@ if(!ROOTMACROSTATUS)
 
 if(!ROOTMACROSTATUS) stop("The macro ROOTR.R can not be found.")
 }
+

@@ -1,34 +1,41 @@
 #include<TRSystem.h>
-
+#include<TApplication.h>
+#include<TError.h>
 using namespace ROOT::R;
 ClassImp(TRSystem)
+
 //______________________________________________________________________________
-TRSystem::TRSystem(): TSystem()
+TRSystem::TRSystem(): TObject()
 {
+   th = nullptr;
 }
 
 void TRSystem::ProcessEventsLoop()
 {
+   if (!gApplication) {
+      Error("TRSystem", "Running ProcessEventsLoop without global object gApplication.");
+      return;
+   }
    th = new TThread([](void * args) {
       while (kTRUE) {
          gSystem->ProcessEvents();
-         gSystem->Sleep(10);
+         gSystem->Sleep(100);
       }
-   });
+   }, (void *)this);
    th->Run();
 }
 
-// void TRSystem::ProcessEvents()
-// {
-//   gSystem->ProcessEvents();
-// }
+Int_t TRSystem::Load(const Char_t *module)
+{
+   return gSystem->Load(module);
+}
 
 ROOTR_MODULE(ROOTR_TRSystem)
 {
 
    ROOT::R::class_<ROOT::R::TRSystem>("TRSystem", "TSystem class to manipulate ROOT's Process.")
    .constructor()
-   .method("ProcessEvents", (Bool_t (ROOT::R::TRSystem::*)())&ROOT::R::TRSystem::ProcessEvents)
    .method("ProcessEventsLoop", &ROOT::R::TRSystem::ProcessEventsLoop)
+   .method("Load", (Int_t(ROOT::R::TRSystem::*)(const Char_t *))&ROOT::R::TRSystem::Load)
    ;
 }

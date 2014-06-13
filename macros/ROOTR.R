@@ -36,14 +36,20 @@ ROOTR_TRFile      <- Module("ROOTR_TRFile", PACKAGE=ROOTRLIB,mustStart=TRUE)
 ROOTR_TRSystem    <- Module("ROOTR_TRSystem", PACKAGE=ROOTRLIB,mustStart=TRUE)
 
 #creating a ROOTR module calling every submodule into a R's class
-TF1      <- function(name,formula){ new(ROOTR_TRF1$TRF1, name, formula) } #X11 eventloop not working and Draw dont work
-TGraph   <- function(n,x,y){ new(ROOTR_TRGraph$TRGraph, n,x,y) } #X11 eventloop not working and Draw dont work
-TCanvas  <- function(name,tittle='',form=1){ new(ROOTR_TRCanvas$TRCanvas, name,tittle,form) } #X11 eventloop not working and Draw dont work
+TF1      <- function(name,formula,xmin = 0,xmax = 1){ new(ROOTR_TRF1$TRF1, name, formula,xmin,xmax) }
+TGraph   <- function(n,x,y){ new(ROOTR_TRGraph$TRGraph, n,x,y) }
+TCanvas  <- function(name,tittle='',form=1){ new(ROOTR_TRCanvas$TRCanvas, name,tittle,form) }
 TRint    <- function(name){ new(ROOTR_TRRint$TRRint, name) }
 TFile    <- function(fname,option='',ftitle='',compress=1){ new(ROOTR_TRFile$TRFile,fname,option,ftitle,compress) }
 TSystem  <- function(){new(ROOTR_TRSystem$TRSystem)}
 
 #creating global bariables
-gSystem      <- TSystem()
 gApplication <- TRint('ROOTR')
-gSystem$ProcessEventsLoop();
+gSystem      <- TSystem()
+
+#starting Gui eventloop
+gSystem$ProcessEventsLoop()
+
+#creating  registers to clean memory when R ends the session 
+reg.finalizer(.GlobalEnv, function(e){gApplication$Terminate(0)},TRUE) 
+

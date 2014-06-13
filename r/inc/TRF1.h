@@ -32,9 +32,12 @@ namespace ROOT {
       class TRF1: public TF1 {
       public:
          TRF1();
-         TRF1(Char_t *name, Char_t *formula);
+         TRF1(Char_t *name, Char_t *formula, Double_t xmin = 0, Double_t xmax = 1);
          std::vector<Double_t> Eval(std::vector<Double_t> x);
          void Draw();
+         inline Int_t Write(const Char_t *name) {
+            return TF1::Write(name);
+         }
          ClassDef(TRF1, 0)
       };
    }

@@ -35,6 +35,7 @@ namespace ROOT {
       public:
          TRRint();
          TRRint(const char *name);
+         ~TRRint();
          Long_t ProcessLine(const char *line);
          ClassDef(TRRint, 0)
       };

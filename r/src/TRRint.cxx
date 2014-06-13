@@ -14,11 +14,17 @@ TRRint::TRRint(const char *name): TRint(name, 0, 0, 0, 0, kTRUE)
 }
 
 //______________________________________________________________________________
+TRRint::~TRRint()
+{
+   if (gApplication) delete gApplication;
+}
+
+
+//______________________________________________________________________________
 Long_t TRRint::ProcessLine(const char *line)
 {
    return TApplication::ProcessLine(line);
 }
-
 
 ROOTR_MODULE(ROOTR_TRRint)
 {
@@ -28,5 +34,6 @@ ROOTR_MODULE(ROOTR_TRRint)
    .constructor<const char *>()
    .method("ProcessLine", (Long_t (ROOT::R::TRRint::*)(const char *))&ROOT::R::TRRint::ProcessLine)
    .method("Run", (void (ROOT::R::TRRint::*)(Bool_t))&ROOT::R::TRRint::Run)
+   .method("Terminate", (void (ROOT::R::TRRint::*)(Int_t))&ROOT::R::TRRint::Terminate)
    ;
 }
