@@ -168,7 +168,7 @@ void TRInterface::LoadModule()
       this->Assign(Rf_eval(Rf_lang2((ModuleSymRef == NULL ? ModuleSymRef = Rf_install("Module") : ModuleSymRef), _rcpp_module_boot_ROOTR_TRRint()), R_GlobalEnv), "ROOTR_TRRint");
       this->Assign(Rf_eval(Rf_lang2((ModuleSymRef == NULL ? ModuleSymRef = Rf_install("Module") : ModuleSymRef), _rcpp_module_boot_ROOTR_TRFile()), R_GlobalEnv), "ROOTR_TRFile");
       this->Assign(Rf_eval(Rf_lang2((ModuleSymRef == NULL ? ModuleSymRef = Rf_install("Module") : ModuleSymRef), _rcpp_module_boot_ROOTR_TRSystem()), R_GlobalEnv), "ROOTR_TRSystem");
-      this->Parse("TF1     <- function(name,formula){ new(ROOTR_TRF1$TRF1, name, formula) }");
+      this->Parse("TF1     <- function(name,formula,xmin=0,xmax=1){ new(ROOTR_TRF1$TRF1, name, formula,xmin,xmax) }");
       this->Parse("TGraph  <- function(n,x,y){ new(ROOTR_TRGraph$TRGraph, n,x,y) }");
       this->Parse("TCanvas <- function(name,tittle='',form=1){ new(ROOTR_TRCanvas$TRCanvas, name,tittle,form) }");
       this->Parse("TRint   <- function(name,args=c('')){ new(ROOTR_TRRint$TRRint,name,args) }");
