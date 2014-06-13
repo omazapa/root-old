@@ -1,4 +1,4 @@
-require(ROOTR)
+require(ROOT)
 gApplication$ProcessLine('#include<Math/SpecFuncMathMore.h>')#loading MathMore to use Special Functions in TRF1 (required for airy)
 
 c1    <- TCanvas('c1')

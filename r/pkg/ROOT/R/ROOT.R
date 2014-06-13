@@ -10,7 +10,31 @@ require( Rcpp )
 {
 require("methods") 
 loadRcppModules()
+
+ROOTMACROSTATUS   <- FALSE
+ROOTSYSSTATUS     <- FALSE
+
+
 ROOTSYS           <- Sys.getenv("ROOTSYS")
-ROOTRMODPATH      <- paste(ROOTSYS,'r/mod/ROOTRCORE.R',sep='/')
-source(ROOTRMODPATH)
+
+if(ROOTSYS=="") { warning("Environment's variable ROOTSYS is not set.") }
+
+ROOTMACRO         <- paste(ROOTSYS,'macros/ROOTR.R',sep='/')
+if(file.exists(ROOTMACRO))  
+{
+  source(ROOTMACRO)
+  ROOTMACROSTATUS <- TRUE
+}
+
+if(!ROOTMACROSTATUS)
+{
+  ROOTMACRO       <- paste(ROOTSYS,'share/root/macros/ROOTR.R',sep='/')
+  if(file.exists(ROOTMACRO))
+  {
+    source(ROOTMACRO)
+    ROOTMACROSTATUS <- TRUE
+  }
+}
+
+if(!ROOTMACROSTATUS) stop("The macro ROOTR.R can not be found.")
 }

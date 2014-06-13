@@ -1,6 +1,6 @@
 #!/bin/bash
 
-R -e "remove.packages('ROOTR')" &> /dev/null
-R CMD build ROOTR
-R -e "install.packages('ROOTR_1.0.tar.gz')"
-rm ROOTR_1.0.tar.gz ROOTR.Rcheck/ -rf
+R -e "remove.packages('ROOT')" &> /dev/null
+R CMD build ROOT
+R -e "install.packages('ROOT_1.0.tar.gz')"
+rm ROOT_1.0.tar.gz ROOT.Rcheck/ -rf

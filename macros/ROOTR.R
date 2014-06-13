@@ -8,8 +8,25 @@
 require( Rcpp )
 #Loading the ROOTR Library to create a Module
 ROOTSYS           <- Sys.getenv("ROOTSYS")
-ROOTRLIBPATH      <- paste(ROOTSYS,paste('lib/libRInterface',.Platform$dynlib.ext,sep=''),sep='/')        
-ROOTRLIB          <- dyn.load(ROOTRLIBPATH)
+
+ROOTLIBSTATUS     <- FALSE
+ROOTRLIBPATH      <- paste(ROOTSYS,paste('lib/libRInterface',.Platform$dynlib.ext,sep=''),sep='/')
+if(file.exists(ROOTRLIBPATH)) { 
+  ROOTRLIB          <- dyn.load(ROOTRLIBPATH) 
+  ROOTLIBSTATUS     <- TRUE
+}
+
+if(!ROOTLIBSTATUS)
+{
+  ROOTRLIBPATH      <- paste(ROOTSYS,paste('lib/root/libRInterface',.Platform$dynlib.ext,sep=''),sep='/')
+  if(file.exists(ROOTRLIBPATH)){
+      ROOTRLIB          <- dyn.load(ROOTRLIBPATH) 
+      ROOTLIBSTATUS     <- TRUE      
+    }else{
+      stop(paste('Can not find libRInterface',.Platform$dynlib.ext,sep=''))
+    }
+}
+
 #calling classes from library
 ROOTR_TRF1        <- Module("ROOTR_TRF1", PACKAGE=ROOTRLIB,mustStart=TRUE)
 ROOTR_TRGraph     <- Module("ROOTR_TRGraph", PACKAGE=ROOTRLIB,mustStart=TRUE)

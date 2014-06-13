@@ -12,6 +12,7 @@ MODDIRI      := $(MODDIR)/inc
 RDIR  := $(MODDIR)
 RDIRS := $(RDIR)/src
 RDIRI := $(RDIR)/inc
+RDIRP := $(RDIR)/pkg
 
 ##### libRInterface #####
 RL           := $(MODDIRI)/LinkDef.h
