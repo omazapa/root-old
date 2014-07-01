@@ -150,6 +150,9 @@ const char *rootClingHelp =
 "   MyClass(TRootIOCtor*);                                                   \n"
 "   MyClass(); // Or a constructor with all its arguments defaulted.         \n"
 "                                                                            \n"
+"NOTA BENE: the dictionaries that will be used within the same project must  \n"
+"have unique names.                                                          \n"
+"                                                                            \n"
 "Synopsis of the options:                                                    \n"
 "                                                                            \n"
 " -cap\tCapabilities File                                                    \n"
@@ -186,7 +189,6 @@ const char *rootClingHelp =
 "                                                                            \n"
 " -inlineInputHeader\tAdd the argument header to the code of the dictionary  \n"
 "  This allows the header to be inlined within the dictionary.               \n"
-"  It works only when one header is specified.                               \n"
 "                                                                            \n"
 " -interpreteronly\tNo IO information in the dictionary                      \n";
 
@@ -651,7 +653,7 @@ const char *GetExePath()
 #ifdef __APPLE__
       exepath = _dyld_get_image_name(0);
 #endif
-#ifdef __linux
+#if defined(__linux) || defined(__linux__)
       char linkname[PATH_MAX];  // /proc/<pid>/exe
       char buf[PATH_MAX];     // exe path name
       pid_t pid;
@@ -1196,7 +1198,7 @@ int STLContainerStreamer(const clang::FieldDecl &m,
          break;
       }
 
-      dictStream << "         int R__n=(&R__stl) ? int(R__stl.size()) : 0;" << std::endl
+      dictStream << "         int R__n=int(R__stl.size());" << std::endl
                     << "         R__b << R__n;" << std::endl
                     << "         if(R__n) {" << std::endl;
 
@@ -2185,13 +2187,14 @@ static bool InjectModuleUtilHeader(const char* argv0,
 }
 
 //______________________________________________________________________________
-static int GenerateModule(TModuleGenerator& modGen,
-                          clang::CompilerInstance* CI,
-                          const std::string& currentDirectory,
-                          const std::string& fwdDeclnArgsToKeepString,
-                          const std::string& headersClassesMapString,
-                          std::ostream& dictStream,
-                          bool inlineInputHeader)
+int GenerateModule(TModuleGenerator& modGen,
+                   clang::CompilerInstance* CI,
+                   const std::string& currentDirectory,
+                   const std::string& fwdDeclnArgsToKeepString,
+                   const std::string& headersClassesMapString,
+                   const std::string& fwdDeclString,
+                   std::ostream& dictStream,
+                   bool inlineInputHeader)
 {
    // Generate the clang module given the arguments.
    // Two codepaths are present:
@@ -2204,7 +2207,8 @@ static int GenerateModule(TModuleGenerator& modGen,
    modGen.WriteRegistrationSource(dictStream,
                                   inlineInputHeader,
                                   fwdDeclnArgsToKeepString,
-                                  headersClassesMapString);
+                                  headersClassesMapString,
+                                  fwdDeclString);
 
    // Disable clang::Modules for now.
    if (!modGen.IsPCH())
@@ -2337,10 +2341,10 @@ void AddPlatformDefines(std::vector<std::string>& clingArgs)
 }
 
 //______________________________________________________________________________
-void ExtractFileName(const std::string& path, std::string& filename)
+std::string ExtractFileName(const std::string& path)
 {
    // Extract the filename from a fullpath
-   filename = llvm::sys::path::filename (path);
+   return llvm::sys::path::filename (path);
 }
 
 //______________________________________________________________________________
@@ -2650,191 +2654,6 @@ int CreateNewRootMapFile(const std::string& rootmapFileName,
 }
 
 //______________________________________________________________________________
-// Fwd Declare the routine
-int ExtractTemplateDefinition(const clang::TemplateDecl& templDecl,
-                              cling::Interpreter& interpreter,
-                              std::string& definitionStr,
-                              const clang::RecordDecl* rDecl);
-
-//______________________________________________________________________________
-int PrepareArgsForFwdDecl(std::string& templateArgs,
-                          const clang::TemplateParameterList& tmplParamList,
-                          cling::Interpreter& interpreter)
-{
-   // Loop over the template parameters and build a string for template arguments
-   // using the fully qualified name
-   // There are different cases:
-   // Case 1: a simple template parameter
-   //   E.g. template<typename T> class A;
-   // Case 2: a non-type: either an integer or an enum
-   //   E.g. template<int I, Foo > class A; where Foo is enum Foo {red, blue};
-   // 2 sub cases here:
-   //   SubCase 2.a: the parameter is an enum: bail out, cannot be treated.
-   //   SubCase 2.b: use the fully qualified name
-   // Case 3: a TemplateTemplate argument
-   //   E.g. template <template <typename> class T> class container { };
-
-   static const char* paramPackWarning="Template parameter pack found: autoload of variadic templates is not supported yet.\n";
-
-   templateArgs="<";
-   for (clang::TemplateParameterList::const_iterator prmIt = tmplParamList.begin();
-        prmIt != tmplParamList.end(); prmIt++){
-
-      if (prmIt != tmplParamList.begin())
-         templateArgs += ", ";
-
-      clang::NamedDecl* nDecl = *prmIt;
-      std::string typeName;
-
-      if(nDecl->isParameterPack ()){
-         ROOT::TMetaUtils::Warning(0,paramPackWarning);
-         return 1;
-      }
-
-   // Case 1
-      if (llvm::isa<clang::TemplateTypeParmDecl>(nDecl)){
-         typeName = "typename " + (*prmIt)->getNameAsString();
-      }
-      // Case 2
-      else if (const clang::NonTypeTemplateParmDecl* nttpd = llvm::dyn_cast<clang::NonTypeTemplateParmDecl>(nDecl)){
-         const clang::QualType &theType = nttpd->getType();
-         // If this is an enum, use int as it is impossible to fwd declare and
-         // this makes sense since it is not a type...
-         if (theType.getAsString().find("enum") != std::string::npos){
-            std::string astDump;
-            llvm::raw_string_ostream ostream(astDump);
-            nttpd->dump(ostream);
-            ostream.flush();
-            ROOT::TMetaUtils::Warning(0,"Forward declarations of templates with enums as template parameters. The responsible class is: %s\n", astDump.c_str());
-            return 1;
-         } else {
-            ROOT::TMetaUtils::GetFullyQualifiedTypeName(typeName,
-                                                        theType,
-                                                        interpreter);
-         }
-      }
-      // Case 3: TemplateTemplate argument
-      else if (const clang::TemplateTemplateParmDecl* ttpd = llvm::dyn_cast<clang::TemplateTemplateParmDecl>(nDecl)){
-         int retCode = ExtractTemplateDefinition(*ttpd,interpreter,typeName,NULL);
-         if (retCode!=0){
-            std::string astDump;
-            llvm::raw_string_ostream ostream(astDump);
-            ttpd->dump(ostream);
-            ostream.flush();
-            ROOT::TMetaUtils::Error(0,"Cannot reconstruct template template parameter forward declaration for %s\n", astDump.c_str());
-            return 1;
-         }
-      }
-
-   templateArgs += typeName;
-   }
-
-   templateArgs+=">";
-   return 0;
-}
-
-//______________________________________________________________________________
-void EncloseInNamespaces(const clang::Decl& decl,
-                         std::string& definitionStr)
-{
-   // Take the namespaces which enclose the decl and put them around the
-   // definition string.
-   // For example, if the definition string is "myClass" which is enclosed by
-   // the namespaces ns1 and ns2, one would get:
-   // namespace ns2{ namespace ns1 { class myClass; } }
-
-   // Before everyting
-
-   std::list<std::pair<std::string,bool> > enclosingNamespaces;
-   ROOT::TMetaUtils::ExtractEnclosingNameSpaces(decl,enclosingNamespaces);
-   // Check if we have enclosing namespaces
-   // FIXME: this should be active also for classes
-   for (std::list<std::pair<std::string, bool> >::const_iterator enclosingNamespaceIt = enclosingNamespaces.begin();
-      enclosingNamespaceIt != enclosingNamespaces.end(); enclosingNamespaceIt++){
-      const std::string& nsName= enclosingNamespaceIt->first;
-      const std::string isInline ((enclosingNamespaceIt->second ? "inline ":""));
-      definitionStr = isInline + "namespace " + nsName + " { " + definitionStr + " }";
-   }
-}
-
-//______________________________________________________________________________
-int ExtractNamespacesDefinition(const clang::RecordDecl& rDecl,
-                                std::string& definitionStr)
-{
-   // Extract the namespace definition for rDecl
-
-   const clang::RecordDecl* definition = rDecl.getDefinition();
-   if (!definition)
-      return 1;
-   EncloseInNamespaces(*definition, definitionStr);
-
-
-   return 0;
-}
-
-//______________________________________________________________________________
-int ExtractDefinitionFromRecordDecl(const clang::RecordDecl& rDecl,
-                                    cling::Interpreter& interpreter,
-                                    std::string& definitionStr)
-{
-   // Detect if the rDecl is a template instance.
-   const clang::ClassTemplateSpecializationDecl* tmplSpecDecl = llvm::dyn_cast<clang::ClassTemplateSpecializationDecl> (&rDecl);
-   if (!tmplSpecDecl){
-      return 1;
-   }
-
-   const clang::TemplateDecl* templDecl = tmplSpecDecl->getSpecializedTemplate();
-   if (!templDecl){ // Should never happen
-      TMetaUtils::Error(0, "%s does not seem to be a template", rDecl.getNameAsString().c_str());
-      return 1;
-   }
-
-   const clang::RecordDecl* definition = rDecl.getDefinition();
-
-   return ExtractTemplateDefinition (*templDecl,interpreter,definitionStr,definition);
-}
-
-//______________________________________________________________________________
-int ExtractTemplateDefinition(const clang::TemplateDecl& templDecl,
-                              cling::Interpreter& interpreter,
-                              std::string& definitionStr,
-                              const clang::RecordDecl* definition = NULL)
-{
-
-   // Operate on the template declaration in order to get its forward declaration
-
-   const clang::TemplateParameterList *tmplParamList= templDecl.getTemplateParameters();
-   if (!tmplParamList){ // Should never happen
-      TMetaUtils::Error(0, "Cannot extract template parameter list for %s", templDecl.getNameAsString().c_str());
-      return 1;
-   }
-
-   std::string templateArgs;
-
-   //PrepareArgsForFwdDecl(templateArgs);
-   int retCode = PrepareArgsForFwdDecl(templateArgs,*tmplParamList,interpreter);
-   if (retCode!=0){
-      TMetaUtils::Warning(0, "Problems encountered while preparing arguments for forward declaration of class %s", templDecl.getNameAsString().c_str());
-      return retCode;
-   }
-
-   definitionStr="template "+templateArgs+" class "+templDecl.getNameAsString();
-
-   // iterate over the nested namespaces and complete the definition
-   if (definition){
-
-      definitionStr += " ;";
-
-      // Check if we have enclosing namespaces
-      // FIXME: this should be active also for classes
-      EncloseInNamespaces(*definition, definitionStr);
-   }
-
-
-   return 0;
-}
-
-//______________________________________________________________________________
 template <class T>
 bool AppendIfNotThere(const T& el, std::list<T>& el_list)
 {
@@ -2864,10 +2683,9 @@ int  ExtractSelectedClassesAndTemplateDefs(RScanner& scan,
    std::string attrName,attrValue;
    bool isClassSelected;
    // Loop on selected classes and put them in a list
-   for (RScanner::ClassColl_t::const_iterator selClassesIter = scan.fSelectedClasses.begin();
-        selClassesIter!= scan.fSelectedClasses.end(); selClassesIter++){
+   for (auto const & selClass: scan.fSelectedClasses){
       isClassSelected = true;
-      std::string normalizedName(selClassesIter->GetNormalizedName());
+      std::string normalizedName(selClass.GetNormalizedName());
       if (normalizedName.size()!=0 && !classesSet.insert(normalizedName).second){
          std::cerr << "FATAL: A class with normalized name " << normalizedName
                    << " was already selected. This means that two different instances of"
@@ -2879,24 +2697,25 @@ int  ExtractSelectedClassesAndTemplateDefs(RScanner& scan,
       classesList.push_back(normalizedName);
       // Allow to autoload with the name of the class as it was specified in the 
       // selection xml or linkdef
-      const char* reqName(selClassesIter->GetRequestedName());
-      const clang::RecordDecl* rDecl = selClassesIter->GetRecordDecl();
+      const char* reqName(selClass.GetRequestedName());
+      const clang::RecordDecl* rDecl = selClass.GetRecordDecl();
 
       // Get always the containing namespace, put it in the list if not there
       std::string fwdDeclaration;
-      int retCode = ExtractNamespacesDefinition(*rDecl, fwdDeclaration);
+      int retCode = ROOT::TMetaUtils::AST2SourceTools::GetEnclosingNamespaces(*rDecl, fwdDeclaration);
       if (retCode==0) AppendIfNotThere(fwdDeclaration,fwdDeclarationsList);
 
       // Get template definition and put it in if not there
-      fwdDeclaration = "";
-      retCode = ExtractDefinitionFromRecordDecl(*rDecl,interpreter,fwdDeclaration);
-      // Linear search. Probably optimisable
-      if (retCode==0) AppendIfNotThere(fwdDeclaration,fwdDeclarationsList);
+      if (llvm::isa<clang::ClassTemplateSpecializationDecl>(rDecl)){
+         fwdDeclaration = "";
+         retCode = ROOT::TMetaUtils::AST2SourceTools::FwdDeclFromRcdDecl(*rDecl,interpreter,fwdDeclaration);
+         // Linear search. Probably optimisable
+         if (retCode==0) AppendIfNotThere(fwdDeclaration,fwdDeclarationsList);
+      }
 
 
       // Loop on attributes, if rootmap=false, don't put it in the list!
-      for (clang::RecordDecl::attr_iterator ait = rDecl->attr_begin ();
-           ait != rDecl->attr_end ();++ait){
+      for (auto ait = rDecl->attr_begin (); ait != rDecl->attr_end ();++ait){
          if ( 0==ROOT::TMetaUtils::extractPropertyNameVal(*ait,attrName,attrValue) &&
               attrName=="rootmap" &&
               attrValue=="false"){
@@ -2925,186 +2744,188 @@ void ExtractSelectedNamespaces(RScanner& scan, std::list<std::string>& nsList){
    }
 }
 
+//_____________________________________________________________________________
+void AnnotateAllDeclsForPCH(cling::Interpreter& interp,
+                            RScanner& scan,
+                            SelectionRules& selectionRules)
+{
+   // We need annotations even in the PCH: // !, // || etc.
+   for(auto const & selClass : scan.fSelectedClasses){
+      // Very important: here we decide if we want to attach attributes to the decl.
+      if (clang::CXXRecordDecl* CXXRD =
+         llvm::dyn_cast<clang::CXXRecordDecl>(const_cast<clang::RecordDecl*>(selClass.GetRecordDecl()))){
+         AnnotateDecl(*CXXRD,selectionRules,interp,false);
+         }
+   }
+}
+
+//______________________________________________________________________________
+int CheckClassesForInterpreterOnlyDicts(cling::Interpreter& interp,
+                                        RScanner& scan)
+{
+     for(auto const & selClass : scan.fSelectedClasses){
+      if (!selClass.GetRecordDecl()->isCompleteDefinition() || selClass.RequestOnlyTClass()) {
+         continue;
+      }
+      const clang::CXXRecordDecl* cxxdecl = llvm::dyn_cast<clang::CXXRecordDecl>(selClass.GetRecordDecl());
+      if (cxxdecl && ROOT::TMetaUtils::ClassInfo__HasMethod(selClass,"Class_Name",interp)) {
+         ROOT::TMetaUtils::Error("CheckClassesForInterpreterOnlyDicts",
+                                 "Interactivity only dictionaries are not supported for classes with ClassDef\n");
+         return 1;
+      }
+   }
+   return 0;
+}
+
+//_____________________________________________________________________________
+#ifndef ROOT_STAGE1_BUILD
+int FinalizeStreamerInfoWriting(cling::Interpreter& interp)
+{
+   // Make up for skipping RegisterModule, now that dictionary parsing
+   // is done and these headers cannot be selected anymore.
+   interp.parseForModule("#include \"TStreamerInfo.h\"\n"
+                         "#include \"TFile.h\"\n"
+                         "#include \"TObjArray.h\"\n"
+                         "#include \"TVirtualArray.h\"\n"
+                         "#include \"TStreamerElement.h\"\n"
+                         "#include \"TProtoClass.h\"\n"
+                         "#include \"TBaseClass.h\"\n"
+                         "#include \"TListOfDataMembers.h\"\n"
+                         "#include \"TDataMember.h\"\n"
+                         "#include \"TDictAttributeMap.h\"\n"
+                         "#include \"TMessageHandler.h\"\n"
+                           );
+   if (!CloseStreamerInfoROOTFile()) {
+      return 1;
+   }
+   return 0;
+}
+#endif
 //______________________________________________________________________________
 int GenerateFullDict(std::ostream& dictStream,
                      cling::Interpreter& interp,
                      RScanner& scan,
                      SelectionRules& selectionRules,
                      const ROOT::TMetaUtils::RConstructorTypes& ctorTypes,
-                     bool onepcm,
-                     bool interpreteronly,
                      bool isSplit,
                      bool isGenreflex)
 {
 
    ROOT::TMetaUtils::TNormalizedCtxt normCtxt(interp.getLookupHelper());
 
-   RScanner::ClassColl_t::const_iterator iter = scan.fSelectedClasses.begin();
-   RScanner::ClassColl_t::const_iterator end = scan.fSelectedClasses.end();
-
    bool needsCollectionProxy = false;
 
-   if (!onepcm) {
+   //
+   // We will loop over all the classes several times.
+   // In order we will call
+   //
+   //     WriteClassInit (code to create the TGenericClassInfo)
+   //     check for constructor and operator input
+   //     WriteClassFunctions (declared in ClassDef)
+   //     WriteClassCode (Streamer,ShowMembers,Auxiliary functions)
+   //
 
-      //
-      // We will loop over all the classes several times.
-      // In order we will call
-      //
-      //     WriteClassInit (code to create the TGenericClassInfo)
-      //     check for constructor and operator input
-      //     WriteClassFunctions (declared in ClassDef)
-      //     WriteClassCode (Streamer,ShowMembers,Auxiliary functions)
-      //
 
-      if (!interpreteronly){
-         //
-         // Loop over all classes and create Streamer() & Showmembers() methods
-         //
+   //
+   // Loop over all classes and create Streamer() & Showmembers() methods
+   //
 
-         // SELECTION LOOP
-         RScanner::NamespaceColl_t::const_iterator ns_iter = scan.fSelectedNamespaces.begin();
-         RScanner::NamespaceColl_t::const_iterator ns_end = scan.fSelectedNamespaces.end();
-         for( ; ns_iter != ns_end; ++ns_iter) {
-            WriteNamespaceInit(*ns_iter, interp, dictStream);
+   // SELECTION LOOP
+   for(auto const & ns : scan.fSelectedNamespaces) {
+      WriteNamespaceInit(ns, interp, dictStream);
+   }
+
+   for(auto const & selClass : scan.fSelectedClasses)
+   {
+      if (!selClass.GetRecordDecl()->isCompleteDefinition()) {
+         ROOT::TMetaUtils::Error(0,"A dictionary has been requested for %s but there is no declaration!\n",ROOT::TMetaUtils::GetQualifiedName(selClass).c_str());
+         continue;
+      }
+      if (selClass.RequestOnlyTClass()) {
+         // fprintf(stderr,"rootcling: Skipping class %s\n",R__GetQualifiedName(* selClass.GetRecordDecl()).c_str());
+         // For now delay those for later.
+         continue;
+      }
+
+      // Very important: here we decide if we want to attach attributes to the decl.
+
+      if (clang::CXXRecordDecl* CXXRD =
+         llvm::dyn_cast<clang::CXXRecordDecl>(const_cast<clang::RecordDecl*>(selClass.GetRecordDecl()))){
+         AnnotateDecl(*CXXRD,selectionRules,interp,isGenreflex);
          }
 
-         for( ; iter != end; ++iter)
-         {
-            if (!iter->GetRecordDecl()->isCompleteDefinition()) {
-               ROOT::TMetaUtils::Error(0,"A dictionary has been requested for %s but there is no declaration!\n",ROOT::TMetaUtils::GetQualifiedName(* iter).c_str());
-               continue;
-            }
-            if (iter->RequestOnlyTClass()) {
-               // fprintf(stderr,"rootcling: Skipping class %s\n",R__GetQualifiedName(* iter->GetRecordDecl()).c_str());
-               // For now delay those for later.
-               continue;
-            }
+      const clang::CXXRecordDecl* CRD = llvm::dyn_cast<clang::CXXRecordDecl>(selClass.GetRecordDecl());
 
-            // Very important: here we decide if we want to attach attributes to the decl.
-            if (clang::CXXRecordDecl* CXXRD =
-               llvm::dyn_cast<clang::CXXRecordDecl>(const_cast<clang::RecordDecl*>(iter->GetRecordDecl()))){
-               AnnotateDecl(*CXXRD,selectionRules,interp,isGenreflex);
-               }
-
-               const clang::CXXRecordDecl* CRD = llvm::dyn_cast<clang::CXXRecordDecl>(iter->GetRecordDecl());
-
-            if (CRD) {
-               ROOT::TMetaUtils::Info(0,"Generating code for class %s\n", iter->GetNormalizedName() );
-               if (TMetaUtils::IsStdClass(*CRD) && 0 != TClassEdit::STLKind(CRD->getName().str().c_str() /* unqualified name without template arguement */) ) {
-                  // coverity[fun_call_w_exception] - that's just fine.
-                  RStl::Instance().GenerateTClassFor( iter->GetNormalizedName(), CRD, interp, normCtxt);
-               } else {
-                  EmitStreamerInfo(iter->GetNormalizedName());
-                  ROOT::TMetaUtils::WriteClassInit(dictStream, *iter, CRD, interp, normCtxt, ctorTypes, needsCollectionProxy);
-               }
-            }
+      if (CRD) {
+         ROOT::TMetaUtils::Info(0,"Generating code for class %s\n", selClass.GetNormalizedName() );
+         if (TMetaUtils::IsStdClass(*CRD) && 0 != TClassEdit::STLKind(CRD->getName().str().c_str() /* unqualified name without template arguement */) ) {
+            // Register the collections
+            // coverity[fun_call_w_exception] - that's just fine.
+            RStl::Instance().GenerateTClassFor( selClass.GetNormalizedName(), CRD, interp, normCtxt);
+         } else {
+            EmitStreamerInfo(selClass.GetNormalizedName());
+            ROOT::TMetaUtils::WriteClassInit(dictStream, selClass, CRD, interp, normCtxt, ctorTypes, needsCollectionProxy);
          }
+      }
+   }
 
 #ifndef ROOT_STAGE1_BUILD
-         EmitTypedefs(scan.fSelectedTypedefs);
-         // Make up for skipping RegisterModule, now that dictionary parsing
-         // is done and these headers cannot be selected anymore.
-         interp.parseForModule("#include \"TStreamerInfo.h\"\n"
-                               "#include \"TFile.h\"\n"
-                               "#include \"TObjArray.h\"\n"
-                               "#include \"TVirtualArray.h\"\n"
-                               "#include \"TStreamerElement.h\"\n"
-                               "#include \"TProtoClass.h\"\n"
-                               "#include \"TBaseClass.h\"\n"
-                               "#include \"TListOfDataMembers.h\"\n"
-                               "#include \"TDataMember.h\"\n"
-                               "#include \"TDictAttributeMap.h\"\n"
-                               "#include \"TMessageHandler.h\"\n"
-                               );
-         if (!CloseStreamerInfoROOTFile()) {
-            return 1;
-         }
+   EmitTypedefs(scan.fSelectedTypedefs);
+   // Make up for skipping RegisterModule, now that dictionary parsing
+   // is done and these headers cannot be selected anymore.
+   int finRetCode = FinalizeStreamerInfoWriting(interp);
+   if (finRetCode != 0) return finRetCode;
 #endif
+
+   //
+   // Write all TBuffer &operator>>(...), Class_Name(), Dictionary(), etc.
+   // first to allow template specialisation to occur before template
+   // instantiation (STK)
+   //
+   // SELECTION LOOP
+   for(auto const & selClass : scan.fSelectedClasses){
+
+      if (!selClass.GetRecordDecl()->isCompleteDefinition() || selClass.RequestOnlyTClass()) {
+         // For now delay those for later.
+         continue;
       }
-
-      //
-      // Write all TBuffer &operator>>(...), Class_Name(), Dictionary(), etc.
-      // first to allow template specialisation to occur before template
-      // instantiation (STK)
-      //
-      // SELECTION LOOP
-      iter = scan.fSelectedClasses.begin();
-      end = scan.fSelectedClasses.end();
-      for( ; iter != end; ++iter)
-      {
-         if (!iter->GetRecordDecl()->isCompleteDefinition()) {
-            continue;
-         }
-         if (iter->RequestOnlyTClass()) {
-            // For now delay those for later.
-            continue;
-         }
-         const clang::CXXRecordDecl* cxxdecl = llvm::dyn_cast<clang::CXXRecordDecl>(iter->GetRecordDecl());
-         if (cxxdecl && ROOT::TMetaUtils::ClassInfo__HasMethod(*iter,"Class_Name",interp)) {
-            if (!interpreteronly){
-               WriteClassFunctions(cxxdecl,dictStream,isSplit);
-            } else {
-               ROOT::TMetaUtils::Error("GenerateFullDict",
-                                       "Interactivity only dictionaries are not supported for classes with ClassDef\n");
-               return 1;
-            }
-         }
-      }
-
-      // LINKDEF SELECTION LOOP
-      // Loop to get the shadow class for the class marker 'RequestOnlyTClass' (but not the
-      // STL class which is done via RStl::Instance().WriteClassInit(0);
-      // and the ClassInit
-      if (!interpreteronly){
-         iter = scan.fSelectedClasses.begin();
-         end = scan.fSelectedClasses.end();
-         for( ; iter != end; ++iter)
-         {
-            if (!iter->GetRecordDecl()->isCompleteDefinition()) {
-               continue;
-            }
-            if (!iter->RequestOnlyTClass()) {
-               continue;
-            }
-
-            const clang::CXXRecordDecl* CRD = llvm::dyn_cast<clang::CXXRecordDecl>(iter->GetRecordDecl());
-
-            if (!ROOT::TMetaUtils::IsSTLContainer(*iter)) {
-               ROOT::TMetaUtils::WriteClassInit(dictStream, *iter, CRD, interp, normCtxt, ctorTypes, needsCollectionProxy);
-            }
-         }
-         // Loop to write all the ClassCode
-         iter = scan.fSelectedClasses.begin();
-         end = scan.fSelectedClasses.end();
-         for( ; iter != end; ++iter)
-         {
-            ROOT::TMetaUtils::WriteClassCode(&CallWriteStreamer,
-                                             *iter,
-                                             interp,
-                                             normCtxt,
-                                             dictStream,
-                                             ctorTypes,
-                                             isGenreflex);
-         }
-      }
-   } else {
-      // We need annotations even in the PCH
-      iter = scan.fSelectedClasses.begin();
-      end = scan.fSelectedClasses.end();
-      for( ; iter != end; ++iter)
-      {
-         // Very important: here we decide if we want to attach attributes to the decl.
-         if (clang::CXXRecordDecl* CXXRD =
-            llvm::dyn_cast<clang::CXXRecordDecl>(const_cast<clang::RecordDecl*>(iter->GetRecordDecl()))){
-            AnnotateDecl(*CXXRD,selectionRules,interp,isGenreflex);
-            }
+      const clang::CXXRecordDecl* cxxdecl = llvm::dyn_cast<clang::CXXRecordDecl>(selClass.GetRecordDecl());
+      if (cxxdecl && ROOT::TMetaUtils::ClassInfo__HasMethod(selClass,"Class_Name",interp)) {
+         WriteClassFunctions(cxxdecl,dictStream,isSplit);
       }
    }
 
-   if (!interpreteronly) {
-      // coverity[fun_call_w_exception] - that's just fine.
-      ROOT::RStl::Instance().WriteClassInit(dictStream, interp, normCtxt, ctorTypes, needsCollectionProxy);
+   // LINKDEF SELECTION LOOP
+   // Loop to get the shadow class for the class marker 'RequestOnlyTClass' (but not the
+   // STL class which is done via RStl::Instance().WriteClassInit(0);
+   // and the ClassInit
+
+   for(auto const & selClass : scan.fSelectedClasses)
+   {
+      if (!selClass.GetRecordDecl()->isCompleteDefinition() || !selClass.RequestOnlyTClass()) {
+         continue;
+      }
+
+      const clang::CXXRecordDecl* CRD = llvm::dyn_cast<clang::CXXRecordDecl>(selClass.GetRecordDecl());
+
+      if (!ROOT::TMetaUtils::IsSTLContainer(selClass)) {
+         ROOT::TMetaUtils::WriteClassInit(dictStream, selClass, CRD, interp, normCtxt, ctorTypes, needsCollectionProxy);
+      }
    }
+   // Loop to write all the ClassCode
+   for(auto const & selClass : scan.fSelectedClasses){
+      ROOT::TMetaUtils::WriteClassCode(&CallWriteStreamer,
+                                       selClass,
+                                       interp,
+                                       normCtxt,
+                                       dictStream,
+                                       ctorTypes,
+                                       isGenreflex);
+   }
+
+   // Loop on the registered collections internally
+   // coverity[fun_call_w_exception] - that's just fine.
+   ROOT::RStl::Instance().WriteClassInit(dictStream, interp, normCtxt, ctorTypes, needsCollectionProxy);
 
    return 0;
 }
@@ -3316,16 +3137,13 @@ void CheckForMinusW(const char* arg,
 std::string GetFwdDeclnArgsToKeepString(const ROOT::TMetaUtils::TNormalizedCtxt& normCtxt,
                                         cling::Interpreter& interp)
 {
+   using namespace ROOT::TMetaUtils::AST2SourceTools;
    std::string fwdDecl;
    std::string initStr("{");
    auto& fwdDeclnArgsToSkipColl = normCtxt.GetTemplNargsToKeepMap();
    for (auto& strigNargsToKeepPair : fwdDeclnArgsToSkipColl){
       auto& clTemplDecl = *strigNargsToKeepPair.first;
-      ExtractTemplateDefinition(clTemplDecl,
-                                interp,
-                                fwdDecl);
-      fwdDecl+=" ;";
-      EncloseInNamespaces(clTemplDecl,fwdDecl);
+      FwdDeclFromTmplDecl(clTemplDecl , interp, fwdDecl);
       initStr+="{\""+
                fwdDecl+"\", "
                +std::to_string(strigNargsToKeepPair.second)
@@ -3450,6 +3268,7 @@ void ExtractHeadersForDecls(const RScanner::ClassColl_t& annotatedRcds,
          buffer.clear();
          headers.remove_if([&buffer](const std::string& s) {return !buffer.insert(s).second;});
          headersDeclsMap[annotatedRcd.GetNormalizedName()] = headers;
+         headersDeclsMap[annotatedRcd.GetRequestedName()] = headers;
       }
    }
 
@@ -3479,9 +3298,72 @@ void ExtractHeadersForDecls(const RScanner::ClassColl_t& annotatedRcds,
       headersDeclsMap[ROOT::TMetaUtils::GetQualifiedName(*var)] = headers;
    }
 }
+
+//______________________________________________________________________________
+std::string GenerateFwdDeclString(const RScanner& scan,
+                                  const cling::Interpreter& interp)
+{
+   // Generate the fwd declarations of the selected entities
+
+   using namespace ROOT::TMetaUtils::AST2SourceTools;
+
+   const char* emptyString="\"\"";
+
+   std::string fwdDeclString;
+   std::string buffer;
+   std::unordered_set<std::string> fwdDecls;
+
+   // Classes
+
+   for (auto const & annRcd : scan.fSelectedClasses){
+      const auto rcdDeclPtr = annRcd.GetRecordDecl();
+      int retCode = FwdDeclFromRcdDecl(*rcdDeclPtr,interp,buffer);
+      if (-1 == retCode) {
+         ROOT::TMetaUtils::Error("GenerateFwdDeclString",
+                                 "Error generating fwd decl for class %s\n",
+                                 annRcd.GetNormalizedName());
+         return emptyString;
+      }
+      if (retCode == 0 && fwdDecls.insert(buffer).second)
+         fwdDeclString+="\""+buffer+"\"\n";
+   }
+
+   // Typedefs
+
+   for (auto const & tdNameDeclPtr : scan.fSelectedTypedefs){
+      buffer="";
+      FwdDeclFromTypeDefNameDecl(*tdNameDeclPtr,
+                                 interp,
+                                 buffer,
+                                 &fwdDecls);
+      if (fwdDecls.insert(buffer).second){
+         fwdDeclString+="\""+buffer+"\"\n";
+
+      }
+   }
+
+   // Functions
+//    for (auto const& fcnDeclPtr : scan.fSelectedFunctions){
+//       int retCode = FwdDeclFromFcnDecl(*fcnDeclPtr, interp, buffer);
+//       if (-1 == retCode){
+//          ROOT::TMetaUtils::Error("GenerateFwdDeclString",
+//                                  "Error generating fwd decl for function  %s\n",
+//                                  fcnDeclPtr->getNameAsString().c_str());
+//          return emptyString;
+//       }
+//       if (retCode == 0 && fwdDecls.insert(buffer).second)
+//          fwdDeclString+="\""+buffer+"\"\n";
+//    }
+
+   if (fwdDeclString.empty()) fwdDeclString=emptyString;
+
+   return fwdDeclString;
+}
+
 //______________________________________________________________________________
 const std::string GenerateStringFromHeadersForClasses (const HeadersDeclsMap_t& headersClassesMap,
-                                                       const std::string& detectedUmbrella)
+                                                       const std::string& detectedUmbrella,
+                                                       bool payLoadOnly=false)
 {
    // Generate a string for the dictionary from the headers-classes map.
    std::string headerName;
@@ -3489,16 +3371,18 @@ const std::string GenerateStringFromHeadersForClasses (const HeadersDeclsMap_t& 
    if (genreflex::verbose)
       std::cout << "Class-headers Mapping:\n";
    std::string headersClassesMapString="static const char* classesHeaders[]={\n";
-   for (auto& classHeaders : headersClassesMap){
+   for (auto const & classHeaders : headersClassesMap){
       if (genreflex::verbose)
          std::cout << " o " << classHeaders.first << " --> ";
       headersClassesMapString+="\"";
       headersClassesMapString+=classHeaders.first+"\"";
-      for (auto& header : classHeaders.second){
-         headerName = (detectedUmbrella==header) ? "payloadCode" : "\""+header+"\"";
+      for (auto const & header : classHeaders.second){
+         headerName = (detectedUmbrella==header || payLoadOnly) ? "payloadCode" : "\""+header+"\"";
          headersClassesMapString+=", "+ headerName;
          if (genreflex::verbose)
             std::cout << ", " << headerName;
+         if (payLoadOnly)
+            break;
       }
       if (genreflex::verbose)
          std::cout << std::endl;
@@ -3821,12 +3705,14 @@ int RootCling(int argc,
             // Ignore CINT arguments.
             continue;
          }
+
          if (strcmp("-inlineInputHeader", argv[ic]) == 0 ) {
             // inline the input header
             inlineInputHeader = true;
             ic+=1;
             continue;
          }
+
          if (strcmp("-pipe", argv[ic])!=0 && strcmp("-pthread", argv[ic])!=0) {
             // filter out undesirable options
             if (strcmp("-fPIC", argv[ic]) && strcmp("-fpic", argv[ic])
@@ -4248,10 +4134,9 @@ int RootCling(int argc,
                  << "#include \"TSchemaHelper.h\"\n\n";
 
       std::list<std::string> includes;
-      std::list<std::string>::iterator it;
       GetRuleIncludes( includes );
-      for( it = includes.begin(); it != includes.end(); ++it ){
-         dictStream << "#include <" << *it << ">" << std::endl;
+      for(auto& incFile : includes){
+         dictStream << "#include <" << incFile << ">" << std::endl;
       }
       dictStream << std::endl;
    }
@@ -4302,23 +4187,21 @@ int RootCling(int argc,
    }
 
 
-// SELECTION LOOP
+   // SELECTION LOOP
    // Check for error in the class layout before doing anything else.
-   RScanner::ClassColl_t::const_iterator iter = scan.fSelectedClasses.begin();
-   RScanner::ClassColl_t::const_iterator end = scan.fSelectedClasses.end();
-   for( ; iter != end; ++iter)
+   for(auto const & annRcd : scan.fSelectedClasses)
    {
-      if (ROOT::TMetaUtils::ClassInfo__HasMethod(*iter,"Streamer",interp)) {
-         if (iter->RequestNoInputOperator()) {
-            int version = ROOT::TMetaUtils::GetClassVersion(*iter, interp);
+      if (ROOT::TMetaUtils::ClassInfo__HasMethod(annRcd,"Streamer",interp)) {
+         if (annRcd.RequestNoInputOperator()) {
+            int version = ROOT::TMetaUtils::GetClassVersion(annRcd, interp);
             if (version!=0) {
                // Only Check for input operator is the object is I/O has
                // been requested.
-               has_input_error |= CheckInputOperator(*iter,interp);
+               has_input_error |= CheckInputOperator(annRcd,interp);
             }
          }
       }
-      has_input_error |= !CheckClassDef(**iter, interp);
+      has_input_error |= !CheckClassDef(*annRcd, interp);
    }
 
    if (has_input_error) {
@@ -4335,29 +4218,40 @@ int RootCling(int argc,
       if (doSplit){
          GenerateNecessaryIncludes(splitDictStream,includeForSource,extraIncludes);
       }
-   }
-
-   if (!onepcm && !interpreteronly){
-      // The order of addition to the list of constructor type
-      // is significant.  The list is sorted by with the highest
-      // priority first.
-      constructorTypes.push_back(ROOT::TMetaUtils::RConstructorType("TRootIOCtor", interp));
-      constructorTypes.push_back(ROOT::TMetaUtils::RConstructorType("", interp));
-
 #ifndef ROOT_STAGE1_BUILD
       InitializeStreamerInfoROOTFile(modGen.GetModuleFileName().c_str());
 #endif
+      // The order of addition to the list of constructor type
+      // is significant.  The list is sorted by with the highest
+      // priority first.
+      if (!interpreteronly){
+         constructorTypes.push_back(ROOT::TMetaUtils::RConstructorType("TRootIOCtor", interp));
+         constructorTypes.push_back(ROOT::TMetaUtils::RConstructorType("", interp));
+         }
    }
 
-   int retCode = GenerateFullDict(splitDictStream,
-                                  interp,
-                                  scan,
-                                  selectionRules,
-                                  constructorTypes,
-                                  onepcm,
-                                  interpreteronly,
-                                  doSplit,
-                                  isGenreflex);
+   int retCode(0);
+   if (onepcm){
+      AnnotateAllDeclsForPCH(interp,scan,selectionRules);
+   }
+   else if (interpreteronly){
+      retCode = CheckClassesForInterpreterOnlyDicts(interp,scan);
+      // generate an empty pcm nevertheless for consistency
+      // Negate as true is 1 and true is returned in case of success.
+#ifndef ROOT_STAGE1_BUILD
+      retCode +=  FinalizeStreamerInfoWriting(interp);
+#endif
+   }
+   else{
+      retCode= GenerateFullDict(splitDictStream,
+                                interp,
+                                scan,
+                                selectionRules,
+                                constructorTypes,
+                                doSplit,
+                                isGenreflex);
+   }
+
    if (retCode!=0){
       return retCode;
    }
@@ -4386,13 +4280,21 @@ int RootCling(int argc,
             break;
          }
       }
-      const std::string headersClassesMapString = GenerateStringFromHeadersForClasses(headersDeclsMap,detectedUmbrella);
-
+      const std::string headersClassesMapString = GenerateStringFromHeadersForClasses(headersDeclsMap,
+                                                                                      detectedUmbrella,
+                                                                                      true);
+      const std::string fwdDeclsString =
+#ifndef ROOT_STAGE1_BUILD
+      GenerateFwdDeclString(scan,interp);
+#else
+      "\"\"";
+#endif
       GenerateModule(modGen,
                      CI,
                      currentDirectory,
                      fwdDeclnArgsToKeepString,
                      headersClassesMapString,
+                     fwdDeclsString,
                      dictStream,
                      inlineInputHeader);
    }
@@ -4409,14 +4311,12 @@ int RootCling(int argc,
          outputfile << gLibsNeeded.substr(0, endStr+1) << endl;
          // Add explicit delimiter
          outputfile << "# Now the list of classes\n";
-// SELECTION LOOP
-         iter = scan.fSelectedClasses.begin();
-         end = scan.fSelectedClasses.end();
-         for( ; iter != end; ++iter)
+         // SELECTION LOOP
+         for(auto const & annRcd : scan.fSelectedClasses)
          {
             // Shouldn't it be GetLong64_Name( cl_input.GetNormalizedName() )
             // or maybe we should be normalizing to turn directly all long long into Long64_t
-            outputfile << iter->GetNormalizedName() << endl;
+            outputfile << annRcd.GetNormalizedName() << endl;
          }
       }
    }
@@ -4681,8 +4581,7 @@ int invokeRootCling(const std::string& verbosity,
                ROOT::TMetaUtils::Warning(0,
             "*** genreflex: No rootmap lib and several header specified!\n");
       }
-      std::string cleanHeaderName;
-      ExtractFileName(headersNames[0],cleanHeaderName);
+      std::string cleanHeaderName = ExtractFileName(headersNames[0]);
       newRootmapLibName = "lib";
       newRootmapLibName+=cleanHeaderName;
       changeExtension(newRootmapLibName,gLibraryExtension);
@@ -5001,7 +4900,10 @@ int GenReflex(int argc, char **argv)
    "-o, --output\tOutput filename\n"
    "      Output file name. If an existing directory is specified instead of a file,\n"
    "      then a filename will be build using the name of the input file and will\n"
-   "      be placed in the given directory. <headerfile>_rflx.cpp.\n";
+   "      be placed in the given directory. <headerfile>_rflx.cpp.\n"
+   "      NOTA BENE: the dictionaries that will be used within the same project must\n"
+   "      have unique names.\n";
+
 
    const char* targetLib=
    "-l, --library\tTarget library\n"
@@ -5265,7 +5167,7 @@ int GenReflex(int argc, char **argv)
       }
       // Target lib has precedence over rootmap lib
       if (options[ROOTMAP]){
-         rootmapLibName = options[TARGETLIB].arg;
+         rootmapLibName = ExtractFileName(options[TARGETLIB].arg);
       }
    }
 
@@ -5391,8 +5293,7 @@ int main(int argc, char **argv)
 
    const std::string exePath ( GetExePath() );
 
-   std::string exeName;
-   ExtractFileName(exePath,exeName);
+   std::string exeName = ExtractFileName(exePath);
 
    // Select according to the name of the executable the procedure to follow:
    // 1) RootCling

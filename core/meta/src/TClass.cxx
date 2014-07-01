@@ -2024,18 +2024,22 @@ Bool_t TClass::CanSplit() const
       // The user explicitly set the value
       return fCanSplit != 0;
    }
-   if (this == TObject::Class())  return kTRUE;
-   if (fName == "TClonesArray")   return kTRUE;
-   if (fRefProxy)                 return kFALSE;
-   if (InheritsFrom("TRef"))      return kFALSE;
-   if (InheritsFrom("TRefArray")) return kFALSE;
-   if (InheritsFrom("TArray"))    return kFALSE;
-   if (fName.BeginsWith("TVectorT<")) return kFALSE;
-   if (fName.BeginsWith("TMatrixT<")) return kFALSE;
-   if (InheritsFrom("TCollection") && !InheritsFrom("TClonesArray")) return kFALSE;
-   if (InheritsFrom("TTree"))     return kFALSE;
-   if (fName == "string")         return kFALSE;
-   if (fName == "std::string")    return kFALSE;
+
+   R__LOCKGUARD(gInterpreterMutex);
+   TClass *This = const_cast<TClass*>(this);
+
+   if (this == TObject::Class())  { This->fCanSplit = 1; return kTRUE; }
+   if (fName == "TClonesArray")   { This->fCanSplit = 1; return kTRUE; }
+   if (fRefProxy)                 { This->fCanSplit = 0; return kFALSE; }
+   if (InheritsFrom("TRef"))      { This->fCanSplit = 0; return kFALSE; }
+   if (InheritsFrom("TRefArray")) { This->fCanSplit = 0; return kFALSE; }
+   if (InheritsFrom("TArray"))    { This->fCanSplit = 0; return kFALSE; }
+   if (fName.BeginsWith("TVectorT<")) { This->fCanSplit = 0; return kFALSE; }
+   if (fName.BeginsWith("TMatrixT<")) { This->fCanSplit = 0; return kFALSE; }
+   if (InheritsFrom("TCollection") && !InheritsFrom("TClonesArray")) { This->fCanSplit = 0; return kFALSE; }
+   if (InheritsFrom("TTree"))     { This->fCanSplit = 0; return kFALSE; }
+   if (fName == "string")         { This->fCanSplit = 0; return kFALSE; }
+   if (fName == "std::string")    { This->fCanSplit = 0; return kFALSE; }
 
    // If we do not have a showMembers or a fClassInfo and we have a streamer,
    // we are in the case of class that can never be split since it is
@@ -2047,40 +2051,45 @@ Bool_t TClass::CanSplit() const
       // nor collections of strings
       // nor collections of pointers (unless explicit request (see TBranchSTL)).
 
-      if (GetCollectionProxy()->HasPointers()) return kFALSE;
+      if (GetCollectionProxy()->HasPointers()) { This->fCanSplit = 0; return kFALSE; }
 
       TClass *valueClass = GetCollectionProxy()->GetValueClass();
-      if (valueClass == 0) return kFALSE;
+      if (valueClass == 0) { This->fCanSplit = 0; return kFALSE; }
       static TClassRef stdStringClass("std::string");
       if (valueClass==TString::Class() || valueClass==stdStringClass)
-         return kFALSE;
-      if (!valueClass->CanSplit()) return kFALSE;
-      if (valueClass->GetCollectionProxy() != 0) return kFALSE;
+         { This->fCanSplit = 0; return kFALSE; }
+      if (!valueClass->CanSplit()) { This->fCanSplit = 0; return kFALSE; }
+      if (valueClass->GetCollectionProxy() != 0) { This->fCanSplit = 0; return kFALSE; }
 
       Int_t stl = -TClassEdit::IsSTLCont(GetName(), 0);
       if ((stl==ROOT::kSTLmap || stl==ROOT::kSTLmultimap)
           && !valueClass->HasDataMemberInfo()==0)
       {
+         This->fCanSplit = 0; 
          return kFALSE;
       }
 
+      This->fCanSplit = 1;
       return kTRUE;
 
    } else if (GetStreamer()!=0) {
 
       // We have an external custom streamer provided by the user, we must not
       // split it.
+      This->fCanSplit = 0;
       return kFALSE;
 
    } else if ( TestBit(TClass::kHasCustomStreamerMember) ) {
 
       // We have a custom member function streamer or
       // an older (not StreamerInfo based) automatic streamer.
+      This->fCanSplit = 0;
       return kFALSE;
    }
 
    if (Size()==1) {
       // 'Empty' class there is nothing to split!.
+      This->fCanSplit = 0; 
       return kFALSE;
    }
 
@@ -2088,9 +2097,10 @@ Bool_t TClass::CanSplit() const
    TIter nextb(ncThis->GetListOfBases());
    TBaseClass *base;
    while((base = (TBaseClass*)nextb())) {
-      if (!base->GetClassPointer()) return kFALSE;
+      if (!base->GetClassPointer()) { This->fCanSplit = 0; return kFALSE; }
    }
 
+   This->fCanSplit = 1;
    return kTRUE;
 }
 
@@ -2550,10 +2560,10 @@ namespace {
 //______________________________________________________________________________
 TVirtualCollectionProxy *TClass::GetCollectionProxy() const
 {
-   // Return the proxy describinb the collection (if any).
+   // Return the proxy describing the collection (if any).
 
    // Use assert, so that this line (slow because of the TClassEdit) is completely
-   // remove in optimized code.
+   // removed in optimized code.
    assert(TestBit(kLoading) || !TClassEdit::IsSTLCont(fName) || fCollectionProxy || 0 == "The TClass for the STL collection has no collection proxy!");
    if (gThreadTsd && fCollectionProxy) {
       TClassLocalStorage *local = TClassLocalStorage::GetStorage(this);
@@ -3392,7 +3402,7 @@ Bool_t TClass::HasDictionary()
 }
 
 //______________________________________________________________________________
-void TClass::GetMissingDictionariesForBaseClasses(TCollection& result, bool recurse)
+void TClass::GetMissingDictionariesForBaseClasses(TCollection& result, TCollection& visited, bool recurse)
 {
    // Verify the base classes always.
 
@@ -3403,13 +3413,13 @@ void TClass::GetMissingDictionariesForBaseClasses(TCollection& result, bool recu
    while ((base = (TBaseClass*)nextBase())) {
       TClass* baseCl = base->Class();
       if (baseCl) {
-            baseCl->GetMissingDictionariesWithRecursionCheck(result, recurse);
+            baseCl->GetMissingDictionariesWithRecursionCheck(result, visited, recurse);
       }
    }
 }
 
 //______________________________________________________________________________
-void TClass::GetMissingDictionariesForMembers(TCollection& result, bool recurse)
+void TClass::GetMissingDictionariesForMembers(TCollection& result, TCollection& visited, bool recurse)
 {
    // Verify the Data Members.
 
@@ -3418,6 +3428,10 @@ void TClass::GetMissingDictionariesForMembers(TCollection& result, bool recurse)
    TIter nextMemb(ldm);
    TDataMember * dm = 0;
    while ((dm = (TDataMember*)nextMemb())) {
+      // If it is a transient
+      if(!dm->IsPersistent()) {
+        continue;
+      }
       // If it is a built-in data type.
       TClass* dmTClass = 0;
       if (dm->GetDataType()) {
@@ -3427,17 +3441,17 @@ void TClass::GetMissingDictionariesForMembers(TCollection& result, bool recurse)
             dmTClass = TClass::GetClass(dm->GetTypeName());
       }
       if (dmTClass) {
-            dmTClass->GetMissingDictionariesWithRecursionCheck(result, recurse);
+            dmTClass->GetMissingDictionariesWithRecursionCheck(result, visited, recurse);
       }
    }
 }
 
 //______________________________________________________________________________
-void TClass::GetMissingDictionariesWithRecursionCheck(TCollection& result, bool recurse)
+void TClass::GetMissingDictionariesWithRecursionCheck(TCollection& result, TCollection& visited, bool recurse)
 {
    // From the second level of recursion onwards it is different state check.
 
-   if (result.FindObject(this)) return;
+   if (result.FindObject(this) || visited.FindObject(this)) return;
 
    static TClassRef sCIString("string");
    if (this == sCIString) return;
@@ -3447,6 +3461,8 @@ void TClass::GetMissingDictionariesWithRecursionCheck(TCollection& result, bool 
    if (!HasDictionary()) {
       result.Add(this);
    }
+
+   visited.Add(this);
    //Check whether a custom streamer
    if (!TestBit(TClass::kHasCustomStreamerMember)) {
       if (GetCollectionProxy()) {
@@ -3455,18 +3471,14 @@ void TClass::GetMissingDictionariesWithRecursionCheck(TCollection& result, bool 
          TClass* t = 0;
          if ((t = GetCollectionProxy()->GetValueClass())) {
             if (!t->HasDictionary()) {
-               if (recurse) {
-                  t->GetMissingDictionariesWithRecursionCheck(result, recurse);
-               } else {
-                  result.Add(this);
-               }
+               t->GetMissingDictionariesWithRecursionCheck(result, visited, recurse);
             }
          }
       } else {
          if (recurse) {
-            GetMissingDictionariesForMembers(result, recurse);
+            GetMissingDictionariesForMembers(result, visited, recurse);
          }
-         GetMissingDictionariesForBaseClasses(result, recurse);
+         GetMissingDictionariesForBaseClasses(result, visited, recurse);
       }
    }
 }
@@ -3493,9 +3505,14 @@ void TClass::GetMissingDictionaries(THashTable& result, bool recurse)
 
    if (strncmp(fName, "pair<", 5) == 0) return;
 
+   THashTable visitedClasses;
+
    if (!HasDictionary()) {
       result.Add(this);
    }
+
+   visitedClasses.Add(this);
+
    //Check whether a custom streamer
    if (!TestBit(TClass::kHasCustomStreamerMember)) {
       if (GetCollectionProxy()) {
@@ -3504,12 +3521,12 @@ void TClass::GetMissingDictionaries(THashTable& result, bool recurse)
          TClass* t = 0;
          if ((t = GetCollectionProxy()->GetValueClass())) {
             if (!t->HasDictionary()) {
-               t->GetMissingDictionariesWithRecursionCheck(result, recurse);
+               t->GetMissingDictionariesWithRecursionCheck(result, visitedClasses, recurse);
             }
          }
       } else {
-         GetMissingDictionariesForMembers(result, recurse);
-         GetMissingDictionariesForBaseClasses(result, recurse);
+         GetMissingDictionariesForMembers(result, visitedClasses, recurse);
+         GetMissingDictionariesForBaseClasses(result, visitedClasses, recurse);
       }
    }
 }
@@ -5284,6 +5301,7 @@ void TClass::SetCollectionProxy(const ROOT::TCollectionProxyInfo &info)
       // Numeric Collections have implicit conversions:
       GetSchemaRules(kTRUE);
    }
+   fCanSplit = -1;
 }
 
 //______________________________________________________________________________
@@ -5564,7 +5582,7 @@ UInt_t TClass::GetCheckSum(ECheckSum code) const
             name = TClassEdit::ShortType( name, TClassEdit::kDropStlDefault );
          il = name.Length();
          for (int i=0; i<il; i++) id = id*3+name[i];
-         if (code > kNoBaseCheckSum && !isSTL) {
+         if (code > kNoBaseCheckSum && !isSTL && tbc->GetClassPointer()) {
             id = id*3 + tbc->GetClassPointer()->GetCheckSum();
          }
       }/*EndBaseLoop*/
@@ -5653,6 +5671,7 @@ void TClass::AdoptReferenceProxy(TVirtualRefProxy* proxy)
    if ( fRefProxy )  {
       fRefProxy->SetClass(this);
    }
+   fCanSplit = -1;
 }
 
 //______________________________________________________________________________
@@ -5879,6 +5898,7 @@ void TClass::SetStreamerFunc(ClassStreamerFunc_t strm)
    } else {
       fStreamerFunc = strm;
    }
+   fCanSplit = -1;
 }
 
 //______________________________________________________________________________

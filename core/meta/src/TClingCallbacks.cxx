@@ -48,6 +48,7 @@ extern "C" {
    TObject* TCling__GetObjectAddress(const char *Name, void *&LookupCtx);
    Decl* TCling__GetObjectDecl(TObject *obj);
    int TCling__AutoLoadCallback(const char* className);
+   int TCling__AutoParseCallback(const char* className);
 //    int TCling__IsAutoLoadNamespaceCandidate(const char* name);
    int TCling__IsAutoLoadNamespaceCandidate(const clang::NamespaceDecl* name);
    int TCling__CompileMacro(const char *fileName, const char *options);
@@ -275,8 +276,8 @@ bool TClingCallbacks::LookupObject(const DeclContext* DC, DeclarationName Name) 
 
 bool TClingCallbacks::LookupObject(clang::TagDecl* Tag) {
    if (!IsAutoloadingEnabled() || fIsAutoloadingRecursively) return false;
-   if (ClassTemplateSpecializationDecl* Specialization 
-       = dyn_cast<ClassTemplateSpecializationDecl>(Tag)) {
+   if (auto* Specialization
+       = dyn_cast<RecordDecl>(Tag)) {
       Sema &SemaR = m_Interpreter->getSema();
       ASTContext& C = SemaR.getASTContext();
       Preprocessor &PP = SemaR.getPreprocessor();
@@ -303,10 +304,11 @@ bool TClingCallbacks::LookupObject(clang::TagDecl* Tag) {
                                           C.getTypeDeclType(Specialization),
                                           *m_Interpreter,
                                           *tNormCtxt);                                               
-      // This would mean it is probably a template. Try autoload template.
-      if (TCling__AutoLoadCallback(Name.c_str())) {
+      // Autoparse implies autoload
+      if (TCling__AutoParseCallback(Name.c_str())) {
          return true;
       }
+
    }
    
    return false;
@@ -543,7 +545,7 @@ bool TClingCallbacks::shouldResolveAtRuntime(LookupResult& R, Scope* S) {
       return false;
 
    const Transaction* T = getInterpreter()->getCurrentTransaction();
-   if (!T || !T->getWrapperFD())
+   if (!T)
       return false;
    const cling::CompilationOptions& COpts = T->getCompilationOpts();
    if (!COpts.DynamicScoping)
@@ -564,11 +566,12 @@ bool TClingCallbacks::shouldResolveAtRuntime(LookupResult& R, Scope* S) {
    //if (R.getSema().PP.LookAhead(0).getKind() == tok::less)
       // TODO: check for . or -> in the cached token stream
    //   return false;
-
+   
    for (Scope* DepScope = S; DepScope; DepScope = DepScope->getParent()) {
       if (DeclContext* Ctx = static_cast<DeclContext*>(DepScope->getEntity())) {
-         // For now we support only the prompt.
-         if (dyn_cast<FunctionDecl>(Ctx) == T->getWrapperFD())
+         if (!Ctx->isDependentContext())
+            // For now we support only the prompt.
+            if (isa<FunctionDecl>(Ctx))
                return true;
       }
    }

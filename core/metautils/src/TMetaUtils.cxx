@@ -18,6 +18,11 @@
 //______________________________________________________________________________
 
 #include <algorithm>
+#include <iostream>
+#include <sstream>
+#include <stdlib.h>
+#include <stdio.h>
+#include <unordered_set>
 
 #include "RConfigure.h"
 #include "RConfig.h"
@@ -25,11 +30,6 @@
 #include "compiledata.h"
 
 #include "RStl.h"
-
-#include <iostream>
-#include <sstream>
-#include <stdlib.h>
-#include <stdio.h>
 
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"
@@ -4411,3 +4411,367 @@ void ROOT::TMetaUtils::ReplaceAll(std::string& str, const std::string& from, con
       }
    }
 }
+
+//______________________________________________________________________________
+int ROOT::TMetaUtils::AST2SourceTools::EncloseInNamespaces(const clang::Decl& decl, std::string& defString)
+{
+   // Take the namespaces which enclose the decl and put them around the
+   // definition string.
+   // For example, if the definition string is "myClass" which is enclosed by
+   // the namespaces ns1 and ns2, one would get:
+   // namespace ns2{ namespace ns1 { class myClass; } }
+
+   std::list<std::pair<std::string,bool> > enclosingNamespaces;
+   ROOT::TMetaUtils::ExtractEnclosingNameSpaces(decl,enclosingNamespaces);
+   // Check if we have enclosing namespaces
+   // FIXME: this should be active also for classes
+   for (auto const & encNs : enclosingNamespaces){
+      auto nsName= encNs.first;
+      std::string isInline ((encNs.second ? "inline ":""));
+      defString = isInline + "namespace " + nsName + " { " + defString + " }";
+   }
+   return 0;
+}
+
+//______________________________________________________________________________
+int ROOT::TMetaUtils::AST2SourceTools::PrepareArgsForFwdDecl(std::string& templateArgs,
+                          const clang::TemplateParameterList& tmplParamList,
+                          const cling::Interpreter& interpreter)
+{
+   // Loop over the template parameters and build a string for template arguments
+   // using the fully qualified name
+   // There are different cases:
+   // Case 1: a simple template parameter
+   //   E.g. template<typename T> class A;
+   // Case 2: a non-type: either an integer or an enum
+   //   E.g. template<int I, Foo > class A; where Foo is enum Foo {red, blue};
+   // 2 sub cases here:
+   //   SubCase 2.a: the parameter is an enum: bail out, cannot be treated.
+   //   SubCase 2.b: use the fully qualified name
+   // Case 3: a TemplateTemplate argument
+   //   E.g. template <template <typename> class T> class container { };
+
+   static const char* paramPackWarning="Template parameter pack found: autoload of variadic templates is not supported yet.\n";
+
+   templateArgs="<";
+   for (auto prmIt = tmplParamList.begin();
+        prmIt != tmplParamList.end(); prmIt++){
+
+      if (prmIt != tmplParamList.begin())
+         templateArgs += ", ";
+
+      auto nDecl = *prmIt;
+      std::string typeName;
+
+      if(nDecl->isParameterPack ()){
+         ROOT::TMetaUtils::Warning(0,paramPackWarning);
+         return 1;
+      }
+
+      // Case 1
+      if (llvm::isa<clang::TemplateTypeParmDecl>(nDecl)){
+         typeName = "typename " + (*prmIt)->getNameAsString();
+      }
+      // Case 2
+      else if (auto nttpd = llvm::dyn_cast<clang::NonTypeTemplateParmDecl>(nDecl)){
+         auto theType = nttpd->getType();
+         // If this is an enum, use int as it is impossible to fwd declare and
+         // this makes sense since it is not a type...
+         if (theType.getAsString().find("enum") != std::string::npos){
+            std::string astDump;
+            llvm::raw_string_ostream ostream(astDump);
+            nttpd->dump(ostream);
+            ostream.flush();
+            ROOT::TMetaUtils::Warning(0,"Forward declarations of templates with enums as template parameters. The responsible class is: %s\n", astDump.c_str());
+            return 1;
+         } else {
+            ROOT::TMetaUtils::GetFullyQualifiedTypeName(typeName,
+                                                        theType,
+                                                        interpreter);
+         }
+      }
+      // Case 3: TemplateTemplate argument
+      else if (auto ttpd = llvm::dyn_cast<clang::TemplateTemplateParmDecl>(nDecl)){
+         int retCode = FwdDeclFromTmplDecl(*ttpd,interpreter,typeName);
+         if (retCode!=0){
+            std::string astDump;
+            llvm::raw_string_ostream ostream(astDump);
+            ttpd->dump(ostream);
+            ostream.flush();
+            ROOT::TMetaUtils::Error(0,"Cannot reconstruct template template parameter forward declaration for %s\n", astDump.c_str());
+            return 1;
+         }
+      }
+
+   templateArgs += typeName;
+   }
+
+   templateArgs+=">";
+   return 0;
+}
+
+//______________________________________________________________________________
+int ROOT::TMetaUtils::AST2SourceTools::FwdDeclFromTmplDecl(const clang::TemplateDecl& templDecl,
+                                                           const cling::Interpreter& interpreter,
+                                                           std::string& defString)
+{
+   // Convert a tmplt decl to its fwd decl
+
+   std::string templatePrefixString;
+   auto tmplParamList= templDecl.getTemplateParameters();
+   if (!tmplParamList){ // Should never happen
+      Error(0,
+            "Cannot extract template parameter list for %s",
+            templDecl.getNameAsString().c_str());
+      return 1;
+   }
+
+   int retCode = PrepareArgsForFwdDecl(templatePrefixString,*tmplParamList,interpreter);
+   if (retCode!=0){
+      Warning(0,
+               "Problems with arguments for forward declaration of class %s",
+               templDecl.getNameAsString().c_str());
+      return retCode;
+   }
+   templatePrefixString = "template " + templatePrefixString + " ";
+
+   defString = templatePrefixString + "class " + templDecl.getNameAsString() + ";";
+   return EncloseInNamespaces(templDecl, defString);
+}
+
+//______________________________________________________________________________
+int ROOT::TMetaUtils::AST2SourceTools::FwdDeclFromRcdDecl(const clang::RecordDecl& recordDecl,
+                                                          const cling::Interpreter& interpreter,
+                                                          std::string& defString,
+                                                          bool acceptStl)
+{
+   // Convert a rcd decl to its fwd decl
+   // If this is a template specialisation, treat in the proper way
+
+   // Do not fwd declare the templates in the stl.
+   if (ROOT::TMetaUtils::IsStdClass(recordDecl) && !acceptStl)
+      return 0;
+
+   // We may need to fwd declare the arguments of the template
+   std::string argsFwdDecl;
+
+   if (auto tmplSpecDeclPtr = llvm::dyn_cast<clang::ClassTemplateSpecializationDecl>(&recordDecl)){
+      std::string singlArgFwdDecl;
+      for(auto arg : tmplSpecDeclPtr->getTemplateArgs().asArray()){
+         // We do nothing in presence of ints, bools, templates.
+         // We should probably in presence of templates though...
+         if (clang::TemplateArgument::Type != arg.getKind()) continue;
+         auto argQualType = arg.getAsType();
+         // Recursively remove all *
+         while (llvm::isa<clang::PointerType>(argQualType.getTypePtr()))
+            argQualType = argQualType->getPointeeType();
+         if (llvm::isa<clang::RecordType>(argQualType)){
+            // Remove the * and &
+            auto argNakedTypePtr = ROOT::TMetaUtils::GetUnderlyingType(argQualType);
+            // Now we cannot but have a RecordType
+            auto argRecTypePtr = llvm::cast<clang::RecordType>(argNakedTypePtr);
+            if (auto argRecDeclPtr = argRecTypePtr->getDecl()){
+               FwdDeclFromRcdDecl(*argRecDeclPtr,interpreter,singlArgFwdDecl,acceptStl);
+               argsFwdDecl += singlArgFwdDecl;
+            }
+         }
+      }
+
+      if (acceptStl){
+         defString=argsFwdDecl;
+         return 0;
+      }
+
+      int retCode=0;
+      if (auto tmplDeclPtr = tmplSpecDeclPtr->getSpecializedTemplate()){
+         retCode = FwdDeclFromTmplDecl(*tmplDeclPtr,interpreter,defString);
+      }
+      defString = argsFwdDecl + defString;
+      return retCode;
+   }
+
+   defString = "class " + recordDecl.getNameAsString() + ";";
+   int retCode =  EncloseInNamespaces(recordDecl, defString);
+   defString = argsFwdDecl + defString;
+   return retCode;
+}
+
+//______________________________________________________________________________
+int ROOT::TMetaUtils::AST2SourceTools::FwdDeclFromTypeDefNameDecl(const clang::TypedefNameDecl& tdnDecl,
+                                                                  const cling::Interpreter& interpreter,
+                                                                  std::string& fwdDeclString,
+                                                                  std::unordered_set<std::string>* fwdDeclSetPtr)
+{
+
+   std::string buffer = tdnDecl.getNameAsString();
+   std::string underlyingName;
+   auto underlyingType = tdnDecl.getUnderlyingType();
+   ROOT::TMetaUtils::GetFullyQualifiedTypeName(underlyingName,
+                                               underlyingType,
+                                               interpreter);
+   buffer="typedef "+underlyingName+" "+buffer+";";
+   EncloseInNamespaces(tdnDecl,buffer);
+
+   // Start Recursion if the underlying type is a TypedefNameDecl
+   // Note: the simple cast w/o the getSingleStepDesugaredType call
+   // does not work in case the typedef is in a namespace.
+   auto& ctxt = tdnDecl.getASTContext();
+   auto underlyingUnderlyingType = underlyingType.getSingleStepDesugaredType(ctxt);
+   if (auto underlyingTdnTypePtr = llvm::dyn_cast<clang::TypedefType>(underlyingUnderlyingType.getTypePtr())){
+      std::string tdnFwdDecl;
+
+      auto underlyingTdnDeclPtr = underlyingTdnTypePtr->getDecl();
+      FwdDeclFromTypeDefNameDecl(*underlyingTdnDeclPtr,
+                                 interpreter,
+                                 tdnFwdDecl,
+                                 fwdDeclSetPtr);
+      if (!fwdDeclSetPtr || fwdDeclSetPtr->insert(tdnFwdDecl).second)
+         fwdDeclString+=tdnFwdDecl;
+   } else if (auto CXXRcdDeclPtr = underlyingType->getAsCXXRecordDecl()){
+      std::string classFwdDecl;
+      FwdDeclFromRcdDecl(*CXXRcdDeclPtr,
+                         interpreter,
+                         classFwdDecl,
+                         true /* acceptStl*/);
+      if (!fwdDeclSetPtr || fwdDeclSetPtr->insert(classFwdDecl).second)
+         fwdDeclString+=classFwdDecl;
+   }
+
+   fwdDeclString+=buffer;
+
+   return 0;
+}
+
+//______________________________________________________________________________
+int ROOT::TMetaUtils::AST2SourceTools::GetDefArg(const clang::ParmVarDecl& par,
+                                                 std::string& valAsString,
+                                                 const clang::PrintingPolicy& ppolicy)
+{
+   // Get the default value as string.
+   // Limited at the moment to:
+   // - Integers
+   // - Booleans
+
+   auto defArgExprPtr = par.getDefaultArg();
+   auto& ctxt = par.getASTContext();
+   if(!defArgExprPtr->isEvaluatable(ctxt)){
+      return -1;
+   }
+
+   auto defArgType = par.getType();
+
+   // The value is a boolean
+   if (defArgType->isBooleanType()){
+      bool result;
+      defArgExprPtr->EvaluateAsBooleanCondition (result,ctxt);
+      valAsString=std::to_string(result);
+      return 0;
+   }
+
+   // The value is an integer
+   if (defArgType->isIntegerType()){
+      llvm::APSInt result;
+      defArgExprPtr->EvaluateAsInt(result,ctxt);
+      auto uintVal = *result.getRawData();
+      if (result.isNegative()){
+         long long int intVal=uintVal*-1;
+         valAsString=std::to_string(intVal);
+      } else {
+         valAsString=std::to_string(uintVal);
+      }
+
+      return 0;
+   }
+
+   // The value is something else. We go for the generalised printer
+   llvm::raw_string_ostream rso(valAsString);
+   defArgExprPtr->printPretty(rso,nullptr,ppolicy);
+   valAsString = rso.str();
+   // We can be in presence of a string. Let's escape the characters properly.
+   ROOT::TMetaUtils::ReplaceAll(valAsString,"\\\"","__TEMP__VAL__");
+   ROOT::TMetaUtils::ReplaceAll(valAsString,"\"","\\\"");
+   ROOT::TMetaUtils::ReplaceAll(valAsString,"__TEMP__VAL__","\\\"");
+
+   return 0;
+}
+
+//______________________________________________________________________________
+int ROOT::TMetaUtils::AST2SourceTools::FwdDeclFromFcnDecl(const clang::FunctionDecl& fcnDecl,
+                                                          const cling::Interpreter& interp,
+                                                          std::string& defString)
+{
+   // Transform a function decl into a C++ forward declaration
+   // In some situation, we bail out:
+   // - CANNOT FWD DECLARE FUNCTIONS TWICE IF DEF ARGS PRESENT: if def args present
+   // - A parameter or the return value is not built-in
+   // - The function is a template, a method or extern C
+
+   if (clang::FunctionDecl::TemplatedKind::TK_NonTemplate != fcnDecl.getTemplatedKind() ||
+       llvm::isa<clang::CXXMethodDecl>(fcnDecl) ||
+       fcnDecl.isExternC())
+      return 1;
+
+   // Extract the fwd declaration of a function
+   defString = fcnDecl.getNameAsString();
+
+   // Treat parameters   
+   std::string paramString;
+   auto paramArray = fcnDecl.parameters ();
+   unsigned int pCounter=0;
+   std::string parmTypeAsString;
+   for (auto const & paramptr : paramArray){
+      ROOT::TMetaUtils::GetFullyQualifiedTypeName(parmTypeAsString, paramptr->getType(), interp);
+      paramString += parmTypeAsString+" p"+std::to_string(pCounter);
+      // For the moment, if it has a def arg or an arg is not built-in
+      if (paramptr->hasDefaultArg()){
+
+         // FIXME: here until we don't cope with def arguments
+         defString="";
+         return 1;
+
+         auto pointeeTypePtr = ROOT::TMetaUtils::GetUnderlyingType(paramptr->getType());
+         if (!pointeeTypePtr->isBuiltinType()){
+            defString="";
+            return 1;
+         }
+         std::string defVal;
+         if (0==GetDefArg(*paramptr,defVal,interp.getCI()->getSema().getPrintingPolicy ())){
+            paramString+="="+defVal;
+         } else {
+            defString="";
+            return 1;
+         }
+
+      }
+      paramString+=", ";
+   pCounter++;
+   }
+
+   const auto size = paramString.size();
+   if (size>2)
+      paramString.erase(size-2,size);
+
+   defString+="("+paramString+");";
+
+   // Now the return type
+   const auto retQt = fcnDecl.getReturnType ();
+   auto& ctxt = fcnDecl.getASTContext();
+   if (!retQt.isPODType(ctxt) && !retQt->isVoidType()){
+      defString="";
+      return 1;
+   }
+
+   std::string retQtAsString;
+   ROOT::TMetaUtils::GetFullyQualifiedTypeName(retQtAsString, retQt, interp);
+   defString = retQtAsString + " " + defString;
+
+   return EncloseInNamespaces(fcnDecl, defString);
+}
+
+//______________________________________________________________________________
+int ROOT::TMetaUtils::AST2SourceTools::GetEnclosingNamespaces(const clang::Decl& decl, std::string& defString)
+{
+   // Get the namespaces around the decl
+   return EncloseInNamespaces(decl, defString);
+}
+

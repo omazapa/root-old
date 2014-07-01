@@ -8,8 +8,6 @@ cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
 project(test)
 find_package(ROOT REQUIRED)
 
-include(${ROOT_USE_FILE})
-
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
@@ -28,19 +26,11 @@ else()
   include_directories(${ROOT_INCLUDE_DIRS}/../tutorials)
 endif()
 
-macro(ROOT_ADD_MACRO macrofile)
-  get_filename_component(name ${macrofile} NAME_WE)
-  ROOT_ADD_TEST(macro-${name} COMMAND ${ROOT_root_CMD} -b -q ${macrofile} PASSRC 1 FAILREGEX Error)
-endmacro()
-
 #---environment-------------------------------------------------------------------------------
 ROOT_ADD_TEST(show-environment COMMAND ${CMAKE_COMMAND} -E environment)
 
 #---hworld------------------------------------------------------------------------------------
 ROOT_EXECUTABLE(hworld hworld.cxx LIBRARIES Gpad)
-
-#---Defines some of the tutorials as tests----------------------------------------------------
-ROOT_ADD_MACRO(${ROOT_SOURCE_DIR}/tutorials/hsimple.C)
 
 #---event-------------------------------------------------------------------------------------
 ROOT_GENERATE_DICTIONARY(EventDict ${CMAKE_CURRENT_SOURCE_DIR}/Event.h MODULE Event LINKDEF EventLinkDef.h)
@@ -149,7 +139,7 @@ if(ROOT_mathmore_FOUND)
 endif()
 
 #--stressMathCore----------------------------------------------------------------------------------
-ROOT_GENERATE_DICTIONARY(TrackMathCoreDictionary ${CMAKE_CURRENT_SOURCE_DIR}/TrackMathCore.h MODULE TrackMathCoreDictionary LINKDEF TrackMathCoreLinkDef.h)
+ROOT_GENERATE_DICTIONARY(TrackMathCoreDictionary ${CMAKE_CURRENT_SOURCE_DIR}/TrackMathCore.h MODULE TrackMathCoreDict LINKDEF TrackMathCoreLinkDef.h)
 ROOT_LINKER_LIBRARY(TrackMathCoreDict TrackMathCoreDictionary.cxx LIBRARIES Core MathCore RIO GenVector)
 ROOT_EXECUTABLE(stressMathCore stressMathCore.cxx LIBRARIES MathCore Hist RIO Tree GenVector)
 ROOT_ADD_TEST(test-stressmathcore COMMAND stressMathCore FAILREGEX "FAILED|Error in")

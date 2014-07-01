@@ -28,6 +28,13 @@ if(CMD)
   endif()
 endif()
 
+if(COPY)
+  string(REPLACE "^" ";" _copy_files ${COPY})
+  if(DBG)
+    message(STATUS "files to copy: ${_copy_files}")
+  endif()
+endif()
+
 if(PRE)
   string(REPLACE "^" ";" _pre ${PRE})
   if(DBG)
@@ -70,6 +77,19 @@ if(ENV)
   endforeach()
 endif()
 
+if(COPY)
+  foreach(copyfile ${_copy_files})
+
+    execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${copyfile} ${CMAKE_CURRENT_BINARY_DIR}
+                    RESULT_VARIABLE _rc)
+
+    if(_rc)
+      message(FATAL_ERROR "Copying file ${copyfile} to ${CMAKE_CURRENT_BINARY_DIR} failed! Error code : ${_rc}")
+    endif()
+  endforeach()
+
+endif()
+
 #---Execute pre-command-----------------------------------------------------------------------------
 if(PRE)
   execute_process(COMMAND ${_pre} ${_cwd} RESULT_VARIABLE _rc)
@@ -97,7 +117,11 @@ if(CMD)
     endif()
 
     execute_process(COMMAND ${_cmd} ${_chkout} ${_chkerr} WORKING_DIRECTORY ${CWD} RESULT_VARIABLE _rc)
+    
+    message("-- BEGIN TEST OUTPUT --")
     message("${_outvar}")
+    message("-- END TEST OUTPUT --")
+
     file(WRITE ${OUT} "${_outvar}")
 
     if(DEFINED RC AND (NOT _rc EQUAL RC))

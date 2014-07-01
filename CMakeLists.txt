@@ -37,7 +37,6 @@ include(MacroEnsureVersion)
 #include(CTest)
 if(testing)
   enable_testing()
-  set(ROOTTEST_DIR "${CMAKE_SOURCE_DIR}/roottest")
 endif()
 
 #---Check if the user wants to build the project in the source directory------------------------
@@ -76,6 +75,7 @@ if(roofit)
 endif()
 
 ROOT_ADD_TEST_SUBDIRECTORY(test)
+ROOT_ADD_TEST_SUBDIRECTORY(tutorials)
 
 #---Global PCH-----------------------------------------------------------------------------------
 get_property(__allTargets GLOBAL PROPERTY ROOT_DICTIONARY_TARGETS)
@@ -125,7 +125,7 @@ if(testing)
   if(roottest)
     find_package(Git REQUIRED)
     if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/roottest)
-      execute_process(COMMAND ${GIT_EXECUTABLE} clean -xf WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/roottest)
+      execute_process(COMMAND ${GIT_EXECUTABLE} clean -xfq WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/roottest)
       execute_process(COMMAND ${GIT_EXECUTABLE} pull WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/roottest)
       add_subdirectory(roottest)
     elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../roottest)
