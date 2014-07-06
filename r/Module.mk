@@ -27,10 +27,6 @@ RDH          := $(MODDIRI)/RExports.h \
                 $(MODDIRI)/TRInterface.h \
                 $(MODDIRI)/TRObjectProxy.h \
                 $(MODDIRI)/TRFunction.h \
-                $(MODDIRI)/TRGraph.h \
-                $(MODDIRI)/TRF1.h \
-                $(MODDIRI)/TRCanvas.h \
-                $(MODDIRI)/TRRint.h \
                 $(MODDIRI)/TRFile.h \
                 $(MODDIRI)/TRSystem.h \
                 $(MODDIRI)/compilerdata.h 

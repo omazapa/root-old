@@ -95,7 +95,9 @@ namespace ROOT {
             TRInterface *fInterface;
             TString fName;
          };
+      private:
          TRInterface(const int argc = 0, const char *argv[] = NULL, const bool loadRcpp = true, const bool verbose = false, const bool interactive = true);
+      public:
          ~TRInterface();
 
          void SetVerbose(Bool_t status);
@@ -106,6 +108,7 @@ namespace ROOT {
          TRObjectProxy ParseEval(const TString &code, Bool_t exception = kFALSE);
 
          void LoadModule();
+         void Require(TString name);
 
          //______________________________________________________________________________
          template<typename T >void Assign(const T &var, const TString &name) {

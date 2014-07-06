@@ -1,7 +1,7 @@
 #include<TRFile.h>
-#include<TRF1.h>
-#include<TRCanvas.h>
-#include<TRGraph.h>
+// #include<TRF1.h>
+// #include<TRCanvas.h>
+// #include<TRGraph.h>
 
 
 using namespace ROOT::R;
@@ -27,8 +27,8 @@ ROOTR_MODULE(ROOTR_TRFile)
    .method("Flush", (void (ROOT::R::TRFile::*)())&ROOT::R::TRFile::Flush)
    .method("Close", (void (ROOT::R::TRFile::*)(Option_t *))&ROOT::R::TRFile::Close)
    .method("Close", (void (ROOT::R::TRFile::*)())&ROOT::R::TRFile::Close)
-   .method("Get", &ROOT::R::TRFile::Get<ROOT::R::TRF1>)
-   .method("Get", &ROOT::R::TRFile::Get<ROOT::R::TRGraph>)
+//    .method("Get", &ROOT::R::TRFile::Get<ROOT::R::TRF1>)
+//    .method("Get", &ROOT::R::TRFile::Get<ROOT::R::TRGraph>)
 //    .method("Get", &ROOT::R::TRFile::Get<ROOT::R::TRCanvas>)//TRCanvas no supported at the moment
    ;
 }

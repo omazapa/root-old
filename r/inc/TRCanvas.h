@@ -35,11 +35,41 @@ namespace ROOT {
          TRCanvas();
          TRCanvas(const char *name, const char *title = "", Int_t form = 1);
          void Draw();
-         ClassDef(TRCanvas, 0)
       };
    }
 }
 ROOTR_EXPOSED_CLASS_INTERNAL(TRCanvas)
 
+//______________________________________________________________________________
+ROOT::R::TRCanvas::TRCanvas(): TCanvas()
+{
+}
+
+//______________________________________________________________________________
+ROOT::R::TRCanvas::TRCanvas(const char *name, const char *title, Int_t form): TCanvas(name, title, form)
+{
+
+}
+
+//______________________________________________________________________________
+void ROOT::R::TRCanvas::Draw()
+{
+   TCanvas::Draw();
+}
+
+
+
+ROOTR_MODULE(ROOTR_TRCanvas)
+{
+
+   ROOT::R::class_<ROOT::R::TRCanvas>("TRCanvas", "A Canvas is an area mapped to a window directly under the control of the display manager. ")
+   .constructor<const char *, const char *, Int_t>()
+   .method("Draw", (void (ROOT::R::TRCanvas::*)())(&ROOT::R::TRCanvas::Draw))
+   .method("Draw", (void (ROOT::R::TRCanvas::*)(std::string))(&ROOT::R::TRCanvas::Draw))
+   .method("Divide", (void (ROOT::R::TRCanvas::*)(Int_t, Int_t, Float_t, Float_t, Int_t))(&ROOT::R::TRCanvas::Divide))
+   .method("Write", (Int_t(ROOT::R::TRCanvas::*)(const char *, Int_t, Int_t))(&ROOT::R::TRCanvas::Write))
+   .method("Update", (void(ROOT::R::TRCanvas::*)())(&ROOT::R::TRCanvas::Update))
+   ;
+}
 
 #endif
