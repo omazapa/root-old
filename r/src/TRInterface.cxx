@@ -118,13 +118,7 @@ End_Macro */
 using namespace ROOT::R;
 ClassImp(TRInterface)
 
-// extern SEXP rcompgen_rho;
-
-
-extern "C" SEXP _rcpp_module_boot_ROOTR_TRFile();
-extern "C" SEXP _rcpp_module_boot_ROOTR_TRSystem();
 static ROOT::R::TRInterface *gR = NULL;
-static Bool_t statusModules;
 static Bool_t statusEventLoop;
 
 //______________________________________________________________________________
@@ -146,9 +140,7 @@ TRInterface::TRInterface(const int argc, const char *argv[], const bool loadRcpp
    RComp_getFileCompSym   = Rf_install(".getFileComp");
    RComp_retrieveCompsSym = Rf_install(".retrieveCompletions");
    rl_attempted_completion_function = R_custom_completion;
-   statusModules   = kFALSE;
    statusEventLoop = kFALSE;
-   gApplication->ProcessLine("#include<RExports.h>");
 }
 
 TRInterface::~TRInterface()
@@ -156,39 +148,38 @@ TRInterface::~TRInterface()
    if (th) delete th;
 }
 
-void TRInterface::LoadModule()
+void TRInterface::LoadModule(TString name)
 {
-   if (!statusModules) {
-      this->Assign(Rf_eval(Rf_lang2((ModuleSymRef == NULL ? ModuleSymRef = Rf_install("Module") : ModuleSymRef), _rcpp_module_boot_ROOTR_TRFile()), R_GlobalEnv), "ROOTR_TRFile");
-      this->Assign(Rf_eval(Rf_lang2((ModuleSymRef == NULL ? ModuleSymRef = Rf_install("Module") : ModuleSymRef), _rcpp_module_boot_ROOTR_TRSystem()), R_GlobalEnv), "ROOTR_TRSystem");
-      this->Parse("TRint   <- function(name,args=c('')){ new(ROOTR_TRRint$TRRint,name,args) }");
-      this->Parse("TFile   <- function(fname,option='',ftitle='',compress=1){ new(ROOTR_TRFile$TRFile,fname,option,ftitle,compress) }");
-      this->Parse("TSystem <- function(){ new(ROOTR_TRSystem$TRSystem) }");
-      statusModules = kTRUE;
-   }
-}
-
-void TRInterface::Require(TString name)
-{
-   if (name == "Hist" || name == "TF1" || name == "TGraph") {
+   if (name == "Hist") {
       gApplication->ProcessLine("#include<TRF1.h>");
-      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRF1\"]<<LOAD_ROOTR_MODULE(ROOTR_TRF1)");
+      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRF1\"]<<LOAD_ROOTR_MODULE(ROOTR_TRF1);");
       gR->Parse("TF1     <- function(name,formula,xmin=0,xmax=1){ new(ROOTR_TRF1$TRF1, name, formula,xmin,xmax) }");
 
       gApplication->ProcessLine("#include<TRGraph.h>");
-      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRGraph\"]<<LOAD_ROOTR_MODULE(ROOTR_TRGraph)");
+      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRGraph\"]<<LOAD_ROOTR_MODULE(ROOTR_TRGraph);");
       gR->Parse("TGraph  <- function(n,x,y){ new(ROOTR_TRGraph$TRGraph, n,x,y) }");
    }
-   if (name == "Gpad" || name == "TCanvas") {
+   if (name == "Gpad") {
       gApplication->ProcessLine("#include<TRCanvas.h>");
-      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRCanvas\"]<<LOAD_ROOTR_MODULE(ROOTR_TRCanvas)");
+      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRCanvas\"]<<LOAD_ROOTR_MODULE(ROOTR_TRCanvas);");
       gR->Parse("TCanvas <- function(name,tittle='',form=1){ new(ROOTR_TRCanvas$TRCanvas, name,tittle,form) }");
    }
    if (name == "Rint") {
       gApplication->ProcessLine("#include<TRRint.h>");
-      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRRint\"]<<LOAD_ROOTR_MODULE(ROOTR_TRRint)");
-
+      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRRint\"]<<LOAD_ROOTR_MODULE(ROOTR_TRRint);");
+      gR->Parse("TRint   <- function(name,args=c('')){ new(ROOTR_TRRint$TRRint,name,args) }");
    }
+   if (name == "Base") {
+      gApplication->ProcessLine("#include<TRSystem.h>");
+      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRSystem\"]<<LOAD_ROOTR_MODULE(ROOTR_TRSystem);");
+      gR->Parse("TSystem <- function(){ new(ROOTR_TRSystem$TRSystem) }");
+   }
+   if (name == "IO") {
+      gApplication->ProcessLine("#include<TRFile.h>");
+      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRFile\"]<<LOAD_ROOTR_MODULE(ROOTR_TRFile);");
+      gR->Parse("TFile   <- function(fname,option='',ftitle='',compress=1){ new(ROOTR_TRFile$TRFile,fname,option,ftitle,compress) }");
+   }
+
 }
 
 
@@ -269,7 +260,6 @@ TRInterface *TRInterface::InstancePtr()
       const char *R_argv[] = {"rootr", "--gui=none", "--no-save", "--no-readline", "--silent", "--vanilla", "--slave"};
       gR = new TRInterface(7, R_argv, true, false, false);
    }
-   gR->LoadModule();
    gR->ProcessEventsLoop();
    return gR;
 }

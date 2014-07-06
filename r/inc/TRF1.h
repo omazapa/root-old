@@ -83,5 +83,4 @@ ROOTR_MODULE(ROOTR_TRF1)
    .method("Write", (Int_t(ROOT::R::TRF1::*)(const char *))(&ROOT::R::TRF1::Write))
    ;
 }
-
 #endif

@@ -107,8 +107,7 @@ namespace ROOT {
 
          TRObjectProxy ParseEval(const TString &code, Bool_t exception = kFALSE);
 
-         void LoadModule();
-         void Require(TString name);
+         void LoadModule(TString name);
 
          //______________________________________________________________________________
          template<typename T >void Assign(const T &var, const TString &name) {

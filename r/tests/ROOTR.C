@@ -10,6 +10,10 @@ void ROOTR()
 {
    ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
    r.SetVerbose(kFALSE);
+   r.LoadModule("Gpad");
+   r.LoadModule("Hist");
+   r.LoadModule("Rint");
+   
    r<<"x<-seq(0,2*pi,by=.1)";
    r<<"c1<-TCanvas('c1','dlnorm')";
    r<<"u <-TGraph(length(x),x,dlnorm(x))" ;//TGraph(int,double*,double*)

@@ -139,7 +139,7 @@ MEMSTATLIBDEPM         = $(TREELIB) $(GPADLIB) $(GRAFLIB) $(HISTLIB) $(IOLIB)
 MEMSTATGUILIBDEPM      = $(MEMSTATLIB) $(TREELIB) $(GUILIB)
 RECLIBDEPM             = $(IOLIB) $(TREELIB) $(GUILIB) $(THREADLIB)
 FITSIOLIBDEPM          = $(HISTLIB) $(GPADLIB) $(GRAFLIB) $(MATRIXLIB)
-RLIBDEPM               = $(MATRIXLIB) $(IOLIB) $(GUILIB) $(IOLIB) $(THREADLIB)
+RLIBDEPM               = $(MATRIXLIB) $(GUILIB) $(THREADLIB)
 HTTPLIBDEPM            = $(THREADLIB) $(TREELIB) $(HISTLIB) $(GPADLIB) \
                          $(GRAFLIB) $(IOLIB) $(XMLLIB)
 
@@ -560,7 +560,7 @@ ifeq ($(USEFASCGI), yes)
 HTTPLIBEXTRA           += -lfcgi
 endif
 
-RLIBEXTRA               = -Llib -lCore -lMatrix -lGui -lreadline -lRIO -lThread
+RLIBEXTRA               = -Llib -lCore -lMatrix -lGui -lreadline -lThread
 endif
 
 endif
