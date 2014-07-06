@@ -1,0 +1,41 @@
+# -*- mode: Makefile; tab-width: 8 -*- 
+#
+# Makevars for ROOT 
+#
+# Copyright (C) 2014 Omar Andres Zapata Mesa <andresete.chaos@gmail.com>
+
+all: 	$(SHLIB) ALLLIBS
+
+INSTDIR =	../inst/lib/
+
+HISTLIB	=	Hist$(DYLIB_EXT)
+
+####################
+#Compilation Flags #
+####################
+ROOTFLAGS=`root-config --cflags`
+RFLAGS=`R CMD config --cppflags`
+RCPPINCL=`$(R_HOME)/bin/Rscript -e 'Rcpp:::CxxFlags()'`  -fPIC
+RINSIDEINCL=`$(R_HOME)/bin/Rscript -e 'RInside:::CxxFlags()'`
+
+##################
+#Linking Flags   #
+##################
+RCPPLIBS=`$(R_HOME)/bin/Rscript -e 'Rcpp:::LdFlags(static=0)'`
+RINSIDELIBS=`$(R_HOME)/bin/Rscript -e  'RInside:::LdFlags(static=0)'`
+ROOTLIBS=`root-config --glibs` 
+
+ALLLIBS: 	$(HISTLIB) 
+		-@if test ! -e $(INSTDIR)$(R_ARCH); then mkdir -p $(INSTDIR)$(R_ARCH); fi
+		cp $(HISTLIB) $(INSTDIR)$(R_ARCH)
+
+$(HISTLIB): 
+		$(SHLIB_CXXLD) $(RFLAGS) $(RCPPINCL) $(RINSIDEINCL) $(ROOTFLAGS) Hist.cxx -o  $(HISTLIB)  $(SHLIB_CXXLDFLAGS) $(ALL_LIBS) $(RCPPLIBS) $(RINSIDELIBS) $(ROOTLIBS)
+#		@: $${INSTALL_NAME_TOOL=/usr/bin/install_name_tool}; if test -e "$$INSTALL_NAME_TOOL"; then "$$INSTALL_NAME_TOOL" -id '$(R_PACKAGE_DIR)/lib$(R_ARCH)/$(USERLIB)' '$(USERLIB)'; fi
+
+
+.PHONY: 	all clean ALLLIBS
+
+clean:
+		rm -f $(OBJECTS) $(SHLIB) $(HISTLIB)
+

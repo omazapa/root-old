@@ -10,31 +10,22 @@ require( Rcpp )
 {
 require("methods") 
 loadRcppModules()
-ROOTMACROSTATUS   <- FALSE
-ROOTSYSSTATUS     <- FALSE
 
 
-ROOTSYS           <- Sys.getenv("ROOTSYS")
 
-if(ROOTSYS=="") { warning("Environment's variable ROOTSYS is not set.") }
-
-ROOTMACRO         <- paste(ROOTSYS,'macros/ROOTR.R',sep='/')
-if(file.exists(ROOTMACRO))  
-{
-  source(ROOTMACRO)
-  ROOTMACROSTATUS <- TRUE
 }
 
-if(!ROOTMACROSTATUS)
-{
-  ROOTMACRO       <- paste(ROOTSYS,'share/root/macros/ROOTR.R',sep='/')
-  if(file.exists(ROOTMACRO))
+LoadModule <- function(name){
+  if(name=="Hist")
   {
-    source(ROOTMACRO)
-    ROOTMACROSTATUS <- TRUE
+      LIBHISTPATH=paste('../lib/Hist',.Platform$dynlib.ext,sep='')
+      ROOTRHISTLIB          <- dyn.load(LIBHISTPATH) 
+      #calling classes from library
+      ROOTR_TRF1        <- Module("ROOTR_TRF1", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
+      ROOTR_TRGraph     <- Module("ROOTR_TRGraph", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
+      TF1      <- function(name,formula,xmin = 0,xmax = 1){ new(ROOTR_TRF1$TRF1, name, formula,xmin,xmax) }
+      TGraph   <- function(n,x,y){ new(ROOTR_TRGraph$TRGraph, n,x,y) }
+      assign("TF1", TF1, envir = .GlobalEnv)
+      assign("TGraph", TGraph, envir = .GlobalEnv)
   }
 }
-
-if(!ROOTMACROSTATUS) stop("The macro ROOTR.R can not be found.")
-}
-
