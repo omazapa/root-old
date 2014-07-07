@@ -12,8 +12,8 @@
 #ifndef ROOT_R_TRFunction
 #define ROOT_R_TRFunction
 
-#ifndef ROOT_R_RExports
-#include<RExports.h>
+#ifndef ROOT_R_TRInternalFunction
+#include<TRInternalFunction.h>
 #endif
 
 //________________________________________________________________________________________________________
@@ -32,7 +32,7 @@ namespace ROOT {
          friend class TRInterface;
          friend SEXP Rcpp::wrap<TRFunction>(const TRFunction &f);
       protected:
-         Rcpp::InternalFunction *f;
+         ROOT::R::TRInternalFunction *f;
       public:
          TRFunction();
 
@@ -41,14 +41,14 @@ namespace ROOT {
          template<class T> TRFunction(T fun) {
             //template constructor that supports a lot
             // of function's prototypes
-            f = new Rcpp::InternalFunction(fun);
+            f = new ROOT::R::TRInternalFunction(fun);
          }
 
          //________________________________________________________________________________________________________
          template<class T> void SetFunction(T fun) {
             //template method that supports a lot
             // of function's prototypes
-            f = new Rcpp::InternalFunction(fun);
+            f = new ROOT::R::TRInternalFunction(fun);
          }
 
          ClassDef(TRFunction, 0) //
