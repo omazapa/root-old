@@ -38,6 +38,8 @@ include_directories(${CMAKE_SOURCE_DIR}/r/inc ${RCPP_INCLUDE_DIR} ${RINSIDE_INCL
 set(R_HEADERS ${CMAKE_SOURCE_DIR}/r/inc/TRInterface.h 
               ${CMAKE_SOURCE_DIR}/r/inc/TRObjectProxy.h 
               ${CMAKE_SOURCE_DIR}/r/inc/TRFunction.h
+              ${CMAKE_SOURCE_DIR}/r/inc/TRInternalFunction.h
+              ${CMAKE_SOURCE_DIR}/r/inc/TRInternalFunction__ctors.h
               ${CMAKE_SOURCE_DIR}/r/inc/RExports.h
               ${CMAKE_SOURCE_DIR}/r/inc/compilerdata.h
               ${CMAKE_SOURCE_DIR}/r/inc/TRCanvas.h

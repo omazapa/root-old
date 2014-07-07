@@ -138,28 +138,6 @@ namespace ROOT {
          //template function required to create modules using the macro ROOTR_MODULE
          Rcpp::function(name_, fun, docstring);
       }
-      
-      class InternalFunction_Impl  {
-      public:
-
-      #include<InternalFunction__ctors.h>
-
-      inline SEXP asSexp() const { return m_sexp ; }
-      private:
-	
-	inline void set( SEXP xp){
-		Rcpp::Environment RCPP = Rcpp::Environment::Rcpp_namespace() ;
-		Rcpp::Function intf = RCPP["internal_function"] ;
-		setSEXP( intf( xp ) ) ; 
-	}
-       void setSEXP(SEXP x){
-    
-        // replace the currently protected SEXP by the new one
-        m_sexp = Rcpp::Rcpp_ReplaceObject(m_sexp, x) ;
-         }
-       SEXP m_sexp;
-      };
-      typedef InternalFunction_Impl InternalFunction ;
    }
 }
 
