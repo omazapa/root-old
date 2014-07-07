@@ -24,6 +24,9 @@
 #include<TThread.h>
 #endif
 
+#ifndef ROOT_TApplication
+#include<TApplication.h>
+#endif
 
 //________________________________________________________________________________________________________
 /**
@@ -45,8 +48,6 @@ namespace ROOT {
          }
          void ProcessEventsLoop();
          Int_t   Load(const Char_t *module);
-
-         ClassDef(TRSystem, 0)
       };
    }
 }
@@ -60,7 +61,7 @@ ROOT::R::TRSystem::TRSystem(): TObject()
    th = nullptr;
 }
 
-void TRSystem::ProcessEventsLoop()
+void ROOT::R::TRSystem::ProcessEventsLoop()
 {
    if (!gApplication) {
       Error("TRSystem", "Running ProcessEventsLoop without global object gApplication.");

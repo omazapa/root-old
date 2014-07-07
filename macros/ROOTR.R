@@ -7,14 +7,7 @@
 # *************************************************************************/
 require( Rcpp )
 #Loading the ROOTR Library to create a Module
-# ROOTSYS           <- Sys.getenv("ROOTSYS")
-# 
-# LoadModule <- function(name){
-#   if(name=="Hist")
-#   {
-#     ROOTRLIBPATH
-#   }
-# }
+ROOTSYS           <- Sys.getenv("ROOTSYS")
 
 # ROOTLIBSTATUS     <- FALSE
 # ROOTRLIBPATH      <- paste(ROOTSYS,paste('lib/libRInterface',.Platform$dynlib.ext,sep=''),sep='/')

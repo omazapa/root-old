@@ -169,7 +169,7 @@ void TRInterface::LoadModule(TString name)
       gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRRint\"]<<LOAD_ROOTR_MODULE(ROOTR_TRRint);");
       gR->Parse("TRint   <- function(name,args=c('')){ new(ROOTR_TRRint$TRRint,name,args) }");
    }
-   if (name == "Base") {
+   if (name == "Core") {
       gApplication->ProcessLine("#include<TRSystem.h>");
       gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRSystem\"]<<LOAD_ROOTR_MODULE(ROOTR_TRSystem);");
       gR->Parse("TSystem <- function(){ new(ROOTR_TRSystem$TRSystem) }");

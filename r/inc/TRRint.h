@@ -36,7 +36,6 @@ namespace ROOT {
       public:
          TRRint();
          TRRint(const char *name);
-         ClassDef(TRRint, 0)
       };
    }
 }

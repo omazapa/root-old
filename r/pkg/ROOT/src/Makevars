@@ -8,15 +8,18 @@ all: 	$(SHLIB) ALLLIBS
 
 INSTDIR =	../inst/lib/
 
-HISTLIB	=	Hist$(DYLIB_EXT)
+CORELIB = Core$(DYLIB_EXT)
+RINTLIB = Rint$(DYLIB_EXT)
+HISTLIB = Hist$(DYLIB_EXT)
 
 ####################
 #Compilation Flags #
 ####################
 ROOTFLAGS=`root-config --cflags`
-RFLAGS=`R CMD config --cppflags`
-RCPPINCL=`$(R_HOME)/bin/Rscript -e 'Rcpp:::CxxFlags()'`  -fPIC
+RFLAGS=`R CMD config --cppflags` -fPIC
+RCPPINCL=`$(R_HOME)/bin/Rscript -e 'Rcpp:::CxxFlags()'`
 RINSIDEINCL=`$(R_HOME)/bin/Rscript -e 'RInside:::CxxFlags()'`
+
 
 ##################
 #Linking Flags   #
@@ -25,13 +28,24 @@ RCPPLIBS=`$(R_HOME)/bin/Rscript -e 'Rcpp:::LdFlags(static=0)'`
 RINSIDELIBS=`$(R_HOME)/bin/Rscript -e  'RInside:::LdFlags(static=0)'`
 ROOTLIBS=`root-config --glibs` 
 
-ALLLIBS: 	$(HISTLIB) 
-		-@if test ! -e $(INSTDIR)$(R_ARCH); then mkdir -p $(INSTDIR)$(R_ARCH); fi
-		cp $(HISTLIB) $(INSTDIR)$(R_ARCH)
+ALLCXXFLAGS = $(ROOTFLAGS) $(RFLAGS) $(RCPPINCL) $(RINSIDEINCL)
 
+ALLLDFLAGS = $(SHLIB_CXXLDFLAGS) $(RCPPLIBS) $(RINSIDELIBS) $(ROOTLIBS)
+
+ALLLIBS: $(CORELIB) $(HISTLIB) $(RINTLIB) 
+		-@if test ! -e $(INSTDIR)$(R_ARCH); then mkdir -p $(INSTDIR)$(R_ARCH); fi
+		cp $(CORELIB) $(INSTDIR)$(R_ARCH)
+		cp $(HISTLIB) $(INSTDIR)$(R_ARCH)
+		cp $(RINTLIB) $(INSTDIR)$(R_ARCH)
+
+$(CORELIB):
+		$(SHLIB_CXXLD) $(ALLCXXFLAGS) Core.cxx -o  $(CORELIB)   $(ALL_LIBS) $(ALLLDFLAGS)
+
+$(RINTLIB):
+		$(SHLIB_CXXLD) $(ALLCXXFLAGS) Rint.cxx -o  $(RINTLIB)   $(ALL_LIBS) $(ALLLDFLAGS)
+		
 $(HISTLIB): 
-		$(SHLIB_CXXLD) $(RFLAGS) $(RCPPINCL) $(RINSIDEINCL) $(ROOTFLAGS) Hist.cxx -o  $(HISTLIB)  $(SHLIB_CXXLDFLAGS) $(ALL_LIBS) $(RCPPLIBS) $(RINSIDELIBS) $(ROOTLIBS)
-#		@: $${INSTALL_NAME_TOOL=/usr/bin/install_name_tool}; if test -e "$$INSTALL_NAME_TOOL"; then "$$INSTALL_NAME_TOOL" -id '$(R_PACKAGE_DIR)/lib$(R_ARCH)/$(USERLIB)' '$(USERLIB)'; fi
+		$(SHLIB_CXXLD) $(ALLCXXFLAGS) Hist.cxx -o  $(HISTLIB)  $(ALL_LIBS) $(ALLLDFLAGS)
 
 
 .PHONY: 	all clean ALLLIBS
