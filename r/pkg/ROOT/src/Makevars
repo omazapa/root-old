@@ -24,8 +24,8 @@ RINSIDEINCL=`$(R_HOME)/bin/Rscript -e 'RInside:::CxxFlags()'`
 ##################
 #Linking Flags   #
 ##################
-RCPPLIBS=`$(R_HOME)/bin/Rscript -e 'Rcpp:::LdFlags(static=0)'`
-RINSIDELIBS=`$(R_HOME)/bin/Rscript -e  'RInside:::LdFlags(static=0)'`
+RCPPLIBS=`$(R_HOME)/bin/Rscript -e 'Rcpp:::LdFlags()'`
+RINSIDELIBS=`$(R_HOME)/bin/Rscript -e  'RInside:::LdFlags()'`
 ROOTLIBS=`root-config --glibs` 
 
 ALLCXXFLAGS = $(ROOTFLAGS) $(RFLAGS) $(RCPPINCL) $(RINSIDEINCL)

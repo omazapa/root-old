@@ -6582,8 +6582,19 @@ if test ! "x$enable_r" = "xno"; then
          RCPPINCLSTATUS=$?
          RCPPLIBS=`echo 'Rcpp:::LdFlags(static=0)'   | $REXE --vanilla --slave 2> /dev/null`
          RCPPLIBSSTATUS=$?
+         
+         if test "x$RCPPLIBS" = "x" ;then
+            RCPPLIBS=`echo 'cat(find.package("Rcpp"))'   | $REXE --vanilla --slave 2> /dev/null`
+            RCPPLIBS="$RCPPLIBS/libs"
+            check_library "libRcpp Rcpp" "" "" $RCPPLIBS
+            if test ! "x$found_lib" = "x"; then
+            RCPPLIBS="$RCPPLIBS/$found_lib"
+            RCPPLIBSSTATUS=$((0))
+            fi
+         fi
+         
          if [ $RCPPINCLSTATUS -eq 0 ] && [ $RCPPLIBSSTATUS -eq 0 ];then
-            echo "found"
+            echo "Checking for Rcpp ... found"
          else
             message "Install it running 'R -e \"install.packages(\\\"RInside\\\",repos=\\\"http://cran.irsn.fr/\\\")\"'"
             enable_r="no"

@@ -1,5 +1,5 @@
 require(ROOT)
-
+ROOT::LoadModule('Hist')
 gApplication$ProcessLine('#include<Math/SpecFuncMathMore.h>')#loading MathMore to use Special Functions in TF1 (required for lgamma)
 
 dilog<- TF1('dilog','TMath::DiLog(x)')

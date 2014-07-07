@@ -84,9 +84,9 @@ void GlobalMinimization()
  std::cout<<"Bechmark Times"<<std::endl;
  //printing times
  bench.Show("GlobalMinimizationRastrigin");
- r<<"x11(title='RosenBrock Convergence')";
+ r<<"dev.new(title='RosenBrock Convergence')";
  r<<"plot(result1,type='o',pch='.')";
- r<<"x11(title='Rastrigin Convergence')";
+ r<<"dev.new(title='Rastrigin Convergence')";
  r<<"plot(result2,type='o',pch='.')";
 //  r.Parse("print(result1)");
 }
