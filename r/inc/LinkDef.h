@@ -20,7 +20,6 @@
 
 //classes
 #pragma link C++ class ROOT::R::TRFunction+;
-#pragma link C++ class ROOT::R::TRFunction::TRFunction(Double_t (*fun)(Double_t));
 
 #pragma link C++ class ROOT::R::TRInterface+;
 

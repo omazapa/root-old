@@ -24,29 +24,35 @@
 
    @ingroup R
 */
+
+
+namespace Rcpp
+{
+    RCPP_API_CLASS(TRInternalFunction_Impl) {
+    public:
+
+        RCPP_GENERATE_CTOR_ASSIGN(TRInternalFunction_Impl)
+
+        #include <TRInternalFunction__ctors.h>
+     void update(SEXP){}
+    private:
+
+        inline void set( SEXP xp){
+            Rcpp::Environment RCPP = Rcpp::Environment::Rcpp_namespace() ;
+            Rcpp::Function intf = RCPP["internal_function"] ;
+            Storage::set__( intf( xp ) ) ;
+        }
+
+    };
+
+
+}
+
+
 namespace ROOT {
    namespace R {
       
-      class TRInternalFunction  {
-      public:
-
-      #include<TRInternalFunction__ctors.h>
-
-      inline SEXP asSexp() const { return m_sexp ; }
-      private:
-	
-	inline void set( SEXP xp){
-		Rcpp::Environment RCPP = Rcpp::Environment::Rcpp_namespace() ;
-		Rcpp::Function intf = RCPP["internal_function"] ;
-		setSEXP( intf( xp ) ) ; 
-	}
-       void setSEXP(SEXP x){
-    
-        // replace the currently protected SEXP by the new one
-        m_sexp = Rcpp::Rcpp_ReplaceObject(m_sexp, x) ;
-         }
-       SEXP m_sexp;
-      };
+    typedef Rcpp::TRInternalFunction_Impl<Rcpp::PreserveStorage> TRInternalFunction ;
    }
 }
 

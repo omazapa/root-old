@@ -32,7 +32,7 @@ namespace ROOT {
          friend class TRInterface;
          friend SEXP Rcpp::wrap<TRFunction>(const TRFunction &f);
       protected:
-         ROOT::R::TRInternalFunction *f;
+         TRInternalFunction *f;
       public:
          TRFunction();
 
@@ -41,14 +41,14 @@ namespace ROOT {
          template<class T> TRFunction(T fun) {
             //template constructor that supports a lot
             // of function's prototypes
-            f = new ROOT::R::TRInternalFunction(fun);
+            f = new TRInternalFunction(fun);
          }
 
          //________________________________________________________________________________________________________
          template<class T> void SetFunction(T fun) {
             //template method that supports a lot
             // of function's prototypes
-            f = new ROOT::R::TRInternalFunction(fun);
+            f = new TRInternalFunction(fun);
          }
 
          ClassDef(TRFunction, 0) //
