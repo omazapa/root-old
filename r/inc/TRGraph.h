@@ -12,13 +12,14 @@
 #ifndef ROOT_R_TRGraph
 #define ROOT_R_TRGraph
 
+#ifndef ROOT_TGraph
+#include<TGraph.h>
+#endif
+
 #ifndef ROOT_R_RExports
 #include<RExports.h>
 #endif
 
-#ifndef ROOT_TGraph
-#include<TGraph.h>
-#endif
 //________________________________________________________________________________________________________
 /**
    This is TGraph class for R
@@ -32,19 +33,27 @@ namespace ROOT {
 
       class TRGraph: public TGraph {
       public:
-         TRGraph();
+         TRGraph(): TGraph() {};
+         TRGraph(const TGraph &g): TGraph(g) {};
          TRGraph(Int_t n, std::vector<double> x, std::vector<double> y);
          void Draw();
-//          ClassDef(TRGraph, 0)
       };
    }
 }
+
+namespace Rcpp {
+   template<> SEXP wrap(const TGraph &f)
+   {
+      return Rcpp::wrap(ROOT::R::TRGraph(f));
+   }
+   template<> TGraph as(SEXP f)
+   {
+      return Rcpp::as<ROOT::R::TRGraph>(f);
+   }
+}
+
 ROOTR_EXPOSED_CLASS_INTERNAL(TRGraph)
 
-//______________________________________________________________________________
-ROOT::R::TRGraph::TRGraph(): TGraph()
-{
-}
 
 //______________________________________________________________________________
 ROOT::R::TRGraph::TRGraph(Int_t n, std::vector<Double_t> x, std::vector<Double_t> y): TGraph(n, x.data(), y.data())
@@ -58,9 +67,9 @@ void ROOT::R::TRGraph::Draw()
 }
 
 
-ROOTR_MODULE(ROOTR_TRGraph)
+ROOTR_MODULE(ROOTR_TGraph)
 {
-   ROOT::R::class_<ROOT::R::TRGraph>("TRGraph")
+   ROOT::R::class_<ROOT::R::TRGraph>("TGraph")
    .constructor<int, std::vector<Double_t>, std::vector<Double_t> >()
    .method("Draw", (void (ROOT::R::TRGraph::*)())(&ROOT::R::TRGraph::Draw))
    .method("Draw", (void (ROOT::R::TRGraph::*)(const char *))(&ROOT::R::TRGraph::Draw))

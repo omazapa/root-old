@@ -152,32 +152,30 @@ void TRInterface::LoadModule(TString name)
 {
    if (name == "Hist") {
       gApplication->ProcessLine("#include<TRF1.h>");
-      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRF1\"]<<LOAD_ROOTR_MODULE(ROOTR_TRF1);");
-      gR->Parse("TF1     <- function(name,formula,xmin=0,xmax=1){ new(ROOTR_TRF1$TRF1, name, formula,xmin,xmax) }");
+      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TF1\"]<<LOAD_ROOTR_MODULE(ROOTR_TF1);");
+      gR->Parse("TF1     <- ROOTR_TF1$TF1");
 
       gApplication->ProcessLine("#include<TRGraph.h>");
-      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRGraph\"]<<LOAD_ROOTR_MODULE(ROOTR_TRGraph);");
-      gR->Parse("TGraph  <- function(n,x,y){ new(ROOTR_TRGraph$TRGraph, n,x,y) }");
+      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TGraph\"]<<LOAD_ROOTR_MODULE(ROOTR_TGraph);");
+      gR->Parse("TGraph     <- ROOTR_TGraph$TGraph");
+
    }
    if (name == "Gpad") {
       gApplication->ProcessLine("#include<TRCanvas.h>");
-      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRCanvas\"]<<LOAD_ROOTR_MODULE(ROOTR_TRCanvas);");
-      gR->Parse("TCanvas <- function(name,tittle='',form=1){ new(ROOTR_TRCanvas$TRCanvas, name,tittle,form) }");
+      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"TCanvas\"]<<LOAD_ROOTR_MODULE(ROOTR_TRCanvas);");
+      gR->Parse("TCanvas     <- ROOTR_TCanvas$TCanvas");
    }
    if (name == "Rint") {
       gApplication->ProcessLine("#include<TRRint.h>");
       gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRRint\"]<<LOAD_ROOTR_MODULE(ROOTR_TRRint);");
-      gR->Parse("TRint   <- function(name,args=c('')){ new(ROOTR_TRRint$TRRint,name,args) }");
    }
    if (name == "Core") {
       gApplication->ProcessLine("#include<TRSystem.h>");
       gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRSystem\"]<<LOAD_ROOTR_MODULE(ROOTR_TRSystem);");
-      gR->Parse("TSystem <- function(){ new(ROOTR_TRSystem$TRSystem) }");
    }
    if (name == "IO") {
       gApplication->ProcessLine("#include<TRFile.h>");
       gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRFile\"]<<LOAD_ROOTR_MODULE(ROOTR_TRFile);");
-      gR->Parse("TFile   <- function(fname,option='',ftitle='',compress=1){ new(ROOTR_TRFile$TRFile,fname,option,ftitle,compress) }");
    }
 
 }

@@ -26,24 +26,24 @@
 */
 
 
-namespace Rcpp
-{
-    RCPP_API_CLASS(TRInternalFunction_Impl) {
-    public:
+namespace Rcpp {
+   RCPP_API_CLASS(TRInternalFunction_Impl)
+   {
+public:
 
-        RCPP_GENERATE_CTOR_ASSIGN(TRInternalFunction_Impl)
+      RCPP_GENERATE_CTOR_ASSIGN(TRInternalFunction_Impl)
 
-        #include <TRInternalFunction__ctors.h>
-     void update(SEXP){}
-    private:
+#include <TRInternalFunction__ctors.h>
+      void update(SEXP) {}
+private:
 
-        inline void set( SEXP xp){
-            Rcpp::Environment RCPP = Rcpp::Environment::Rcpp_namespace() ;
-            Rcpp::Function intf = RCPP["internal_function"] ;
-            Storage::set__( intf( xp ) ) ;
-        }
+      inline void set(SEXP xp) {
+         Rcpp::Environment RCPP = Rcpp::Environment::Rcpp_namespace() ;
+         Rcpp::Function intf = RCPP["internal_function"] ;
+         Storage::set__(intf(xp)) ;
+      }
 
-    };
+   };
 
 
 }
@@ -51,8 +51,8 @@ namespace Rcpp
 
 namespace ROOT {
    namespace R {
-      
-    typedef Rcpp::TRInternalFunction_Impl<Rcpp::PreserveStorage> TRInternalFunction ;
+
+      typedef Rcpp::TRInternalFunction_Impl<Rcpp::PreserveStorage> TRInternalFunction ;
    }
 }
 

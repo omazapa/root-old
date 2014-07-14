@@ -20,10 +20,11 @@ LoadModule <- function(name){
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRHISTLIB          <- dyn.load(LIBPATH) 
       #calling classes from library
-      ROOTR_TRF1        <- Module("ROOTR_TRF1", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
-      ROOTR_TRGraph     <- Module("ROOTR_TRGraph", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
-      TF1      <- function(name,formula,xmin = 0,xmax = 1){ new(ROOTR_TRF1$TRF1, name, formula,xmin,xmax) }
-      TGraph   <- function(n,x,y){ new(ROOTR_TRGraph$TRGraph, n,x,y) }
+      ROOTR_TF1        <- Module("ROOTR_TF1", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
+      ROOTR_TGraph     <- Module("ROOTR_TGraph", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
+      TF1      <- ROOTR_TF1$TF1
+      TGraph   <- ROOTR_TGraph$TGraph
+
       assign("TF1", TF1, envir = .GlobalEnv)
       assign("TGraph", TGraph, envir = .GlobalEnv)
   }
@@ -33,7 +34,7 @@ LoadModule <- function(name){
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRCORELIB      <- dyn.load(LIBPATH) 
       ROOTR_TRSystem    <- Module("ROOTR_TRSystem", PACKAGE=ROOTRCORELIB,mustStart=TRUE)
-      TSystem  <- function(){new(ROOTR_TRSystem$TRSystem)}
+      TSystem  <- ROOTR_TRSystem$TRSystem
       assign("TSystem", TSystem, envir = .GlobalEnv)
   }
   if(name=="Rint")
@@ -42,7 +43,7 @@ LoadModule <- function(name){
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRRINTLIB      <- dyn.load(LIBPATH) 
       ROOTR_TRRint      <- Module("ROOTR_TRRint", PACKAGE=ROOTRRINTLIB,mustStart=TRUE)
-      TRint    <- function(name){ new(ROOTR_TRRint$TRRint, name) }
+      TRint    <- ROOTR_TRRint$TRRint
       assign("TRint", TRint, envir = .GlobalEnv)
   }
 
@@ -55,10 +56,10 @@ LoadModule("Rint")
 LoadModule("Core")
 
 #creating global variables
-gApplication <- TRint('ROOTR')
+gApplication <- new(TRint,'ROOTR')
 assign("gApplication", gApplication, envir = .GlobalEnv)
 
-gSystem      <- TSystem()
+gSystem      <- new(TSystem)
 assign("gSystem", gSystem, envir = .GlobalEnv)
 
 #starting Gui eventloop
