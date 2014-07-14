@@ -38,7 +38,7 @@ set(RCPP_PKGCONF_LIBRARY_DIRS
 
 # Finally the library itself
 find_library(RCPP_LIBRARY
-  NAMES libRcpp.a libRcpp.so  libRcpp.lib Rcpp.so
+  NAMES libRcpp.a libRcpp.so  libRcpp.lib Rcpp.so libRcpp.dll Rcpp.dll Rcpp.dylib libRcpp.dylib
   PATHS ${RCPP_PKGCONF_LIBRARY_DIRS}
 )
 
