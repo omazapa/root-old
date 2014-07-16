@@ -1,7 +1,7 @@
 ############################################################################
 # CMakeLists.txt file for building ROOT R package
 ############################################################################
-#Autor: Omar Andres Zapata Mesa 31/05/2013
+#Autor: Omar Andres Zapata Mesa 31/05/2013,14/07/2014
 
 # set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/r")
 

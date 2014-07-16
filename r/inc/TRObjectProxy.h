@@ -33,6 +33,11 @@ namespace ROOT {
 
          void operator=(SEXP xx);
 
+	 template<class T> TRObjectProxy& Wrap(T obj) {
+            x=::Rcpp::wrap<Rcpp::RObject>(obj);
+	    return *this;
+         }
+         
          template<class T> T As() {
             return ::Rcpp::as<T>(x);
          }

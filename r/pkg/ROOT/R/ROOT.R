@@ -14,9 +14,12 @@ loadRcppModules()
 LoadModule <- function(name){
   ROOTPKGPATH=paste(libname,pkgname,sep='/')
   ROOTLIBPATH=paste(ROOTPKGPATH,'lib',sep='/')
+  libext = .Platform$dynlib.ext
+  if(Sys.info()['sysname'] == "Darwin"){.Platform$dynlib.ext=".dylib"}
+  
   if(name=="Hist")
   {
-      LIB=paste('Hist',.Platform$dynlib.ext,sep='')
+      LIB=paste('Hist',libext,sep='')
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRHISTLIB          <- dyn.load(LIBPATH) 
       #calling classes from library
@@ -30,7 +33,7 @@ LoadModule <- function(name){
   }
   if(name=="Core")
   {
-      LIB=paste('Core',.Platform$dynlib.ext,sep='')
+      LIB=paste('Core',libext,sep='')
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRCORELIB      <- dyn.load(LIBPATH) 
       ROOTR_TRSystem    <- Module("ROOTR_TRSystem", PACKAGE=ROOTRCORELIB,mustStart=TRUE)
@@ -39,7 +42,7 @@ LoadModule <- function(name){
   }
   if(name=="Rint")
   {
-      LIB=paste('Rint',.Platform$dynlib.ext,sep='')
+      LIB=paste('Rint',libext,sep='')
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRRINTLIB      <- dyn.load(LIBPATH) 
       ROOTR_TRRint      <- Module("ROOTR_TRRint", PACKAGE=ROOTRRINTLIB,mustStart=TRUE)
@@ -66,4 +69,5 @@ assign("gSystem", gSystem, envir = .GlobalEnv)
 gSystem$ProcessEventsLoop()
 }
 
-
+#creating  registers to clean memory when R ends the session 
+reg.finalizer(.GlobalEnv, function(e){gApplication$Terminate(0)},TRUE) 
