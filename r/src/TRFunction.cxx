@@ -44,18 +44,13 @@ must have  a single vector as the argument a it will return a single vetor.
 
 End_Latex
 Begin_Html
-<p>
-<i style="color:red;">NOTE</i>  The macro requires compilation with ACLiC, to compile it you should use <br>
-a rootlogon.C macro which has the directives for compilation,<br>
-you can find it in $ROOTSYS/tutorials/r/ <br>
-</p>
 <hr>
 End_Html
 
 #include<TRInterface.h>
 
-///in the next function the pointer *double must be changed by TVectorD, because the pointer has no
-///sense in R's environment.
+//in the next function the pointer *double must be changed by TVectorD, because the pointer has no
+//sense in R's environment.
 Double_t RosenBrock(const TVectorD xx )
 {
   const Double_t x = xx[0];

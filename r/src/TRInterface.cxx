@@ -28,8 +28,7 @@ It also lets you pass scalars, vectors and matrices from ROOT to R<br>
 and from R to ROOT using TRObjectProxy; but you can to use overloaded opetarors [],<< and >> <br>
 to work with ROOTR like work with streams of data.<br>
 
-<i style="color:red;">NOTE</i> In the same way that TROOT class has an unique global object, gROOT,<br>
-TRInterface can have just one. More objects of TRInterface class can not be instantiated, but you can create objects using the static methods
+TRInterface class can not be instantiated directly, but you can create objects using the static methods
 TRInterface& Instance() and TRInterface* InstancePtr() to create your own objects.<br>
 <br>
 </p>
@@ -52,17 +51,17 @@ Begin_Macro(source)
 
    // create the first graph (points with gaussian noise)
    const Int_t n = 24;
-   Double_t x1[n] ;
-   Double_t y1[n] ;
+   Double_t x[n] ;
+   Double_t y[n] ;
    //Generate points along a X^3 with noise
    TRandom rg;
    rg.SetSeed(520);
    for (Int_t i = 0; i < n; i++) {
-      x1[i] = rg.Uniform(0, 1);
-      y1[i] = TMath::Power(x1[i], 3) + rg.Gaus() * 0.06;
+      x[i] = rg.Uniform(0, 1);
+      y[i] = TMath::Power(x[i], 3) + rg.Gaus() * 0.06;
    }
 
-   TGraph *gr1 = new TGraph(n,x1,y1);
+   TGraph *gr1 = new TGraph(n,x,y);
    gr1->SetMarkerColor(kBlue);
    gr1->SetMarkerStyle(8);
    gr1->SetMarkerSize(1);
@@ -78,8 +77,8 @@ Begin_Macro(source)
 
    //passing x and y values to R for fitting
    ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
-   r["x"]<<TVectorD(n, x1);
-   r["y"]<<TVectorD(n, y1);
+   r["x"]<<TVectorD(n, x);
+   r["y"]<<TVectorD(n, y);
    //creating a R data frame
    r<<"ds<-data.frame(x=x,y=y)";
    //fitting x and y to X^power using Nonlinear Least Squares
@@ -150,6 +149,8 @@ TRInterface::~TRInterface()
 
 void TRInterface::LoadModule(TString name)
 {
+  //Method to load wrapped ROOT's classes into R's environment
+  //e.g: r.LoadModule("Hist") load the current(partially) wrapped classes TF1 and TGraph
    if (name == "Hist") {
       gApplication->ProcessLine("#include<TRF1.h>");
       gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TF1\"]<<LOAD_ROOTR_MODULE(ROOTR_TF1);");
@@ -254,6 +255,7 @@ void TRInterface::Interactive()
 //______________________________________________________________________________
 TRInterface *TRInterface::InstancePtr()
 {
+  //return a pointer to TRInterface.
    if (!gR) {
       const char *R_argv[] = {"rootr", "--gui=none", "--no-save", "--no-readline", "--silent", "--vanilla", "--slave"};
       gR = new TRInterface(7, R_argv, true, false, false);
@@ -265,6 +267,7 @@ TRInterface *TRInterface::InstancePtr()
 //______________________________________________________________________________
 TRInterface &TRInterface::Instance()
 {
+  //return a reference object of TRInterface.
    return  *TRInterface::InstancePtr();
 }
 
