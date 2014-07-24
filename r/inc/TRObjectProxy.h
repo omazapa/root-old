@@ -34,7 +34,7 @@ namespace ROOT {
          void operator=(SEXP xx);
 
 	 template<class T> TRObjectProxy& Wrap(T obj) {
-            x=::Rcpp::wrap<Rcpp::RObject>(obj);
+            x=::Rcpp::wrap(obj);
 	    return *this;
          }
          
