@@ -25,6 +25,7 @@
 namespace ROOT {
    namespace R {
       class TRObjectProxy: public TObject {
+	friend SEXP Rcpp::wrap<TRObjectProxy>(const TRObjectProxy &f);
       private:
          Rcpp::RObject x;
       public:

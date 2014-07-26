@@ -11,15 +11,20 @@ require( Rcpp )
 require("methods") 
 loadRcppModules()
 
+ROOTPKGPATH=paste(libname,pkgname,sep='/')
+ROOTLIBPATH=paste(ROOTPKGPATH,'lib',sep='/')
+ROOTLIBEXT = .Platform$dynlib.ext
+if(Sys.info()['sysname'] == "Darwin"){ROOTLIBEXT=".dylib"}
+
+assign("ROOTPKGPATH", ROOTPKGPATH, envir = .GlobalEnv,inherits = TRUE)
+assign("ROOTLIBPATH", ROOTLIBPATH, envir = .GlobalEnv,inherits = TRUE)
+assign("ROOTLIBEXT" , ROOTLIBEXT , envir = .GlobalEnv,inherits = TRUE)
+
 LoadModule <- function(name){
-  ROOTPKGPATH=paste(libname,pkgname,sep='/')
-  ROOTLIBPATH=paste(ROOTPKGPATH,'lib',sep='/')
-  libext = .Platform$dynlib.ext
-  if(Sys.info()['sysname'] == "Darwin"){.Platform$dynlib.ext=".dylib"}
   
   if(name=="Hist")
   {
-      LIB=paste('Hist',libext,sep='')
+      LIB=paste('Hist',ROOTLIBEXT,sep='')
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRHISTLIB          <- dyn.load(LIBPATH) 
       #calling classes from library
@@ -33,7 +38,7 @@ LoadModule <- function(name){
   }
   if(name=="Core")
   {
-      LIB=paste('Core',libext,sep='')
+      LIB=paste('Core',ROOTLIBEXT,sep='')
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRCORELIB      <- dyn.load(LIBPATH) 
       ROOTR_TRSystem    <- Module("ROOTR_TRSystem", PACKAGE=ROOTRCORELIB,mustStart=TRUE)
@@ -42,7 +47,7 @@ LoadModule <- function(name){
   }
   if(name=="Rint")
   {
-      LIB=paste('Rint',libext,sep='')
+      LIB=paste('Rint',ROOTLIBEXT,sep='')
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRRINTLIB      <- dyn.load(LIBPATH) 
       ROOTR_TRRint      <- Module("ROOTR_TRRint", PACKAGE=ROOTRRINTLIB,mustStart=TRUE)
@@ -50,9 +55,10 @@ LoadModule <- function(name){
       assign("TRint", TRint, envir = .GlobalEnv)
   }
 
-}
+ }
+ assign("LoadModule", LoadModule, envir = .GlobalEnv)
 
-assign("LoadModule", LoadModule, envir = .GlobalEnv)
+
 
 #loading default modules
 LoadModule("Rint")
@@ -67,7 +73,7 @@ assign("gSystem", gSystem, envir = .GlobalEnv)
 
 #starting Gui eventloop
 gSystem$ProcessEventsLoop()
-}
 
 #creating  registers to clean memory when R ends the session 
 reg.finalizer(.GlobalEnv, function(e){gApplication$Terminate(0)},TRUE) 
+}

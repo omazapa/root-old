@@ -7,6 +7,7 @@
  *************************************************************************/
 #include<RExports.h>
 #include<TRFunction.h>
+#include<TRObjectProxy.h>
 #include<Rcpp/Vector.h>
 namespace Rcpp {
 //TString
@@ -45,6 +46,17 @@ namespace Rcpp {
    {
       NumericMatrix mat =::Rcpp::as<NumericMatrix>(m);
       return TMatrixD(mat.rows(), mat.cols(), mat.begin(), "F");
+   }
+
+//TRObjectProxy   
+   template<> SEXP wrap(const ROOT::R::TRObjectProxy &obj)
+   {
+      return obj.x;
+   }
+
+   template<> ROOT::R::TRObjectProxy as(SEXP obj)
+   {
+      return ROOT::R::TRObjectProxy(obj);
    }
 
    Char_t *as(SEXP str)
