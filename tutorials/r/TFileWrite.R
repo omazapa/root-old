@@ -1,8 +1,11 @@
 require(ROOT)
-gSystem$Load("libMathMore")#require to load MathMore's Special Function airy_Ai
-rfile <- TFile('airy.root','recreate')
-airy  <- TF1('airy','ROOT::Math::airy_Ai(x)',0,2*pi)
-airy$Write('airy')
+LoadModule('RIO')
+LoadModule('Hist')
+LoadModule('Graf')
+
+rfile <- new(TFile,'gamma.root','recreate')
+gamma <- new(TF1,'gamma','TMath::Gamma(x)',0.1,2*pi)
+gamma$Write('gamma')
 rfile$Flush()
 rfile$Close()
 

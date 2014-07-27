@@ -73,7 +73,7 @@ std::vector<Double_t> ROOT::R::TRF1::Eval(std::vector<Double_t> x)
 ROOTR_MODULE(ROOTR_TF1)
 {
 
-   ROOT::R::class_<ROOT::R::TRF1>("TF1", "1-Dim ROOT's function class")
+   ROOT::R::class_<ROOT::R::TRF1>("TRF1", "1-Dim ROOT's function class")
    .constructor<TString , TString , Double_t, Double_t>()
    .method("Eval", (std::vector<Double_t> (ROOT::R::TRF1::*)(std::vector<Double_t>))&ROOT::R::TRF1::Eval)
    .method("Eval", (Double_t (ROOT::R::TRF1::*)(Double_t))&ROOT::R::TRF1::Eval)

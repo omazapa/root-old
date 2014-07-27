@@ -30,8 +30,8 @@ LoadModule <- function(name){
       #calling classes from library
       ROOTR_TF1        <- Module("ROOTR_TF1", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
       ROOTR_TGraph     <- Module("ROOTR_TGraph", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
-      TF1      <- ROOTR_TF1$TF1
-      TGraph   <- ROOTR_TGraph$TGraph
+      TF1      <- ROOTR_TF1$TRF1
+      TGraph   <- ROOTR_TGraph$TRGraph
 
       assign("TF1", TF1, envir = .GlobalEnv)
       assign("TGraph", TGraph, envir = .GlobalEnv)
@@ -64,6 +64,17 @@ LoadModule <- function(name){
       TCanvas    <- ROOTR_TRCanvas$TRCanvas
       assign("TCanvas", TCanvas, envir = .GlobalEnv)
   }
+  
+  if(name=="RIO")
+  {
+      LIB=paste('RIO',ROOTLIBEXT,sep='')
+      LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
+      ROOTRRIOLIB      <- dyn.load(LIBPATH) 
+      ROOTR_TRFile    <- Module("ROOTR_TRFile", PACKAGE=ROOTRRIOLIB,mustStart=TRUE)
+      TFile    <- ROOTR_TRFile$TRFile
+      assign("TFile", TFile, envir = .GlobalEnv)
+  }
+  
  }
  assign("LoadModule", LoadModule, envir = .GlobalEnv)
 

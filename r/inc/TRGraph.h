@@ -57,7 +57,7 @@ ROOTR_EXPOSED_CLASS_INTERNAL(TRGraph)
 
 ROOTR_MODULE(ROOTR_TGraph)
 {
-   ROOT::R::class_<ROOT::R::TRGraph>("TGraph")
+   ROOT::R::class_<ROOT::R::TRGraph>("TRGraph")
    .constructor<int, std::vector<Double_t>, std::vector<Double_t> >()
    .method("Draw", (void (ROOT::R::TRGraph::*)())(&ROOT::R::TRGraph::Draw))
    .method("Draw", (void (ROOT::R::TRGraph::*)(TString))(&ROOT::R::TRGraph::Draw))
