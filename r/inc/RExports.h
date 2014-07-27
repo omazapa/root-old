@@ -71,8 +71,15 @@ namespace ROOT {
 
 namespace Rcpp {
 
-   template<> SEXP wrap(const TString &s);
-   template<> TString as(SEXP) ;
+//TString
+   template<> inline SEXP wrap(const TString &s)
+   {
+      return wrap(std::string(s.Data()));
+   }
+   template<> inline TString as(SEXP s)
+   {
+      return TString(::Rcpp::as<std::string>(s).c_str());
+   }
 
    template<> SEXP wrap(const TVectorD &v);
    template<> TVectorD as(SEXP) ;
@@ -82,8 +89,6 @@ namespace Rcpp {
 
    template<> SEXP wrap(const ROOT::R::TRObjectProxy &o);
    template<> ROOT::R::TRObjectProxy as(SEXP) ;
-
-   Char_t *as(SEXP);
 
    template<class T, size_t i> std::array<T, i> as(SEXP &obj)
    {
@@ -107,22 +112,6 @@ namespace Rcpp {
          std::array<T, i> t;
       } ;
    }
-
-   namespace traits {
-      template<>
-      class Exporter<Char_t *> {
-      public:
-         Exporter(SEXP x) {
-            t = Rcpp::as<std::string>(x);
-         }
-         Char_t *get() {
-            return const_cast<Char_t *>(t.c_str());
-         }
-      private:
-         std::string t;
-      } ;
-   }
-
 }
 #include<Rcpp.h>//this headers should be called after templates definitions
 #undef HAVE_UINTPTR_T

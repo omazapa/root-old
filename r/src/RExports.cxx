@@ -10,15 +10,6 @@
 #include<TRObjectProxy.h>
 #include<Rcpp/Vector.h>
 namespace Rcpp {
-//TString
-   template<> SEXP wrap(const TString &s)
-   {
-      return wrap(s.Data());
-   }
-   template<> TString as(SEXP s)
-   {
-      return TString(::Rcpp::as<const char *>(s));
-   }
 //TVectorD
    template<> SEXP wrap(const TVectorD &v)
    {
@@ -59,10 +50,6 @@ namespace Rcpp {
       return ROOT::R::TRObjectProxy(obj);
    }
 
-   Char_t *as(SEXP str)
-   {
-      return const_cast<Char_t *>(Rcpp::as<std::string>(str).c_str());
-   }
 }
 namespace ROOT {
    namespace R {

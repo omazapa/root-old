@@ -19,6 +19,7 @@
 #ifndef ROOT_TCanvas
 #include<TCanvas.h>
 #endif
+
 //________________________________________________________________________________________________________
 /**
    This is TCanvas class for R
@@ -33,13 +34,18 @@ namespace ROOT {
       class TRCanvas: public TCanvas {
       public:
          TRCanvas();
-         TRCanvas(const char *name):TCanvas(name, "", 1){}
-         TRCanvas(const char *name,const char *tittle):TCanvas(name, tittle, 1){}
+         TRCanvas(TString name):TCanvas(name.Data(), "", 1){}
+         TRCanvas(TString name,TString tittle):TCanvas(name.Data(), tittle.Data(), 1){}
+         TRCanvas(TString name,TString tittle,Int_t form):TCanvas(name.Data(), tittle.Data(), form){}
          ~TRCanvas() {};
          
          void Draw(){TCanvas::Draw();}
+         void Draw(TString opt){TCanvas::Draw(opt.Data());}
+         void Write(TString a, Int_t b, Int_t c){TCanvas::Write(a.Data(),b,c);}
       };
    }
+   
+   
 }
 ROOTR_EXPOSED_CLASS_INTERNAL(TRCanvas)
 
@@ -48,13 +54,13 @@ ROOTR_MODULE(ROOTR_TRCanvas)
 {
 
    ROOT::R::class_<ROOT::R::TRCanvas>("TRCanvas", "A Canvas is an area mapped to a window directly under the control of the display manager. ")
-   .constructor<const char *>()
-   .constructor<const char *, const char *>()
-   .constructor<const char *, const char *, Int_t>()
+   .constructor<TString >()
+   .constructor<TString , TString >()
+   .constructor<TString , TString , Int_t>()
    .method("Draw", (void (ROOT::R::TRCanvas::*)())(&ROOT::R::TRCanvas::Draw))
-   .method("Draw", (void (ROOT::R::TRCanvas::*)(std::string))(&ROOT::R::TRCanvas::Draw))
+   .method("Draw", (void (ROOT::R::TRCanvas::*)(TString))(&ROOT::R::TRCanvas::Draw))
    .method("Divide", (void (ROOT::R::TRCanvas::*)(Int_t, Int_t, Float_t, Float_t, Int_t))(&ROOT::R::TRCanvas::Divide))
-   .method("Write", (Int_t(ROOT::R::TRCanvas::*)(const char *, Int_t, Int_t))(&ROOT::R::TRCanvas::Write))
+   .method("Write", (Int_t(ROOT::R::TRCanvas::*)(TString , Int_t, Int_t))(&ROOT::R::TRCanvas::Write))
    .method("Update", (void(ROOT::R::TRCanvas::*)())(&ROOT::R::TRCanvas::Update))
    ;
 }

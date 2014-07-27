@@ -35,8 +35,9 @@ namespace ROOT {
       public:
          TRGraph(): TGraph() {};
          TRGraph(const TGraph &g): TGraph(g) {};
-         TRGraph(Int_t n, std::vector<double> x, std::vector<double> y);
-         void Draw();
+         TRGraph(Int_t n, std::vector<double> x, std::vector<double> y): TGraph(n, x.data(), y.data()){}
+         void Draw(){TGraph::Draw();}
+         void Draw(TString opt){TGraph::Draw(opt.Data());}
       };
    }
 }
@@ -54,25 +55,12 @@ namespace Rcpp {
 
 ROOTR_EXPOSED_CLASS_INTERNAL(TRGraph)
 
-
-//______________________________________________________________________________
-ROOT::R::TRGraph::TRGraph(Int_t n, std::vector<Double_t> x, std::vector<Double_t> y): TGraph(n, x.data(), y.data())
-{
-}
-
-//______________________________________________________________________________
-void ROOT::R::TRGraph::Draw()
-{
-   TGraph::Draw();
-}
-
-
 ROOTR_MODULE(ROOTR_TGraph)
 {
    ROOT::R::class_<ROOT::R::TRGraph>("TGraph")
    .constructor<int, std::vector<Double_t>, std::vector<Double_t> >()
    .method("Draw", (void (ROOT::R::TRGraph::*)())(&ROOT::R::TRGraph::Draw))
-   .method("Draw", (void (ROOT::R::TRGraph::*)(const char *))(&ROOT::R::TRGraph::Draw))
+   .method("Draw", (void (ROOT::R::TRGraph::*)(TString))(&ROOT::R::TRGraph::Draw))
    ;
 }
 #endif

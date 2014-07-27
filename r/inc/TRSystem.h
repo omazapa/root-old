@@ -47,7 +47,7 @@ namespace ROOT {
             if (th) delete th;
          }
          void ProcessEventsLoop();
-         Int_t   Load(const Char_t *module);
+         Int_t   Load(TString module);
       };
    }
 }
@@ -61,6 +61,7 @@ ROOT::R::TRSystem::TRSystem(): TObject()
    th = nullptr;
 }
 
+//______________________________________________________________________________
 void ROOT::R::TRSystem::ProcessEventsLoop()
 {
    if (!gApplication) {
@@ -76,9 +77,10 @@ void ROOT::R::TRSystem::ProcessEventsLoop()
    th->Run();
 }
 
-Int_t ROOT::R::TRSystem::Load(const Char_t *module)
+//______________________________________________________________________________
+Int_t ROOT::R::TRSystem::Load(TString module)
 {
-   return gSystem->Load(module);
+   return gSystem->Load(module.Data());
 }
 
 ROOTR_MODULE(ROOTR_TRSystem)
@@ -87,7 +89,7 @@ ROOTR_MODULE(ROOTR_TRSystem)
    ROOT::R::class_<ROOT::R::TRSystem>("TRSystem", "TSystem class to manipulate ROOT's Process.")
    .constructor()
    .method("ProcessEventsLoop", &ROOT::R::TRSystem::ProcessEventsLoop)
-   .method("Load", (Int_t(ROOT::R::TRSystem::*)(const Char_t *))&ROOT::R::TRSystem::Load)
+   .method("Load", (Int_t(ROOT::R::TRSystem::*)(TString))&ROOT::R::TRSystem::Load)
    ;
 }
 
