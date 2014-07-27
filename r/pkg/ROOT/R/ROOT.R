@@ -55,6 +55,15 @@ LoadModule <- function(name){
       assign("TRint", TRint, envir = .GlobalEnv)
   }
 
+  if(name=="Graf")
+  {
+      LIB=paste('Graf',ROOTLIBEXT,sep='')
+      LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
+      ROOTRGRAFLIB      <- dyn.load(LIBPATH) 
+      ROOTR_TRCanvas    <- Module("ROOTR_TRCanvas", PACKAGE=ROOTRGRAFLIB,mustStart=TRUE)
+      TCanvas    <- ROOTR_TRCanvas$TRCanvas
+      assign("TCanvas", TCanvas, envir = .GlobalEnv)
+  }
  }
  assign("LoadModule", LoadModule, envir = .GlobalEnv)
 
