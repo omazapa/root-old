@@ -28,8 +28,8 @@ LoadModule <- function(name){
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRHISTLIB          <- dyn.load(LIBPATH) 
       #calling classes from library
-      ROOTR_TF1        <- Module("ROOTR_TF1", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
-      ROOTR_TGraph     <- Module("ROOTR_TGraph", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
+      ROOTR_TF1        <- Module("ROOTR_TRF1", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
+      ROOTR_TGraph     <- Module("ROOTR_TRGraph", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
       TF1      <- ROOTR_TF1$TRF1
       TGraph   <- ROOTR_TGraph$TRGraph
 

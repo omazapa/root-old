@@ -55,7 +55,7 @@ namespace Rcpp {
 
 ROOTR_EXPOSED_CLASS_INTERNAL(TRGraph)
 
-ROOTR_MODULE(ROOTR_TGraph)
+ROOTR_MODULE(ROOTR_TRGraph)
 {
    ROOT::R::class_<ROOT::R::TRGraph>("TRGraph")
    .constructor<int, std::vector<Double_t>, std::vector<Double_t> >()

@@ -153,30 +153,31 @@ void TRInterface::LoadModule(TString name)
   //e.g: r.LoadModule("Hist") load the current(partially) wrapped classes TF1 and TGraph
    if (name == "Hist") {
       gApplication->ProcessLine("#include<TRF1.h>");
-      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TF1\"]<<LOAD_ROOTR_MODULE(ROOTR_TF1);");
-      gR->Parse("TF1     <- ROOTR_TF1$TF1");
+      gApplication->ProcessLine("LOAD_ROOTR_MODULE(ROOTR_TRF1);");
+      gR->Parse("TF1       <- .GlobalEnv$.__C__Rcpp_TRF1");
 
       gApplication->ProcessLine("#include<TRGraph.h>");
-      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TGraph\"]<<LOAD_ROOTR_MODULE(ROOTR_TGraph);");
-      gR->Parse("TGraph     <- ROOTR_TGraph$TGraph");
+      gApplication->ProcessLine("LOAD_ROOTR_MODULE(ROOTR_TGraph);");
+      gR->Parse("TGraph     <- .GlobalEnv$.__C__Rcpp_TRGraph");
 
    }
    if (name == "Gpad") {
       gApplication->ProcessLine("#include<TRCanvas.h>");
-      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"TCanvas\"]<<LOAD_ROOTR_MODULE(ROOTR_TRCanvas);");
-      gR->Parse("TCanvas     <- ROOTR_TCanvas$TCanvas");
+      gApplication->ProcessLine("LOAD_ROOTR_MODULE(ROOTR_TRCanvas);");
+      gR->Parse("TCanvas     <- .GlobalEnv$.__C__Rcpp_TRCanvas");
    }
    if (name == "Rint") {
       gApplication->ProcessLine("#include<TRRint.h>");
-      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRRint\"]<<LOAD_ROOTR_MODULE(ROOTR_TRRint);");
+      gApplication->ProcessLine("LOAD_ROOTR_MODULE(ROOTR_TRRint);");
    }
    if (name == "Core") {
       gApplication->ProcessLine("#include<TRSystem.h>");
-      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRSystem\"]<<LOAD_ROOTR_MODULE(ROOTR_TRSystem);");
+      gApplication->ProcessLine("LOAD_ROOTR_MODULE(ROOTR_TRSystem);");
    }
    if (name == "IO") {
       gApplication->ProcessLine("#include<TRFile.h>");
-      gApplication->ProcessLine("ROOT::R::TRInterface::Instance()[\"ROOTR_TRFile\"]<<LOAD_ROOTR_MODULE(ROOTR_TRFile);");
+      gApplication->ProcessLine("LOAD_ROOTR_MODULE(ROOTR_TRFile);");
+      gR->Parse("TFile     <- .GlobalEnv$.__C__Rcpp_TRFile");
    }
 
 }
@@ -286,7 +287,7 @@ void TRInterface::ProcessEventsLoop()
             int usec = 10000;
             fd = R_checkActivity(usec, 0);
             R_runHandlers(R_InputHandlers, fd);
-            gSystem->Sleep(10);
+            gSystem->Sleep(100);
          }
       });
       th->Run();

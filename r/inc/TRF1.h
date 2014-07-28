@@ -70,7 +70,7 @@ std::vector<Double_t> ROOT::R::TRF1::Eval(std::vector<Double_t> x)
 }
 
 
-ROOTR_MODULE(ROOTR_TF1)
+ROOTR_MODULE(ROOTR_TRF1)
 {
 
    ROOT::R::class_<ROOT::R::TRF1>("TRF1", "1-Dim ROOT's function class")
@@ -85,5 +85,4 @@ ROOTR_MODULE(ROOTR_TF1)
    .method("Write", (Int_t(ROOT::R::TRF1::*)(TString))(&ROOT::R::TRF1::Write))
    ;
 }
-
 #endif
