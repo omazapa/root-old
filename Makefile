@@ -228,6 +228,9 @@ endif
 ifeq ($(BUILDRUBY),yes)
 MODULES      += bindings/ruby
 endif
+ifeq ($(BUILDR),yes)
+MODULES      += bindings/r
+endif
 ifeq ($(BUILDXML),yes)
 MODULES      += io/xmlparser
 endif
@@ -305,9 +308,6 @@ MODULES      += proof/proofx
 endif
 ifeq ($(BUILDAFDSMGRD),yes)
 MODULES      += proof/afdsmgrd
-endif
-ifeq ($(BUILDR),yes)
-MODULES      += r
 endif
 ifeq ($(BUILDHTTP),yes)
 MODULES      += net/http

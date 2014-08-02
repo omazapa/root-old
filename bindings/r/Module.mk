@@ -5,7 +5,7 @@
 # updated Apr 29 2014
 
 MODNAME      := r
-MODDIR       := $(ROOT_SRCDIR)/$(MODNAME)
+MODDIR       := $(ROOT_SRCDIR)/bindings/$(MODNAME)
 MODDIRS      := $(MODDIR)/src
 MODDIRI      := $(MODDIR)/inc
 

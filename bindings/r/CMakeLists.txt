@@ -21,7 +21,7 @@ ROOT_USE_PACKAGE(hist/hist)
 
 if(${R_FOUND} AND ${RCPP_FOUND} AND ${RINSIDE_FOUND})
 
-FILE(WRITE ${CMAKE_SOURCE_DIR}/r/inc/compilerdata.h
+FILE(WRITE ${CMAKE_SOURCE_DIR}/bindings/r/inc/compilerdata.h
      "#define RINCLUDEPATH \" ${R_INCLUDE_DIRS} ${RCPP_INCLUDE_DIRS} ${RINSIDE_INCLUDE_DIRS} \"\n"
      "#define RLINKEDLIBS  \" ${R_LIBRARIES} ${RCPP_LIBRARIES} ${RINSIDE_LIBRARIES} \"\n")
 
@@ -32,29 +32,29 @@ STRING(REGEX REPLACE "-I" "" RINSIDE_INCLUDE_DIR  ${RINSIDE_INCLUDE_DIR})
 STRING(REGEX REPLACE "-I" "" R_INCLUDE_DIR  ${R_INCLUDE_DIR})
 
 
-include_directories(${CMAKE_SOURCE_DIR}/r/inc ${RCPP_INCLUDE_DIR} ${RINSIDE_INCLUDE_DIR} ${R_INCLUDE_DIR})
+include_directories(${CMAKE_SOURCE_DIR}/bindings/r/inc ${RCPP_INCLUDE_DIR} ${RINSIDE_INCLUDE_DIR} ${R_INCLUDE_DIR})
 
 
-set(R_HEADERS ${CMAKE_SOURCE_DIR}/r/inc/TRInterface.h 
-              ${CMAKE_SOURCE_DIR}/r/inc/TRObjectProxy.h 
-              ${CMAKE_SOURCE_DIR}/r/inc/TRFunction.h
-              ${CMAKE_SOURCE_DIR}/r/inc/TRInternalFunction.h
-              ${CMAKE_SOURCE_DIR}/r/inc/TRInternalFunction__ctors.h
-              ${CMAKE_SOURCE_DIR}/r/inc/RExports.h
-              ${CMAKE_SOURCE_DIR}/r/inc/compilerdata.h
-              ${CMAKE_SOURCE_DIR}/r/inc/TRSystem.h              
+set(R_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRInterface.h 
+              ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRObjectProxy.h 
+              ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRFunction.h
+              ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRInternalFunction.h
+              ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRInternalFunction__ctors.h
+              ${CMAKE_SOURCE_DIR}/bindings/r/inc/RExports.h
+              ${CMAKE_SOURCE_DIR}/bindings/r/inc/compilerdata.h
+              ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRSystem.h              
               )
-set(RHIST_HEADERS ${CMAKE_SOURCE_DIR}/r/inc/TRF1.h              
-                  ${CMAKE_SOURCE_DIR}/r/inc/TRGraph.h              
+set(RHIST_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRF1.h              
+                  ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRGraph.h              
 )              
 
-set(ROI_HEADERS ${CMAKE_SOURCE_DIR}/r/inc/TRFile.h
+set(ROI_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRFile.h
 )              
 
-set(RGPAD_HEADERS ${CMAKE_SOURCE_DIR}/r/inc/TRCanvas.h
+set(RGPAD_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRCanvas.h
 )
 
-set(RRINT_HEADERS ${CMAKE_SOURCE_DIR}/r/inc/TRRint.h )
+set(RRINT_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRRint.h )
 
 
 SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)

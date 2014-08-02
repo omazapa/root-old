@@ -157,7 +157,7 @@ void TRInterface::LoadModule(TString name)
       gR->Parse("TF1       <- .GlobalEnv$.__C__Rcpp_TRF1");
 
       gApplication->ProcessLine("#include<TRGraph.h>");
-      gApplication->ProcessLine("LOAD_ROOTR_MODULE(ROOTR_TGraph);");
+      gApplication->ProcessLine("LOAD_ROOTR_MODULE(ROOTR_TRGraph);");
       gR->Parse("TGraph     <- .GlobalEnv$.__C__Rcpp_TRGraph");
 
    }
@@ -169,6 +169,7 @@ void TRInterface::LoadModule(TString name)
    if (name == "Rint") {
       gApplication->ProcessLine("#include<TRRint.h>");
       gApplication->ProcessLine("LOAD_ROOTR_MODULE(ROOTR_TRRint);");
+      gR->Parse("TRint     <- .GlobalEnv$.__C__Rcpp_TRRint");
    }
    if (name == "Core") {
       gApplication->ProcessLine("#include<TRSystem.h>");
