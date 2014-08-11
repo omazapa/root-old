@@ -97,5 +97,4 @@ void GlobalMinimization()
  r<<"plot(result1,type='o',pch='.')";
  r<<"dev.new(title='Rastrigin Convergence')";
  r<<"plot(result2,type='o',pch='.')";
- r.Parse("print(result1)");
 }

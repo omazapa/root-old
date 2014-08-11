@@ -6585,12 +6585,18 @@ if test ! "x$enable_r" = "xno"; then
          
          if test "x$RCPPLIBS" = "x" ;then
             RCPPLIBS=`echo 'cat(find.package("Rcpp"))'   | $REXE --vanilla --slave 2> /dev/null`
-            RCPPLIBS="$RCPPLIBS/libs"
-            check_library "libRcpp Rcpp" "" "" $RCPPLIBS
-            if test ! "x$found_lib" = "x"; then
-            RCPPLIBS="$RCPPLIBS/$found_lib"
-            RCPPLIBSSTATUS=$((0))
-            fi
+	    RCPPLIBS="$RCPPLIBS/libs"
+
+	    	if test -e "$RCPPLIBS/Rcpp.dll"; then
+            		RCPPLIBS="$RCPPLIBS/Rcpp.dll"
+            		RCPPLIBSSTATUS=$((0))
+		else
+	        	check_library "libRcpp Rcpp" "" "" $RCPPLIBS
+        	    	if test ! "x$found_lib" = "x"; then
+            			RCPPLIBS="$RCPPLIBS/$found_lib"
+            			RCPPLIBSSTATUS=$((0))
+            		fi
+		fi
          fi
          
          if [ $RCPPINCLSTATUS -eq 0 ] && [ $RCPPLIBSSTATUS -eq 0 ];then
