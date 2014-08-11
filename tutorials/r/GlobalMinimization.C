@@ -8,7 +8,7 @@
 #include<math.h>
 #include<stdlib.h>
 //In the next function the *double pointer should be changed by a TVectorD datatype,
-//because the pointer has no meaning in the R enviroment.
+//because the pointer has no meaning in R's enviroment.
 //This is a generalization of the RosenBrock function, with the min xi=1 and i>0.
 Double_t GenRosenBrock(const TVectorD xx )
 {

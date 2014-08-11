@@ -1,8 +1,8 @@
 //More Information for R interpolation in 
 //http://stat.ethz.ch/R-manual/R-patched/library/stats/html/approxfun.html
 //Author: Omar Zapata
-//NOTE: this example illustrate an interpolation with random points given from ROOT
-//and procedures done in R's environment.
+//NOTE: this example illustrates an interpolation with random points given from ROOT
+//and procedures made in R's environment.
 
 #include<TRInterface.h>
 #include<TRandom.h>
@@ -24,14 +24,14 @@ r["x"]=x;
 r["y"]=y;
 
 
-r<<"dev.new()";//Required to active new window for plot
+r<<"dev.new()";//Required to activate new window for plot
 //Plot parameter. Plotting using two rows and one column
 r<<"par(mfrow = c(2,1))";
 
 //plotting the points
 r<<"plot(x, y, main = 'approx(.) and approxfun(.)')";
 
-//The function "approx" returns a list with components x and y, 
+//The function "approx" returns a list with components x and y 
 //containing n coordinates which interpolate the given data points according to the method (and rule) desired.
 r<<"points(approx(x, y), col = 2, pch = '*')";
 r<<"points(approx(x, y, method = 'constant'), col = 4, pch = '*')";

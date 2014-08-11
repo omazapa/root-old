@@ -25,8 +25,8 @@ private:
    Function f;
    Bool_t status;
 };
-//this macro expose the class into R's enviornment
-// and let you pass objects directly.
+//this macro exposes the class into R's enviornment
+// and lets you pass objects directly.
 ROOTR_EXPOSED_CLASS(MyFunctor)
 
 //Macro to create a module
@@ -34,7 +34,7 @@ ROOTR_MODULE(MyFunctorModule) {
     ROOT::R::class_<MyFunctor>( "MyFunctor" )
     //creating a default constructor
     .constructor()
-    //adding the method doEval to eval the internal function
+    //adding the method doEval to evaluate the internal function
     .method( "doEval", &MyFunctor::doEval )
     .method( "getStatus", &MyFunctor::getStatus)
     ;
@@ -63,8 +63,8 @@ void Functor()
    std::cout<<"value in ROOT = "<<TMath::BesselY1(1)<<std::endl;
    
    ////////////////////////////////////////////////////////////
-   //creating a MyFunctor's object and passing object to R's //
-   //enviornment, the status should be true because is not   //
+   //creating a MyFunctor's object and passing objects to R's //
+   //enviornment, the status should be true because it is not   //
    //using the default function                              //
    ////////////////////////////////////////////////////////////
    MyFunctor functor;

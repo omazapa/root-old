@@ -13,7 +13,7 @@ TCanvas *SimpleFitting(){
    // draw a frame to define the range
    TMultiGraph *mg = new TMultiGraph();
 
-   // create the first graph (points with gaussian noise)
+   // create the first plot (points with gaussian noise)
    const Int_t n = 24;
    Double_t x1[n] ;
    Double_t y1[n] ;
@@ -31,7 +31,7 @@ TCanvas *SimpleFitting(){
    gr1->SetMarkerSize(1);
    mg->Add(gr1);
 
-      // create the second graph
+      // create the second plot
    TF1 *f_known=new TF1("f_known","pow(x,3)",0,1);
    TGraph *gr2 = new TGraph(f_known);
    gr2->SetMarkerColor(kRed);

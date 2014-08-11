@@ -5,7 +5,7 @@
 
 #include<TRInterface.h>
 
-//in the next function the *double pointer should be changed by a TVectorD,
+//in the next function the *double pointer must be changed by a TVectorD,
 //because the pointer has no meaning in R enviroment.
 Double_t RosenBrock(const TVectorD xx )
 {

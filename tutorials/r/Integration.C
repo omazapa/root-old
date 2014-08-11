@@ -1,11 +1,11 @@
-//numerical integration using R
+//Numerical integration using R
 //passing the function from ROOT
 #include<TMath.h>
 #include<TRInterface.h>
 #include<Math/Integrator.h>
 #include<TF1.h>
 
-//To integrate using R the function should be vectorized
+//To integrate using R the function must be vectorized
 //The idea is just to receive a vector like an argument,to evaluate 
 //every element saving the result in another vector 
 //and return the resultant vector.
