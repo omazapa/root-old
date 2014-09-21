@@ -101,6 +101,7 @@ This results in thresholds that become very large.
 #include "TH1F.h"
 #include "TCanvas.h"
 #include "TSystem.h"
+#include <iostream>
 
 #include "RooWorkspace.h"
 #include "RooSimultaneous.h"
@@ -117,8 +118,10 @@ This results in thresholds that become very large.
 
 using namespace RooFit;
 using namespace RooStats;
+using namespace std; 
 
-
+bool useProof = true;  // flag to control whether to use Proof
+int nworkers = 0;   // number of workers (default use all available cores)
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -131,48 +134,46 @@ void TwoSidedFrequentistUpperLimitWithBands(const char* infile = "",
   double confidenceLevel=0.95;
   // degrade/improve number of pseudo-experiments used to define the confidence belt.  
   // value of 1 corresponds to default number of toys in the tail, which is 50/(1-confidenceLevel)
-  double additionalToysFac = 1.;  
-  int nPointsToScan = 30; // number of steps in the parameter of interest 
-  int nToyMC = 500; // number of toys used to define the expected limit and band
+  double additionalToysFac = 0.5;  
+  int nPointsToScan = 20; // number of steps in the parameter of interest 
+  int nToyMC = 200; // number of toys used to define the expected limit and band
 
   /////////////////////////////////////////////////////////////
   // First part is just to access a user-defined file 
   // or create the standard example file if it doesn't exist
   ////////////////////////////////////////////////////////////
   const char* filename = "";
-  if (!strcmp(infile,""))
-    filename = "results/example_combined_GaussExample_model.root";
-  else
-    filename = infile;
-  // Check if example input file exists
-  TFile *file = TFile::Open(filename);
-
-  // if input file was specified byt not found, quit
-  if(!file && strcmp(infile,"")){
-    cout <<"file not found" << endl;
-    return;
-  } 
-
-  // if default file not found, try to create it
-  if(!file ){
-    // Normally this would be run on the command line
-    cout <<"will run standard hist2workspace example"<<endl;
-    gROOT->ProcessLine(".! prepareHistFactory .");
-    gROOT->ProcessLine(".! hist2workspace config/example.xml");
-    cout <<"\n\n---------------------"<<endl;
-    cout <<"Done creating example input"<<endl;
-    cout <<"---------------------\n\n"<<endl;
-  }
-
-  // now try to access the file again
-  file = TFile::Open(filename);
-  if(!file){
-    // if it is still not there, then we can't continue
-    cout << "Not able to run hist2workspace to create example input" <<endl;
-    return;
-  }
-
-  
+   if (!strcmp(infile,"")) {
+      filename = "results/example_combined_GaussExample_model.root";
+      bool fileExist = !gSystem->AccessPathName(filename); // note opposite return code
+      // if file does not exists generate with histfactory
+      if (!fileExist) {
+#ifdef _WIN32
+         cout << "HistFactory file cannot be generated on Windows - exit" << endl;
+         return;
+#endif
+         // Normally this would be run on the command line
+         cout <<"will run standard hist2workspace example"<<endl;
+         gROOT->ProcessLine(".! prepareHistFactory .");
+         gROOT->ProcessLine(".! hist2workspace config/example.xml");
+         cout <<"\n\n---------------------"<<endl;
+         cout <<"Done creating example input"<<endl;
+         cout <<"---------------------\n\n"<<endl;
+      }
+      
+   }
+   else
+      filename = infile;
+   
+   // Try to open the file
+   TFile *file = TFile::Open(filename);
+   
+   // if input file was specified byt not found, quit
+   if(!file ){
+      cout <<"StandardRooStatsDemoMacro: Input file " << filename << " is not found" << endl;
+      return;
+   }
+ 
   /////////////////////////////////////////////////////////////
   // Now get the data and workspace
   ////////////////////////////////////////////////////////////
@@ -253,13 +254,15 @@ void TwoSidedFrequentistUpperLimitWithBands(const char* infile = "",
   // in your $ROOTSYS/roofit/roostats/inc directory,
   // add the additional line to the LinkDef.h file,
   // and recompile root.
-  ProofConfig pc(*w, 4, "workers=4",false); 
-  if(mc->GetGlobalObservables()){
-    cout << "will use global observables for unconditional ensemble"<<endl;
-    mc->GetGlobalObservables()->Print();
-    toymcsampler->SetGlobalObservables(*mc->GetGlobalObservables());
+  if (useProof) {
+     ProofConfig pc(*w, nworkers, "",false); 
+     if(mc->GetGlobalObservables()){
+        cout << "will use global observables for unconditional ensemble"<<endl;
+        mc->GetGlobalObservables()->Print();
+        toymcsampler->SetGlobalObservables(*mc->GetGlobalObservables());
+     }
+     toymcsampler->SetProofConfig(&pc);	// enable proof
   }
-  toymcsampler->SetProofConfig(&pc);	// enable proof
 
 
   // Now get the interval
@@ -295,7 +298,7 @@ void TwoSidedFrequentistUpperLimitWithBands(const char* infile = "",
   // For FeldmanCousins, the lower cut off is always 0
   for(Int_t i=0; i<parameterScan->numEntries(); ++i){
     tmpPoint = (RooArgSet*) parameterScan->get(i)->clone("temp");
-    cout <<"get threshold"<<endl;
+    //cout <<"get threshold"<<endl;
     double arMax = belt->GetAcceptanceRegionMax(*tmpPoint);
     double poiVal = tmpPoint->getRealValue(firstPOI->GetName()) ;
     histOfThresholds->Fill(poiVal,arMax);
@@ -370,7 +373,6 @@ void TwoSidedFrequentistUpperLimitWithBands(const char* infile = "",
       RooArgSet *allVars = mc->GetPdf()->getVariables();
       *allVars = *values;
       delete allVars;
-      delete values;
       delete one;
     } else {      
       RooDataSet* one = simPdf->generateSimGlobal(*mc->GetGlobalObservables(),1);
@@ -378,7 +380,6 @@ void TwoSidedFrequentistUpperLimitWithBands(const char* infile = "",
       RooArgSet *allVars = mc->GetPdf()->getVariables();
       *allVars = *values;
       delete allVars;
-      delete values;
       delete one;
 
     }

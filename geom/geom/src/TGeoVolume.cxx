@@ -17,13 +17,13 @@
 //End_Html
 
 ////////////////////////////////////////////////////////////////////////////////
-//   TGeoVolume - the base class representing solids. 
+//   TGeoVolume, TGeoVolumeMulti, TGeoVolumeAssembly - the volume classes
 //
 //   Volumes are the basic objects used in building the geometrical hierarchy.
 // They represent unpositioned objects but store all information about the
 // placement of the other volumes they may contain. Therefore a volume can
 // be replicated several times in the geometry. In order to create a volume, one
-// has to put togeather a shape and a medium which are already defined. Volumes
+// has to put together a shape and a medium which are already defined. Volumes
 // have to be named by users at creation time. Every different name may represent a 
 // an unique volume object, but may also represent more general a family (class)
 // of volume objects having the same shape type and medium, but possibly
@@ -66,7 +66,7 @@
 //
 //   TGeoVolume::TGeoVolume(const char *name, TGeoShape *shape, TGeoMedium *med)
 //
-// Since TGeoTube derives brom the base shape class, we can provide it to the volume
+// Since TGeoTube derives from the base shape class, we can provide it to the volume
 // constructor :
 //
 //   TGeoVolume *wire_co = new TGeoVolume("WIRE_CO", tube, ptrCOPPER);
@@ -142,7 +142,7 @@
 // --------------------
 //
 //   Positioning volumes that does not overlap their neighbours nor extrude
-// their container is sometimes quite strong contrain. Some parts of the geometry
+// their container is sometimes quite strong constraint. Some parts of the geometry
 // might overlap naturally, e.g. two crossing tubes. The modeller supports such
 // cases only if the overlapping nodes are declared by the user. In order to do
 // that, one should use TGeoVolume::AddNodeOverlap() instead of TGeoVolume::AddNode().
@@ -162,12 +162,12 @@
 //   3. If A an B in the above case were both MANY, points in the overlapping 
 // part will be designated to the one defined first. Both nodes must have the 
 // same medium.
-//   4. The silces of a divided MANY will be as well MANY.
+//   4. The slices of a divided MANY will be as well MANY.
 //
 // One needs to know that navigation inside geometry parts MANY nodes is much 
 // slower. Any overlapping part can be defined based on composite shapes - this
 // is always recommended. 
-
+//
 //   Replicating volumes
 // -----------------------
 //
@@ -181,7 +181,7 @@
 //
 //   The 2 nodes that we have created inside chamber will both point to a wire_co
 // object, but will be completely distinct : WIRE_CO_1 and WIRE_CO_2. We will
-// want now to place symetrically 1000 chabmers on a pad, following a pattern
+// want now to place symetrically 1000 chambers on a pad, following a pattern
 // of 20 rows and 50 columns. One way to do this will be to replicate our chamber
 // by positioning it 1000 times in different positions of the pad. Unfortunatelly,
 // this is far from being the optimal way of doing what we want.
@@ -196,15 +196,15 @@
 // to minimize the penalty having too many daughters, but if you have 100 pads like 
 // this in your geometry you will anyway loose a lot in your tracking performance.
 //
-//   The way out when volumes can be arranged acording to simple patterns is the
+//   The way out when volumes can be arranged according to simple patterns is the
 // usage of divisions. We will describe them in detail later on. Let's think now
 // at a different situation : instead of 1000 chambers of the same type, we may
 // have several types of chambers. Let's say all chambers are cylindrical and have
 // a wire inside, but their dimensions are different. However, we would like all
 // to be represented by a single volume family, since they have the same properties.
 //
-//   Volume families
-// ------------------
+//   Volume families (TGeoVolumeMulti)
+// -----------------------------------
 // A volume family is represented by the class TGeoVolumeMulti. It represents
 // a class of volumes having the same shape type and each member will be 
 // identified by the same name and volume ID. Any operation applied to a 
@@ -261,7 +261,7 @@
 // as half-length on Z. This is interpreted as: when positioned, create a box
 // replacing all invalid parameters with the corresponding dimensions of the
 // container. This is also internally handled by the TGeoVolumeMulti class, which
-// does not need to be instanciated by users.
+// does not need to be instantiated by users.
 //
 //   Dividing volumes
 // ------------------
@@ -314,7 +314,7 @@
 // volume family (e.g. slicey). This should be done as if the coordinate system
 // of the generic slice was the same as the one of the divided volume. The generic
 // slice in case of PHI divisioned is centered with respect to X axis. If the
-// family contains slices of different sizes, ani volume positioned inside should 
+// family contains slices of different sizes, any volume positioned inside should 
 // fit into the smallest one.
 //    Examples for specific divisions according to shape types can be found inside
 // shape classes.
@@ -329,8 +329,18 @@
 // to geometrical modelers and it was introduced just to support conversions of 
 // GEANT3 geometries, therefore its extensive usage should be avoided.
 //
-//   The following picture represent how a simple geometry tree is built in
-// memory.
+//   Volume assemblies (TGeoVolumeAssembly)
+// ----------------------------------------
+//
+// Assemblies a volumes that have neither a shape or a material/medium. Assemblies
+// behave exactly like normal volumes grouping several daughters together, but
+// the daughters can never extrude the assembly since this has no shape. However,
+// a bounding box and a voxelization structure are built for assemblies as for
+// normal volumes, so that navigation is still optimized. Assemblies are useful
+// for grouping hierarchically volumes which are otherwise defined in a flat 
+// manner, but also to avoid clashes between container shapes. 
+// To define an assembly one should just input a name, then start adding other
+// volumes (or volume assemblies) as content.
 
 #include "Riostream.h"
 #include "TString.h"
@@ -1698,6 +1708,7 @@ TGeoVolume *TGeoVolume::CloneVolume() const
    // copy extensions
    vol->SetUserExtension(fUserExtension);
    vol->SetFWExtension(fFWExtension);
+   vol->SetOverlappingCandidate(IsOverlappingCandidate());
    return vol;
 }
 
@@ -1767,6 +1778,7 @@ TGeoVolume *TGeoVolume::MakeCopyVolume(TGeoShape *newshape)
    CloneNodesAndConnect(vol);
 //   ((TObject*)vol)->SetBit(kVolumeImportNodes);
    ((TObject*)vol)->SetBit(kVolumeClone);
+   vol->SetOverlappingCandidate(IsOverlappingCandidate());
    return vol;       
 }    
 
@@ -2739,7 +2751,8 @@ void TGeoVolumeAssembly::AddNode(TGeoVolume *vol, Int_t copy_no, TGeoMatrix *mat
 {
 // Add a component to the assembly. 
    TGeoVolume::AddNode(vol,copy_no,mat,option);
-   ((TGeoShapeAssembly*)fShape)->RecomputeBoxLast();
+//   ((TGeoShapeAssembly*)fShape)->RecomputeBoxLast();
+   ((TGeoShapeAssembly*)fShape)->NeedsBBoxRecompute();
 }   
 
 //_____________________________________________________________________________

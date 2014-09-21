@@ -330,6 +330,7 @@
 #include "TDirectory.h"
 #include "TError.h"
 #include "TEntryList.h"
+#include "TEnv.h"
 #include "TEventList.h"
 #include "TFile.h"
 #include "TFolder.h"
@@ -361,6 +362,7 @@
 #include "TEmulatedCollectionProxy.h"
 #include "TVirtualFitter.h"
 #include "TVirtualIndex.h"
+#include "TVirtualPerfStats.h"
 #include "TVirtualPad.h"
 #include "TBranchSTL.h"
 #include "TSchemaRuleSet.h"
@@ -375,8 +377,6 @@
 
 Int_t    TTree::fgBranchStyle = 1;  // Use new TBranch style with TBranchElement.
 Long64_t TTree::fgMaxTreeSize = 100000000000LL;
-
-TTree* gTree;
 
 ClassImp(TTree)
 
@@ -649,12 +649,15 @@ TTree::TTree()
 , fIndex()
 , fTreeIndex(0)
 , fFriends(0)
+, fPerfStats(0)
 , fUserInfo(0)
 , fPlayer(0)
 , fClones(0)
 , fBranchRef(0)
 , fFriendLockStatus(0)
 , fTransientBuffer(0)
+, fCacheDoAutoInit(kTRUE)
+, fCacheUserSet(kFALSE)
 {
    // Default constructor and I/O constructor.
    //
@@ -718,12 +721,15 @@ TTree::TTree(const char* name, const char* title, Int_t splitlevel /* = 99 */)
 , fIndex()
 , fTreeIndex(0)
 , fFriends(0)
+, fPerfStats(0)
 , fUserInfo(0)
 , fPlayer(0)
 , fClones(0)
 , fBranchRef(0)
 , fFriendLockStatus(0)
 , fTransientBuffer(0)
+, fCacheDoAutoInit(kTRUE)
+, fCacheUserSet(kFALSE)
 {
    // Normal tree constructor.
    //
@@ -761,9 +767,6 @@ TTree::TTree(const char* name, const char* title, Int_t splitlevel /* = 99 */)
    fDirectory = gDirectory;
    fDirectory->Append(this);
 
-   // We become the current tree.
-   gTree = this;
-
    fBranches.SetOwner(kTRUE);
 
    // If title starts with "/" and is a valid folder name, a superbranch
@@ -789,12 +792,7 @@ TTree::~TTree()
       }
       //delete the file cache if it points to this Tree
       TFile *file = fDirectory->GetFile();
-      if (file) {
-         TFileCacheRead *pf = file->GetCacheRead(this);
-         if (pf) pf->WaitFinishPrefetch();
-         file->SetCacheRead(0,this);
-         delete pf;
-      }
+      MoveReadCache(file,0);
    }
    // We don't own the leaves in fLeaves, the branches do.
    fLeaves.Clear();
@@ -895,7 +893,7 @@ void TTree::AddBranchToCache(const char*bname, Bool_t subbranches)
 
    TFile *f = GetCurrentFile();
    if (!f) return;
-   TTreeCache *tc = (TTreeCache*)f->GetCacheRead(this);
+   TTreeCache *tc = GetReadCache(f,kTRUE);
    if (tc) tc->AddBranch(bname,subbranches);
 }
 
@@ -908,7 +906,7 @@ void TTree::AddBranchToCache(TBranch *b, Bool_t subbranches)
 
    TFile *f = GetCurrentFile();
    if (!f) return;
-   TTreeCache *tc = (TTreeCache*)f->GetCacheRead(this);
+   TTreeCache *tc = GetReadCache(f,kTRUE);
    if (tc) tc->AddBranch(b,subbranches);
 }
 
@@ -922,7 +920,7 @@ void TTree::DropBranchFromCache(const char*bname, Bool_t subbranches)
 
    TFile *f = GetCurrentFile();
    if (!f) return;
-   TTreeCache *tc = (TTreeCache*)f->GetCacheRead(this);
+   TTreeCache *tc = GetReadCache(f,kTRUE);
    if (tc) tc->DropBranch(bname,subbranches);
 }
 
@@ -935,7 +933,7 @@ void TTree::DropBranchFromCache(TBranch *b, Bool_t subbranches)
 
    TFile *f = GetCurrentFile();
    if (!f) return;
-   TTreeCache *tc = (TTreeCache*)f->GetCacheRead(this);
+   TTreeCache *tc = GetReadCache(f,kTRUE);
    if (tc) tc->DropBranch(b,subbranches);
 }
 
@@ -1642,7 +1640,6 @@ TBranch* TTree::Branch(const char* name, void* address, const char* leaflist, In
    //         A small value for bufsize is optimum if you intend to access
    //         the entries in the Tree randomly and your Tree is in split mode.
 
-   gTree = this;
    TBranch* branch = new TBranch(this, name, address, leaflist, bufsize);
    if (branch->IsZombie()) {
       delete branch;
@@ -1727,7 +1724,6 @@ TBranch* TTree::BranchOld(const char* name, const char* classname, void* addobj,
    //    A small value for bufsize is optimum if you intend to access
    //    the entries in the Tree randomly and your Tree is in split mode.
 
-   gTree = this;
    TClass* cl = TClass::GetClass(classname);
    if (!cl) {
       Error("BranchOld", "Cannot find class: '%s'", classname);
@@ -2064,7 +2060,6 @@ TBranch* TTree::BronchExec(const char* name, const char* classname, void* addr, 
 {
    // Helper function implementing TTree::Bronch and TTree::Branch(const char *name, T &obj);
 
-   gTree = this;
    TClass* cl = TClass::GetClass(classname);
    if (!cl) {
       Error("Bronch", "Cannot find class:%s", classname);
@@ -2283,16 +2278,15 @@ TBranch* TTree::BronchExec(const char* name, const char* classname, void* addr, 
             TClass* clbase = element->GetClassPointer();
             if ((clbase == TObject::Class()) && cl->CanIgnoreTObjectStreamer()) {
                // Note: TStreamerInfo::Compile() leaves this element
-               //       out of the compiled info, although it does
-               //       exists in the non-compiled info.  We must
-               //       account for the fact that this element is
-               //       missing in the compiled streamer info by
-               //       making sure that we do not consume an id
-               //       number for it.
+               //       out of the optimized info, although it does
+               //       exists in the non-compiled  and non-optimized info.
                // FIXME: The test that TStreamerInfo::Compile() uses
                //        is element->GetType() < 0, so that is what
                //        we should do as well.
-               --id;
+               continue;
+            }
+            if (clbase->GetListOfRealData()->GetSize() == 0) {
+               // Do not create a branch for empty bases.
                continue;
             }
          }
@@ -2408,14 +2402,6 @@ TStreamerInfo* TTree::BuildStreamerInfo(TClass* cl, void* pointer /* = 0 */, Boo
    }
    cl->BuildRealData(pointer);
    TStreamerInfo* sinfo = (TStreamerInfo*)cl->GetStreamerInfo(cl->GetClassVersion());
-
-   if (sinfo && !canOptimize && (!sinfo->IsCompiled() || sinfo->IsOptimized()) ) {
-      // Streamer info has not yet been compiled.
-      //
-      // Optimizing does not work with splitting.
-      sinfo->SetBit(TVirtualStreamerInfo::kCannotOptimize);
-      sinfo->Compile();
-   }
 
    // Create StreamerInfo for all base classes.
    TBaseClass* base = 0;
@@ -3446,6 +3432,8 @@ void TTree::Delete(Option_t* option /* = "" */)
 
    if (fDirectory) {
       fDirectory->Remove(this);
+      //delete the file cache if it points to this Tree
+      MoveReadCache(file,0);
       fDirectory = 0;
       ResetBit(kMustCleanup);
    }
@@ -3464,7 +3452,12 @@ void TTree::DirectoryAutoAdd(TDirectory* dir)
    // when we are read from a file.
 
    if (fDirectory == dir) return;
-   if (fDirectory) fDirectory->Remove(this);
+   if (fDirectory) {
+      fDirectory->Remove(this);
+      // Delete or move the file cache if it points to this Tree          
+      TFile *file = fDirectory->GetFile();
+      MoveReadCache(file,dir);
+   }
    fDirectory = dir;
    TBranch* b = 0;
    TIter next(GetListOfBranches());
@@ -4135,6 +4128,9 @@ Int_t TTree::Fill()
    //   Note that calling FlushBaskets too often increases the IO time.
    //   Note that calling AutoSave too often increases the IO time and also the file size.
 
+   // create cache if wanted
+   if (fCacheDoAutoInit) SetCacheSizeAux();
+
    Int_t nbytes = 0;
    Int_t nerror = 0;
    Int_t nb = fBranches.GetEntriesFast();
@@ -4740,6 +4736,50 @@ Int_t TTree::GetBranchStyle()
 }
 
 //______________________________________________________________________________
+Long64_t TTree::GetCacheAutoSize(Bool_t withDefault /* = kFALSE */ ) const
+{
+   // Used for automatic sizing of the cache.
+   // Estimates a suitable size for the tree cache based on AutoFlush.
+   // A cache sizing factor is taken from the configuration. If this yields zero
+   // and withDefault is true the historical algoirthm for default size is used.
+
+   const char *stcs;
+   Double_t cacheFactor = 0.0;
+   if (!(stcs = gSystem->Getenv("ROOT_TTREECACHE_SIZE")) || !*stcs) {
+      cacheFactor = gEnv->GetValue("TTreeCache.Size", 0.0);
+   } else {
+      cacheFactor = TString(stcs).Atof();
+   }
+
+   if (cacheFactor < 0.0) {
+     // ignore negative factors
+     cacheFactor = 0.0;
+   }
+
+   Long64_t cacheSize = 0;
+
+   if (fAutoFlush < 0) cacheSize = Long64_t(-cacheFactor*fAutoFlush);
+   else if (fAutoFlush == 0) cacheSize = 0;
+   else cacheSize = Long64_t(cacheFactor*1.5*fAutoFlush*fZipBytes/(fEntries+1));
+            
+   if (cacheSize >= (INT_MAX / 4)) {
+      cacheSize = INT_MAX / 4;
+   }
+
+   if (cacheSize < 0) {
+      cacheSize = 0;
+   }
+
+   if (cacheSize == 0 && withDefault) {
+      if (fAutoFlush < 0) cacheSize = -fAutoFlush;
+      else if (fAutoFlush == 0) cacheSize = 0;
+      else cacheSize = Long64_t(1.5*fAutoFlush*fZipBytes/(fEntries+1));
+   }
+
+   return cacheSize;
+}
+
+//______________________________________________________________________________
 TTree::TClusterIterator TTree::GetClusterIterator(Long64_t firstentry)
 {
    // Return an iterator over the cluster of baskets starting at firstentry.
@@ -4751,6 +4791,9 @@ TTree::TClusterIterator TTree::GetClusterIterator(Long64_t firstentry)
    // while( (clusterStart = clusterIter()) < tree->GetEntries() ) {
    //    printf("The cluster starts at %lld and ends at %lld (inclusive)\n",clusterStart,clusterIter.GetNextEntry()-1);
    // }
+
+   // create cache if wanted
+   if (fCacheDoAutoInit) SetCacheSizeAux();
 
    return TClusterIterator(this,firstentry);
 }
@@ -4915,6 +4958,9 @@ Int_t TTree::GetEntry(Long64_t entry, Int_t getall)
    fReadEntry = entry;
    TBranch *branch;
 
+   // create cache if wanted
+   if (fCacheDoAutoInit) SetCacheSizeAux();
+
    Int_t nbranches = fBranches.GetEntriesFast();
    Int_t nb=0;
    for (i=0;i<nbranches;i++)  {
@@ -5033,6 +5079,9 @@ Int_t TTree::GetEntryWithIndex(Int_t major, Int_t minor)
    if (serial < 0) {
       return -1;
    }
+   // create cache if wanted
+   if (fCacheDoAutoInit) SetCacheSizeAux();
+
    Int_t i;
    Int_t nbytes = 0;
    fReadEntry = serial;
@@ -5320,6 +5369,10 @@ Double_t TTree::GetMaximum(const char* columname)
    if (!leaf) {
       return 0;
    }
+
+   // create cache if wanted
+   if (fCacheDoAutoInit) SetCacheSizeAux();
+
    TBranch* branch = leaf->GetBranch();
    Double_t cmax = -DBL_MAX;
    for (Long64_t i = 0; i < fEntries; ++i) {
@@ -5355,6 +5408,10 @@ Double_t TTree::GetMinimum(const char* columname)
    if (!leaf) {
       return 0;
    }
+
+   // create cache if wanted
+   if (fCacheDoAutoInit) SetCacheSizeAux();
+
    TBranch* branch = leaf->GetBranch();
    Double_t cmin = DBL_MAX;
    for (Long64_t i = 0; i < fEntries; ++i) {
@@ -5381,6 +5438,23 @@ TVirtualTreePlayer* TTree::GetPlayer()
    }
    fPlayer = TVirtualTreePlayer::TreePlayer(this);
    return fPlayer;
+}
+
+//______________________________________________________________________________
+TTreeCache *TTree::GetReadCache(TFile *file, Bool_t create /* = kFALSE */ )
+{
+   // Find and return the TTreeCache registered with the file and which we own.
+   // If create is true and there is no such cache: Create a new cache according
+   // to the autocache setting and return it. If create is true but no auto-
+   // cache is created return any default cache indicated by the file.
+
+   TTreeCache *pe = dynamic_cast<TTreeCache*>(file->GetCacheRead(this));
+   if (pe && pe->GetTree() != this) pe = 0;
+   if (create && !pe) {
+      if (fCacheDoAutoInit) SetCacheSizeAux();
+      pe = dynamic_cast<TTreeCache*>(file->GetCacheRead(this));
+   }
+   return pe;
 }
 
 //______________________________________________________________________________
@@ -5991,6 +6065,30 @@ Long64_t TTree::Merge(TCollection* li, TFileMergeInfo *info)
 }
 
 //______________________________________________________________________________
+void TTree::MoveReadCache(TFile *src, TDirectory *dir)
+{
+   // Move a cache from a file to the current file in dir.
+   // if src is null no operation is done, if dir is null or there is no
+   // current file the cache is deleted.
+
+   if (!src) return;
+   TFile *dst = (dir && dir != gROOT) ? dir->GetFile() : 0;
+   if (src == dst) return;
+
+   TTreeCache *pf = GetReadCache(src);
+   if (dst) {
+      src->SetCacheRead(0,this);
+      dst->SetCacheRead(pf, this);
+   } else {
+      if (pf) {
+         pf->WaitFinishPrefetch();
+      }
+      src->SetCacheRead(0,this);
+      delete pf;
+   }
+}
+
+//______________________________________________________________________________
 Bool_t TTree::Notify()
 {
    // Function called when loading a new class library.
@@ -6496,7 +6594,6 @@ Long64_t TTree::ReadStream(istream& inputStream, const char *branchDescriptor, c
    //
    // See reference information for TTree::ReadFile
 
-   gTree = this;
    char newline = GetNewlineValue(inputStream);
    std::istream& in = inputStream;
    Long64_t nlines = 0;
@@ -7419,41 +7516,105 @@ void TTree::SetCacheSize(Long64_t cacheSize)
    // if cachesize = -1 (default) it is set to the AutoFlush value when writing
    //    the Tree (default is 30 MBytes).
 
-   if (cacheSize < 0) {
-      if (fAutoFlush < 0) cacheSize = -fAutoFlush;
-      else if (fAutoFlush == 0) cacheSize = 0;
-      else cacheSize = Long64_t(1.5*fAutoFlush*fZipBytes/(fEntries+1));
+   // remember that the user has requested an explicit cache setup
+   fCacheUserSet = kTRUE;
+
+   SetCacheSizeAux(kFALSE, cacheSize);
+}
+
+//______________________________________________________________________________
+void TTree::SetCacheSizeAux(Bool_t autocache /* = kTRUE */, Long64_t cacheSize /* = 0 */ )
+{
+   // Set the size of the file cache and create it if needed.
+   //
+   // If autocache is true:
+   // create a cache or replace an existing autosized with a larger one.
+   // The size is calculated automatically, cacheSize is unused.
+   //
+   // If autocache is false:
+   // cacheSize is used to size the cache.
+
+   Bool_t cacheAutoSized = autocache;
+
+   if (autocache) {
+      // used as a once only control for automatic cache setup
+      fCacheDoAutoInit = kFALSE;
+   } else {
+      // negative size means the user requests the default
+      if (cacheSize < 0) {
+         cacheAutoSized = kTRUE;
+         cacheSize = GetCacheAutoSize(kTRUE);
+      }
    }
+
    TFile* file = GetCurrentFile();
    if (!file) {
-      fCacheSize = cacheSize;
+      if (fCacheUserSet) fCacheSize = cacheSize;
       return;
    }
-   // Only care about the 'current' TFileCacheRead if it is related to 
-   // this TTree.
-   TTreeCache* pf = dynamic_cast<TTreeCache*>(file->GetCacheRead(this));
-   if (pf && pf->GetTree()==this) {
+
+   // Check for an existing cache
+   TTreeCache* pf = GetReadCache(file);
+   if (pf) {
+      if (autocache) {
+         // reset our cache status tracking in case this cache was added by
+         // the user without using one of the TTree methods
+         fCacheSize = pf->GetBufferSize();
+         fCacheUserSet = !pf->IsAutoSized();
+
+         if (!pf->IsAutoSized()) {
+            // cache was not automaticlly sized, don't change it
+            return;
+         }
+
+         // find the size that would be used now
+         cacheSize = GetCacheAutoSize(kTRUE);
+
+      } else {
+         // update the information in the cache about how its size was set
+         pf->SetAutoSized(cacheAutoSized);
+      }
+
+      // if a cache is almost the size of the autocalculated value
+      // don't rellocate
+      if (cacheAutoSized && Long64_t(0.80*cacheSize) < fCacheSize) {
+         // already large enough
+         return;
+      }
+
       if (cacheSize == fCacheSize) {
          return;
       }
+
+      // current cache needs deleting
       pf->WaitFinishPrefetch();
-      file->SetCacheRead(0, this);
+      file->SetCacheRead(0,this);
       delete pf;
       pf = 0;
-      if (cacheSize == 0) {
-         fCacheSize=0;
-         return;
+   } else {
+      if (autocache) {
+         // no existing cache
+         if (fCacheUserSet) {
+            // was manually set. Do nothing here.
+            return;
+         } else {
+            // if configured, autocreate a cache
+            cacheSize = GetCacheAutoSize();
+         }
       }
    }
+
    fCacheSize = cacheSize;
    if (cacheSize == 0) {
       return;
    }
 
    if(TTreeCacheUnzip::IsParallelUnzip() && file->GetCompressionLevel() > 0)
-      new TTreeCacheUnzip(this, cacheSize);
+      pf = new TTreeCacheUnzip(this, cacheSize);
    else
-      new TTreeCache(this, cacheSize);
+      pf = new TTreeCache(this, cacheSize);
+
+   pf->SetAutoSized(cacheAutoSized);
 }
 
 //______________________________________________________________________________
@@ -7463,7 +7624,7 @@ void TTree::SetCacheEntryRange(Long64_t first, Long64_t last)
 
    TFile *f = GetCurrentFile();
    if (!f) return;
-   TTreeCache *tc = (TTreeCache*)f->GetCacheRead(this);
+   TTreeCache *tc = GetReadCache(f,kTRUE);
    if (tc) tc->SetEntryRange(first,last);
 }
 
@@ -7581,18 +7742,7 @@ void TTree::SetDirectory(TDirectory* dir)
 
       // Delete or move the file cache if it points to this Tree
       TFile *file = fDirectory->GetFile();
-      if (file) {
-         TTreeCache *pf = dynamic_cast<TTreeCache*>(file->GetCacheRead(this));
-         if (pf && pf->GetTree() == this) {
-            file->SetCacheRead(0,this);
-            TFile *newfile = dir ? dir->GetFile() : 0;
-            if (newfile) {
-               newfile->SetCacheRead(pf,this);
-            } else {
-               delete pf;
-            }
-         }
-      }
+      MoveReadCache(file,dir);
    }
    fDirectory = dir;
    if (fDirectory) {
@@ -7794,14 +7944,23 @@ void TTree::SetName(const char* name)
       gPad->Modified();
    }
    // Trees are named objects in a THashList.
-   // We must update the hashlist if we change the name.
+   // We must update hashlists if we change the name.
+   TFile *file = 0;
+   TTreeCache *pf = 0;
    if (fDirectory) {
       fDirectory->Remove(this);
+      if ((file = GetCurrentFile())) {
+         pf = GetReadCache(file);
+         file->SetCacheRead(0,this,TFile::kDoNotDisconnect);
+      }
    }
    // This changes our hash value.
    fName = name;
    if (fDirectory) {
       fDirectory->Append(this);
+      if (pf) {
+         file->SetCacheRead(pf,this,TFile::kDoNotDisconnect);
+      }
    }
 }
 
@@ -7815,15 +7974,24 @@ void TTree::SetObject(const char* name, const char* title)
    }
 
    //  Trees are named objects in a THashList.
-   //  We must update the hashlist if we change the name
+   //  We must update hashlists if we change the name
+   TFile *file = 0;
+   TTreeCache *pf = 0;
    if (fDirectory) {
       fDirectory->Remove(this);
+      if ((file = GetCurrentFile())) {
+         pf = GetReadCache(file);
+         file->SetCacheRead(0,this,TFile::kDoNotDisconnect);
+      }
    }
    // This changes our hash value.
    fName = name;
    fTitle = title;
    if (fDirectory) {
       fDirectory->Append(this);
+      if (pf) {
+         file->SetCacheRead(pf,this,TFile::kDoNotDisconnect);
+      }
    }
 }
 
@@ -7841,6 +8009,11 @@ void TTree::SetParallelUnzip(Bool_t opt, Float_t RelSize)
 
 }
 
+//______________________________________________________________________________
+void TTree::SetPerfStats(TVirtualPerfStats *perf)
+{
+   fPerfStats = perf;
+}
 //______________________________________________________________________________
 void TTree::SetTreeIndex(TVirtualIndex* index)
 {
@@ -7979,8 +8152,47 @@ void TTree::StopCacheLearningPhase()
 
    TFile *f = GetCurrentFile();
    if (!f) return;
-   TTreeCache *tc = (TTreeCache*)f->GetCacheRead(this);
+   TTreeCache *tc = GetReadCache(f,kTRUE);
    if (tc) tc->StopLearningPhase();
+}
+
+//______________________________________________________________________________
+static void TBranch__SetTree(TTree *tree, TObjArray &branches)
+{
+   // Set the fTree member for all branches and sub branches.
+
+   Int_t nb = branches.GetEntriesFast();
+   for (Int_t i = 0; i < nb; ++i) {
+      TBranch* br = (TBranch*) branches.UncheckedAt(i);
+      br->SetTree(tree);
+
+      Int_t nBaskets = br->GetListOfBaskets()->GetEntries();
+      Int_t writeBasket = br->GetWriteBasket();
+      for (Int_t j=writeBasket,n=0;j>=0 && n<nBaskets;--j) {
+         TBasket *bk = (TBasket*)br->GetListOfBaskets()->UncheckedAt(j);
+         if (bk) {
+            tree->IncrementTotalBuffers(bk->GetBufferSize());
+            ++n;
+         }
+      }
+
+      TBranch__SetTree(tree,*br->GetListOfBranches());
+   }
+}
+
+//______________________________________________________________________________
+void TFriendElement__SetTree(TTree *tree, TList *frlist)
+{
+   // Set the fTree member for all friend elements.
+
+   if (frlist) {
+      TObjLink *lnk = frlist->FirstLink();
+      while (lnk) {
+         TFriendElement *elem = (TFriendElement*)lnk->GetObject();
+         elem->fParentTree = tree;
+         lnk = lnk->Next();
+      }
+   }
 }
 
 //______________________________________________________________________________
@@ -7989,16 +8201,24 @@ void TTree::Streamer(TBuffer& b)
    // Stream a class object.
    if (b.IsReading()) {
       UInt_t R__s, R__c;
-      gTree = this;
       if (fDirectory) {
          fDirectory->Remove(this);
+         //delete the file cache if it points to this Tree
+         TFile *file = fDirectory->GetFile();
+         MoveReadCache(file,0);
       }
       fDirectory = 0;
+      fCacheDoAutoInit = kTRUE;
+      fCacheUserSet = kFALSE;
       Version_t R__v = b.ReadVersion(&R__s, &R__c);
       if (R__v > 4) {
          b.ReadClassBuffer(TTree::Class(), this, R__v, R__s, R__c);
 
          fBranches.SetOwner(kTRUE); // True needed only for R__v < 19 and most R__v == 19
+
+         if (fBranchRef) fBranchRef->SetTree(this);
+         TBranch__SetTree(this,fBranches);
+         TFriendElement__SetTree(this,fFriends);
 
          if (fTreeIndex) {
             fTreeIndex->SetTree(this);
@@ -8011,7 +8231,11 @@ void TTree::Streamer(TBuffer& b)
          if (fEstimate <= 10000) {
             fEstimate = 1000000;
          }
-         if (fAutoFlush < 0) {
+         if (GetCacheAutoSize() != 0) {
+            // a cache will be automatically created.
+            // No need for TTreePlayer::Process to enable the cache
+            fCacheSize = 0;
+         } else if (fAutoFlush < 0) {
             // If there is no autoflush set, let's keep the cache completely
             // disable by default for now.
             fCacheSize = fAutoFlush; 
@@ -8053,6 +8277,8 @@ void TTree::Streamer(TBuffer& b)
       b >> ijunk; fEstimate = (Long64_t)ijunk;
       if (fEstimate <= 10000) fEstimate = 1000000;
       fBranches.Streamer(b);
+      if (fBranchRef) fBranchRef->SetTree(this);
+      TBranch__SetTree(this,fBranches);
       fLeaves.Streamer(b);
       fSavedBytes = fTotBytes;
       if (R__v > 1) fIndexValues.Streamer(b);

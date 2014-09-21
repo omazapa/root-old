@@ -143,7 +143,7 @@ public:
    void              Browse(TBrowser *b);
    Bool_t            ClassSaved(TClass *cl);
    void              CloseFiles();
-   void              EndOfProcessCleanups();
+   void              EndOfProcessCleanups(bool altInterpreter = kFALSE);
    virtual TObject  *FindObject(const char *name) const;
    virtual TObject  *FindObject(const TObject *obj) const;
    virtual TObject  *FindObjectAny(const char *name) const;
@@ -241,7 +241,7 @@ public:
    Long_t            ProcessLine(const char *line, Int_t *error = 0);
    Long_t            ProcessLineSync(const char *line, Int_t *error = 0);
    Long_t            ProcessLineFast(const char *line, Int_t *error = 0);
-   Bool_t            ReadingObject() const { /* Deprecated (will be removed in next release) */ return fReadingObject; }
+   Bool_t            ReadingObject() const;
    void              RefreshBrowsers();
    void              RemoveClass(TClass *);
    void              Reset(Option_t *option="");
@@ -258,7 +258,7 @@ public:
    void              SetEscape(Bool_t flag = kTRUE) { fEscape = flag; }
    void              SetLineIsProcessing() { fLineIsProcessing++; }
    void              SetLineHasBeenProcessed() { if (fLineIsProcessing) fLineIsProcessing--; }
-   void              SetReadingObject(Bool_t flag = kTRUE) { fReadingObject = flag; }
+   void              SetReadingObject(Bool_t flag = kTRUE);
    void              SetMustClean(Bool_t flag = kTRUE) { fMustClean=flag; }
    void              SetSelectedPrimitive(const TObject *obj) { fPrimitive = obj; }
    void              SetSelectedPad(TVirtualPad *pad) { fSelectPad = pad; }

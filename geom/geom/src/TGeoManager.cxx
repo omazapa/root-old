@@ -319,6 +319,7 @@
 #include "TQObject.h"
 #include "TMath.h"
 #include "TEnv.h"
+#include "TGeoParallelWorld.h"
 
 // statics and globals
 
@@ -373,7 +374,7 @@ TGeoManager::TGeoManager()
       fNtracks = 0;
       fNpdg = 0;
       fPdgNames = 0;
-      memset(fPdgId, 0, 256*sizeof(Int_t));
+      memset(fPdgId, 0, 1024*sizeof(Int_t));
       fCurrentTrack = 0;
       fCurrentVolume = 0;
       fTopVolume = 0;
@@ -404,6 +405,8 @@ TGeoManager::TGeoManager()
       fValuePNEId = 0;
       fMultiThread = kFALSE;
       fMaxThreads = 0;
+      fUsePWNav = kFALSE;
+      fParallelWorld = 0;
       ClearThreadsMap();
    } else {
       Init();
@@ -470,7 +473,7 @@ void TGeoManager::Init()
    fNtracks = 0;
    fNpdg = 0;
    fPdgNames = 0;
-   memset(fPdgId, 0, 256*sizeof(Int_t));
+   memset(fPdgId, 0, 1024*sizeof(Int_t));
    fCurrentTrack = 0;
    fCurrentVolume = 0;
    fTopVolume = 0;
@@ -501,6 +504,8 @@ void TGeoManager::Init()
    fValuePNEId = 0;
    fMultiThread = kFALSE;
    fMaxThreads = 0;
+   fUsePWNav = kFALSE;
+   fParallelWorld = 0;
    ClearThreadsMap();
 }
 
@@ -569,10 +574,12 @@ TGeoManager::TGeoManager(const TGeoManager& gm) :
   fKeyPNEId(0),
   fValuePNEId(0),
   fMaxThreads(0),
-  fMultiThread(kFALSE)
+  fMultiThread(kFALSE),
+  fUsePWNav(kFALSE),
+  fParallelWorld(0)
 {
    //copy constructor
-   for(Int_t i=0; i<256; i++)
+   for(Int_t i=0; i<1024; i++)
       fPdgId[i]=gm.fPdgId[i];
    if (!fgThreadId) fgThreadId = new TGeoManager::ThreadsMap_t;
    ClearThreadsMap();
@@ -600,7 +607,7 @@ TGeoManager& TGeoManager::operator=(const TGeoManager& gm)
       fMaxVisNodes=gm.fMaxVisNodes;
       fCurrentTrack=gm.fCurrentTrack;
       fNpdg=gm.fNpdg;
-      for(Int_t i=0; i<256; i++)
+      for(Int_t i=0; i<1024; i++)
          fPdgId[i]=gm.fPdgId[i];
       fClosed=gm.fClosed;
       fLoopVolumes=gm.fLoopVolumes;
@@ -650,6 +657,8 @@ TGeoManager& TGeoManager::operator=(const TGeoManager& gm)
       fValuePNEId = 0;
       fMultiThread = kFALSE;
       fMaxThreads = 0;
+      fUsePWNav = kFALSE;
+      fParallelWorld = 0;
       ClearThreadsMap();
       ClearThreadData();
    }
@@ -700,6 +709,7 @@ TGeoManager::~TGeoManager()
       delete [] fKeyPNEId;
       delete [] fValuePNEId;
    }
+   delete fParallelWorld;
    fIsGeomCleaning = kFALSE;
    gGeoIdentity = 0;
    gGeoManager = 0;
@@ -817,7 +827,7 @@ TGeoNavigator *TGeoManager::AddNavigator()
 //      Error("AddNavigator", "Navigators are locked. Use SetNavigatorsLock(false) first.");
 //      return 0;
 //   }
-   Long_t threadId = TThread::SelfId();
+   Long_t threadId = fMultiThread ? TThread::SelfId() : 0;
    NavigatorsMap_t::const_iterator it = fNavigators.find(threadId);
    TGeoNavigatorArray *array = 0;
    if (it != fNavigators.end()) array = it->second;
@@ -831,15 +841,13 @@ TGeoNavigator *TGeoManager::AddNavigator()
    return nav;
 }   
 
-TTHREAD_TLS_DECLARE(TGeoNavigator*, tnav);
-
 //_____________________________________________________________________________
 TGeoNavigator *TGeoManager::GetCurrentNavigator() const
 {
 // Returns current navigator for the calling thread.
-   TTHREAD_TLS_INIT(TGeoNavigator*,tnav,0);
+   TTHREAD_TLS(TGeoNavigator*) tnav = 0;
    if (!fMultiThread) return fCurrentNavigator;
-   TGeoNavigator *nav = TTHREAD_TLS_GET(TGeoNavigator*,tnav);
+   TGeoNavigator *nav = tnav; // TTHREAD_TLS_GET(TGeoNavigator*,tnav);
    if (nav) return nav;
    Long_t threadId = TThread::SelfId();
 
@@ -851,7 +859,7 @@ TGeoNavigator *TGeoManager::GetCurrentNavigator() const
 
    TGeoNavigatorArray *array = it->second;
    nav = array->GetCurrentNavigator();
-   TTHREAD_TLS_SET(TGeoNavigator*,tnav,nav);
+   tnav = nav; // TTHREAD_TLS_SET(TGeoNavigator*,tnav,nav);
    return nav;
 }
 
@@ -859,7 +867,7 @@ TGeoNavigator *TGeoManager::GetCurrentNavigator() const
 TGeoNavigatorArray *TGeoManager::GetListOfNavigators() const
 {
 // Get list of navigators for the calling thread.
-   Long_t threadId = TThread::SelfId();
+   Long_t threadId = fMultiThread ? TThread::SelfId() : 0;
    NavigatorsMap_t::const_iterator it = fNavigators.find(threadId);
    if (it == fNavigators.end()) return 0;
    TGeoNavigatorArray *array = it->second;
@@ -870,7 +878,7 @@ TGeoNavigatorArray *TGeoManager::GetListOfNavigators() const
 Bool_t TGeoManager::SetCurrentNavigator(Int_t index)
 {
 // Switch to another existing navigator for the calling thread.
-   Long_t threadId = TThread::SelfId();
+   Long_t threadId = fMultiThread ? TThread::SelfId() : 0;
    NavigatorsMap_t::const_iterator it = fNavigators.find(threadId);
    if (it == fNavigators.end()) {
       Error("SetCurrentNavigator", "No navigator defined for thread %ld\n", threadId);
@@ -936,7 +944,17 @@ void TGeoManager::SetMaxThreads(Int_t nthreads)
    if (!fClosed) {
       Error("SetMaxThreads", "Cannot set maximum number of threads before closing the geometry");
       return;
-   }   
+   }
+   if (!fMultiThread) {
+      TThread::Initialize();
+      Long_t threadId = TThread::SelfId();
+      NavigatorsMap_t::const_iterator it = fNavigators.find(0);
+      if (it != fNavigators.end()) {
+         TGeoNavigatorArray *array = it->second;
+         fNavigators.erase(it->first);
+         fNavigators.insert(NavigatorsMap_t::value_type(threadId, array));
+      }
+   }
    if (fMaxThreads) {
       ClearThreadsMap();
       ClearThreadData();
@@ -951,6 +969,7 @@ void TGeoManager::SetMaxThreads(Int_t nthreads)
 //______________________________________________________________________________
 void TGeoManager::ClearThreadData() const
 {
+   if (!fMaxThreads) return;
    TThread::Lock();
    TIter next(fVolumes);
    TGeoVolume *vol;
@@ -975,13 +994,12 @@ void TGeoManager::ClearThreadsMap()
 {
 // Clear the current map of threads. This will be filled again by the calling
 // threads via ThreadId calls.
+   if (gGeoManager && !gGeoManager->IsMultiThread()) return;
    TThread::Lock();
    if (!fgThreadId->empty()) fgThreadId->clear();
    fgNumThreads = 0;
    TThread::UnLock();
 }
-
-TTHREAD_TLS_DECLARE(Int_t, tid);
 
 //_____________________________________________________________________________
 Int_t TGeoManager::ThreadId()
@@ -990,8 +1008,8 @@ Int_t TGeoManager::ThreadId()
 // manage data which is pspecific for a given thread.
 //   static __thread Int_t tid = -1;
 //   if (tid > -1) return tid;
-   TTHREAD_TLS_INIT(Int_t,tid,-1);
-   Int_t ttid = TTHREAD_TLS_GET(Int_t,tid);
+   TTHREAD_TLS(Int_t) tid = -1;
+   Int_t ttid = tid; // TTHREAD_TLS_GET(Int_t,tid);
    if (ttid > -1) return ttid;
    if (gGeoManager && !gGeoManager->IsMultiThread()) return 0;
    TThread::Lock();
@@ -1002,7 +1020,7 @@ Int_t TGeoManager::ThreadId()
    }
    // Map needs to be updated.
    (*fgThreadId)[TThread::SelfId()] = fgNumThreads;
-   TTHREAD_TLS_SET(Int_t,tid,fgNumThreads);
+   tid = fgNumThreads; // TTHREAD_TLS_SET(Int_t,tid,fgNumThreads);
    fgNumThreads++;
    TThread::UnLock();
    return fgNumThreads-1;
@@ -1842,11 +1860,11 @@ void TGeoManager::SetPdgName(Int_t pdg, const char *name)
 // Set a name for a particle having a given pdg.
    if (!pdg) return;
    if (!fPdgNames) {
-      fPdgNames = new TObjArray(256);
+      fPdgNames = new TObjArray(1024);
    }
    if (!strcmp(name, GetPdgName(pdg))) return;
    // store pdg name
-   if (fNpdg>255) {
+   if (fNpdg>1023) {
       Warning("SetPdgName", "No more than 256 different pdg codes allowed");
       return;
    }
@@ -3121,6 +3139,7 @@ void TGeoManager::RefreshPhysicalNodes(Bool_t lock)
    TIter next(gGeoManager->GetListOfPhysicalNodes());
    TGeoPhysicalNode *pn;
    while ((pn=(TGeoPhysicalNode*)next())) pn->Refresh();
+   if (fParallelWorld && fParallelWorld->IsClosed()) fParallelWorld->RefreshPhysicalNodes();
    if (lock) LockGeometry();
 }
 
@@ -3522,10 +3541,10 @@ Int_t TGeoManager::Export(const char *filename, const char *name, Option_t *opti
    if (sfile.Contains(".gdml")) {
       //Save geometry as a gdml file
       if (fgVerboseLevel>0) Info("Export","Exporting %s %s as gdml code", GetName(), GetTitle());
-	  //C++ version
+      //C++ version
       TString cmd ;
-	  cmd = TString::Format("TGDMLWrite::StartGDMLWriting(gGeoManager,\"%s\",\"%s\")", filename, option);
-	  gROOT->ProcessLineFast(cmd);
+      cmd = TString::Format("TGDMLWrite::StartGDMLWriting(gGeoManager,\"%s\",\"%s\")", filename, option);
+      gROOT->ProcessLineFast(cmd);
       return 1;
    }
    if (sfile.Contains(".root") || sfile.Contains(".xml")) {
@@ -3757,5 +3776,36 @@ void TGeoManager::TopToMaster(const Double_t *top, Double_t *master) const
    GetCurrentNavigator()->LocalToMaster(top, master);
 }
 
+//______________________________________________________________________________
+TGeoParallelWorld *TGeoManager::CreateParallelWorld(const char *name)
+{
+// Create a parallel world for prioritized navigation. This can be populated
+// with physical nodes and can be navigated independently using its API. 
+// In case the flag SetUseParallelWorldNav is set, any navigation query in the
+// main geometry is checked against the parallel geometry, which gets priority
+// in case of overlaps with the main geometry volumes.
+   fParallelWorld = new TGeoParallelWorld(name, this);
+   return fParallelWorld;
+}   
 
-
+//______________________________________________________________________________
+void TGeoManager::SetUseParallelWorldNav(Bool_t flag)
+{
+// Activate/deactivate usage of parallel world navigation. Can only be done if
+// there is a parallel world. Activating navigation will automatically close
+// the parallel geometry.
+   if (!fParallelWorld) {
+      Error("SetUseParallelWorldNav", "No parallel world geometry defined. Use CreateParallelWorld.");
+      return;
+   }
+   if (!flag) {
+      fUsePWNav = flag;
+      return;
+   }   
+   if (!fClosed) {
+      Error("SetUseParallelWorldNav", "The geometry must be closed first");
+      return;
+   }
+   // Closing the parallel world geometry is mandatory
+   if (fParallelWorld->CloseGeometry()) fUsePWNav=kTRUE;
+}

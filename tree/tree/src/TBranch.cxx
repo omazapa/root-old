@@ -36,16 +36,14 @@
 #include "TTree.h"
 #include "TTreeCache.h"
 #include "TTreeCacheUnzip.h"
+#include "TVirtualMutex.h"
 #include "TVirtualPad.h"
 
 #include <cstddef>
 #include <string.h>
 #include <stdio.h>
 
-R__EXTERN TTree* gTree;
-
 Int_t TBranch::fgCount = 0;
-
 
 #if (__GNUC__ >= 3) || defined(__INTEL_COMPILER)
 #if !defined(R__unlikely)
@@ -459,6 +457,7 @@ TBranch::~TBranch()
    if (fDirectory && (!fTree || fDirectory != fTree->GetDirectory())) {
       TString bFileName( GetRealFileName() );
 
+      R__LOCKGUARD2(gROOTMutex);
       TFile* file = (TFile*)gROOT->GetListOfFiles()->FindObject(bFileName);
       if (file){
          file->Close();
@@ -1195,6 +1194,9 @@ Int_t TBranch::GetEntry(Long64_t entry, Int_t getall)
    // See IMPORTANT REMARKS in TTree::GetEntry.
    //
 
+   // Remember which entry we are reading.
+   fReadEntry = entry;
+
    Bool_t enabled = !TestBit(kDoNotProcess) || getall;
    TBasket *basket; // will be initialized in the if/then clauses.
    Long64_t first;
@@ -1273,8 +1275,6 @@ Int_t TBranch::GetEntry(Long64_t entry, Int_t getall)
    }
 
    // Int_t bufbegin = buf->Length();
-   // Remember which entry we are reading.
-   fReadEntry = entry;
    (this->*fReadLeaves)(*buf);
    return buf->Length() - bufbegin;
 }
@@ -1285,6 +1285,9 @@ Int_t TBranch::GetEntryExport(Long64_t entry, Int_t /*getall*/, TClonesArray* li
    // Read all leaves of an entry and export buffers to real objects in a TClonesArray list.
    //
    // Returns total number of bytes read.
+
+   // Remember which entry we are reading.
+   fReadEntry = entry;
 
    if (TestBit(kDoNotProcess)) {
       return 0;
@@ -1341,8 +1344,6 @@ Int_t TBranch::GetEntryExport(Long64_t entry, Int_t /*getall*/, TClonesArray* li
       bufbegin = basket->GetKeylen() + ((entry-first) * basket->GetNevBufSize());
       buf->SetBufferOffset(bufbegin);
    }
-   // Remember which entry we are reading.
-   fReadEntry = entry;
    TLeaf* leaf = (TLeaf*) fLeaves.UncheckedAt(0);
    leaf->ReadBasketExport(*buf, li, nentries);
    nbytes = buf->Length() - bufbegin;
@@ -1379,10 +1380,14 @@ TFile* TBranch::GetFile(Int_t mode)
    if (fDirectory) return fDirectory->GetFile();
 
    // check if a file with this name is in the list of Root files
-   TFile *file = (TFile*)gROOT->GetListOfFiles()->FindObject(fFileName.Data());
-   if (file) {
-      fDirectory = file;
-      return file;
+   TFile *file = 0;
+   {
+      R__LOCKGUARD2(gROOTMutex);
+      file = (TFile*)gROOT->GetListOfFiles()->FindObject(fFileName.Data());
+      if (file) {
+         fDirectory = file;
+         return file;
+      }
    }
 
    if (fFileName.Length() == 0) return 0;
@@ -2309,7 +2314,7 @@ void TBranch::Streamer(TBuffer& b)
 
    if (b.IsReading()) {
       UInt_t R__s, R__c;
-      fTree = gTree;
+      fTree = 0; // Will be set by TTree::Streamer
       fAddress = 0;
       gROOT->SetReadingObject(kTRUE);
 
@@ -2338,7 +2343,7 @@ void TBranch::Streamer(TBuffer& b)
             TBasket *bk = (TBasket*)fBaskets.UncheckedAt(j);
             if (bk) {
                bk->SetBranch(this);
-               GetTree()->IncrementTotalBuffers(bk->GetBufferSize());
+               // GetTree()->IncrementTotalBuffers(bk->GetBufferSize());
                ++n;
             }
          }
@@ -2412,7 +2417,7 @@ void TBranch::Streamer(TBuffer& b)
             TBasket *bk = (TBasket*)fBaskets.UncheckedAt(j);
             if (bk) {
                bk->SetBranch(this);
-               GetTree()->IncrementTotalBuffers(bk->GetBufferSize());
+               //GetTree()->IncrementTotalBuffers(bk->GetBufferSize());
                ++n;
             }
          }
@@ -2467,7 +2472,7 @@ void TBranch::Streamer(TBuffer& b)
          TBasket *bk = (TBasket*)fBaskets.UncheckedAt(j);
          if (bk) {
             bk->SetBranch(this);
-            GetTree()->IncrementTotalBuffers(bk->GetBufferSize());
+            //GetTree()->IncrementTotalBuffers(bk->GetBufferSize());
             ++n;
          }
       }

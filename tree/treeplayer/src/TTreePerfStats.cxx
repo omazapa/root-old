@@ -134,6 +134,7 @@ TTreePerfStats::TTreePerfStats(const char *name, TTree *T) : TVirtualPerfStats()
 
    fName   = name;
    fTree   = T;
+   T->SetPerfStats(this);
    fNleaves= T->GetListOfLeaves()->GetEntries();
    fFile   = T->GetCurrentFile();
    fGraphIO  = new TGraphErrors(0);
@@ -288,6 +289,8 @@ void TTreePerfStats::FileReadEvent(TFile *file, Int_t len, Double_t start)
       fDiskTime += dtime;
       fGraphTime->SetPoint(np,entry,tnow);
       fGraphTime->SetPointError(np,0.001,dtime);
+      fReadCalls++;
+      fBytesRead += len;
    }
 }
 
@@ -314,14 +317,12 @@ void TTreePerfStats::Finish()
    // When the run is finished this function must be called
    // to save the current parameters in the file and Tree in this object
    // the function is automatically called by Draw and Print
-   
-   if (fReadCalls)  return;  //has already been called
+
+   if (fRealNorm)   return;  //has already been called
    if (!fFile)      return;
    if (!fTree)      return;
-   fReadCalls     = fFile->GetReadCalls();
    fTreeCacheSize = fTree->GetCacheSize();
    fReadaheadSize = TFile::GetReadaheadSize();
-   fBytesRead     = fFile->GetBytesRead();
    fBytesReadExtra= fFile->GetBytesReadExtra();
    fRealTime      = fWatch->RealTime();
    fCpuTime       = fWatch->CpuTime();

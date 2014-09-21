@@ -413,15 +413,15 @@ Int_t TTimeStamp::GetZoneOffset()
 #else
 #if !defined(R__FBSD) && !defined(R__OBSD)
    return  timezone;   // unix has extern long int
-#else	 
-   time_t tp = 0;	 
-   time(&tp);	 
-#ifdef _REENTRANT	 
-   struct tm buf;	 
-   return -localtime_r(&tp, &buf)->tm_gmtoff;	 
-#else	 
-   return -localtime(&tp)->tm_gmtoff;	 
-#endif	 
+#else
+   time_t tp = 0;
+   time(&tp);
+#ifdef _REENTRANT
+   struct tm buf;
+   return -localtime_r(&tp, &buf)->tm_gmtoff;
+#else
+   return -localtime(&tp)->tm_gmtoff;
+#endif 
 #endif  
 #endif
 #else
@@ -813,7 +813,7 @@ void TTimeStamp::DumpTMStruct(const tm_t &tmstruct)
           tmstruct.tm_isdst);
 #if (defined(linux) && !defined(R__WINGCC)) || defined(R__MACOSX)
    printf(",\n      tm_gmtoff %6ld, tm_zone \"%s\"",
-#if defined(__USE_BSD) || defined(R__MACOSX)
+#if defined(__USE_BSD) || defined(R__MACOSX) || defined(__USE_MISC)
    tmstruct.tm_gmtoff, tmstruct.tm_zone);
 #else
    tmstruct.__tm_gmtoff, tmstruct.__tm_zone);

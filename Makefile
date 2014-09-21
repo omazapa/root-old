@@ -298,13 +298,18 @@ ifeq ($(BUILDTMVA),yes)
 MODULES      += tmva math/genetic
 endif
 ifeq ($(HASXRD),yes)
+ifeq ($(BUILDXRDCLT),no)
 ifeq ($(ARCH),win32)
 MODULES      += proof/proofd
 endif
 MODULES      += proof/proofx
 endif
+endif
 ifeq ($(BUILDAFDSMGRD),yes)
 MODULES      += proof/afdsmgrd
+endif
+ifeq ($(BUILDHTTP),yes)
+MODULES      += net/http
 endif
 
 ifeq ($(BUILDR),yes)
@@ -330,7 +335,7 @@ MODULES      += core/unix core/winnt graf2d/x11 graf2d/x11ttf \
                 geom/gdml graf3d/eve net/glite misc/memstat \
                 math/genvector net/bonjour graf3d/gviz3d graf2d/gviz \
                 proof/proofbench proof/afdsmgrd cint/cling graf2d/ios \
-                graf2d/quartz graf2d/cocoa core/macosx
+                graf2d/quartz graf2d/cocoa core/macosx net/http
 MODULES      := $(sort $(MODULES))   # removes duplicates
 endif
 
@@ -544,6 +549,9 @@ STATICEXTRALIBS += $(SSLLIB)
 endif
 ifeq ($(XFTLIB),yes)
 STATICEXTRALIBS += -lXft
+endif
+ifeq ($(BUILDCOCOA),yes)
+STATICEXTRALIBS += -framework Cocoa -framework OpenGL
 endif
 
 ##### libCore #####
@@ -859,11 +867,11 @@ $(CORELIB): $(COREO) $(COREDO) $(CINTLIB) $(CLINGLIB) $(PCREDEP) $(CORELIBDEP)
 ifneq ($(ARCH),alphacxx6)
 	@$(MAKELIB) $(PLATFORM) $(LD) "$(LDFLAGS)" \
 	   "$(SOFLAGS)" libCore.$(SOEXT) $@ "$(COREO) $(COREDO)" \
-	   "$(CORELIBEXTRA) $(CLINGLIB) $(PCRELDFLAGS) $(PCRELIB) $(CRYPTLIBS)"
+	   "$(CORELIBEXTRA) $(OSTHREADLIB) $(CLINGLIB) $(PCRELDFLAGS) $(PCRELIB) $(CRYPTLIBS)"
 else
 	@$(MAKELIB) $(PLATFORM) $(LD) "$(CORELDFLAGS)" \
 	   "$(SOFLAGS)" libCore.$(SOEXT) $@ "$(COREO) $(COREDO)" \
-	   "$(CORELIBEXTRA) $(CLINGLIB) $(PCRELDFLAGS) $(PCRELIB) $(CRYPTLIBS)"
+	   "$(CORELIBEXTRA) $(OSTHREADLIB) $(CLINGLIB) $(PCRELDFLAGS) $(PCRELIB) $(CRYPTLIBS)"
 endif
 
 $(COREMAP): $(RLIBMAP) $(MAKEFILEDEP) $(COREL)

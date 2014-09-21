@@ -17,15 +17,17 @@
 // allowed for a single geometry.
 // A default navigator is provided for any geometry but one may add several 
 // others for parallel navigation:
-//	
-//	TGeoNavigator *navig = new TGeoNavigator(gGeoManager);
-//	Int_t inav = gGeoManager->AddNavigator(navig);
-//	gGeoManager->SetCurrentNavigator(inav);
 //
-//	.... and then switch back to the default navigator:
+// TGeoNavigator *navig = new TGeoNavigator(gGeoManager);
+// Int_t inav = gGeoManager->AddNavigator(navig);
+// gGeoManager->SetCurrentNavigator(inav);
 //
-//	gGeoManager->SetCurrentNavigator(0);
+// .... and then switch back to the default navigator:
+//
+// gGeoManager->SetCurrentNavigator(0);
 //_____________________________________________________________________________
+
+#include "TGeoNavigator.h"
 
 #include "TGeoManager.h"
 #include "TGeoMatrix.h"
@@ -34,8 +36,8 @@
 #include "TGeoPatternFinder.h"
 #include "TGeoVoxelFinder.h"
 #include "TMath.h"
-
-#include "TGeoNavigator.h"
+#include "TGeoParallelWorld.h"
+#include "TGeoPhysicalNode.h"
 
 static Double_t gTolerance = TGeoShape::Tolerance();
 const char *kGeoOutsidePath = " ";
@@ -131,7 +133,7 @@ TGeoNavigator::TGeoNavigator(TGeoManager* geom)
                 
 {
 // Default constructor.
-   fThreadId = gGeoManager->ThreadId();
+   fThreadId = TGeoManager::ThreadId();
    // printf("Navigator: threadId=%d\n", fThreadId);
    for (Int_t i=0; i<3; i++) {
       fNormal[i] = 0.;
@@ -187,7 +189,7 @@ TGeoNavigator::TGeoNavigator(const TGeoNavigator& gm)
                fPath(gm.fPath)               
 {
 // Copy constructor.
-   fThreadId = gGeoManager->ThreadId();
+   fThreadId = TGeoManager::ThreadId();
    for (Int_t i=0; i<3; i++) {
       fNormal[i] = gm.fNormal[i];
       fCldir[i] = gm.fCldir[i];
@@ -209,7 +211,7 @@ TGeoNavigator& TGeoNavigator::operator=(const TGeoNavigator& gm)
       fStep = gm.fStep;
       fSafety = gm.fSafety;
       fLastSafety = gm.fLastSafety;
-      fThreadId = gGeoManager->ThreadId();
+      fThreadId = TGeoManager::ThreadId();
       fLevel = gm.fLevel;
       fNmany = gm.fNmany;
       fNextDaughterIndex = gm.fNextDaughterIndex;
@@ -267,13 +269,14 @@ void TGeoNavigator::BuildCache(Bool_t /*dummy*/, Bool_t nodeid)
 {
 // Builds the cache for physical nodes and global matrices.
    static Bool_t first = kTRUE;
+   Int_t verbose = TGeoManager::GetVerboseLevel();
    Int_t nlevel = fGeometry->GetMaxLevel();
    if (nlevel<=0) nlevel = 100;
    if (!fCache) {
       if (nlevel==100) {
-         if (first) Info("BuildCache","--- Maximum geometry depth set to 100");
+         if (first && verbose>0) Info("BuildCache","--- Maximum geometry depth set to 100");
       } else {
-         if (first) Info("BuildCache","--- Maximum geometry depth is %i", nlevel);   
+         if (first && verbose>0) Info("BuildCache","--- Maximum geometry depth is %i", nlevel);   
       }   
       // build cache
       fCache = new TGeoNodeCache(fGeometry->GetTopNode(), nodeid, nlevel+1);
@@ -647,14 +650,14 @@ TGeoNode *TGeoNavigator::FindNextBoundary(Double_t stepmax, const char *path, Bo
          stepmax = - stepmax;
          computeGlobal = kTRUE;
       }
+//      if (fLastSafety>0 && IsSamePoint(fPoint[0], fPoint[1], fPoint[2])) fSafety = fLastSafety;
+      fSafety = Safety();
       // Try to get out easy if proposed step within safe region
-      if (!frombdr && IsSafeStep(stepmax+gTolerance, fSafety)) {
+      if (!frombdr && (fSafety>0) && IsSafeStep(stepmax+gTolerance, fSafety)) {
          fStep = stepmax;
          fNextNode = fCurrentNode;
          return fCurrentNode;
       }   
-//      if (fLastSafety>0 && IsSamePoint(fPoint[0], fPoint[1], fPoint[2])) fSafety = fLastSafety;
-      fSafety = Safety();
       fSafety = TMath::Abs(fSafety);
       memcpy(fLastPoint, fPoint, kN3);
       fLastSafety = fSafety;
@@ -950,6 +953,19 @@ TGeoNode *TGeoNavigator::FindNextBoundary(Double_t stepmax, const char *path, Bo
          }
       }      
       PopPath();
+   }
+   // Compute now the distance in case we have a parallel world
+   Double_t parstep = TGeoShape::Big();
+   if (fGeometry->IsParallelWorldNav()) {
+      TGeoPhysicalNode *pnode = fGeometry->GetParallelWorld()->FindNextBoundary(fPoint, fDirection, parstep, fStep);
+      if (pnode) {
+         // A boundary is hit at less than fPStep
+         fStep = parstep;
+         fNextNode = pnode->GetNode();
+         fNextDaughterIndex = -2; // No way to store it for CdNext
+         fIsStepEntering  = kTRUE;
+         fIsStepExiting  = kFALSE;
+      }
    }
    return fNextNode;
 }
@@ -1428,10 +1444,24 @@ TGeoNode *TGeoNavigator::FindNextBoundaryAndStep(Double_t stepmax, Bool_t compsa
       }      
       PopPath();
    }
+   // Compute now the distance in case we have a parallel world
+   Double_t parstep = TGeoShape::Big();
+   TGeoPhysicalNode *pnode = 0;
+   if (fGeometry->IsParallelWorldNav()) {
+      pnode = fGeometry->GetParallelWorld()->FindNextBoundary(fPoint, fDirection, parstep, fStep);
+      if (pnode) {
+         // A boundary is hit at less than fPStep
+         fStep = parstep;
+         fNextNode = pnode->GetNode();
+//         icrossed = -4; //
+         fIsStepEntering  = kTRUE;
+         fIsStepExiting  = kFALSE;
+      }
+   }
    fPoint[0] += fStep*fDirection[0];
    fPoint[1] += fStep*fDirection[1];
    fPoint[2] += fStep*fDirection[2];
-   fStep += extra;
+   fStep += extra;      
    if (icrossed == -2) {
       // Nothing crossed within stepmax -> propagate and return same location   
       fIsOnBoundary = kFALSE;
@@ -1451,8 +1481,10 @@ TGeoNode *TGeoNavigator::FindNextBoundaryAndStep(Double_t stepmax, Bool_t compsa
       else        skip = 0;
       return CrossBoundaryAndLocate(kFALSE, skip);
    }   
+   // Check crossing into a parallel world node
    current = fCurrentNode;   
-   CdDown(icrossed);
+   if (pnode) pnode->cd();
+   else CdDown(icrossed);
    nextindex = fCurrentNode->GetVolume()->GetNextNodeIndex();
    while (nextindex>=0) {
       current = fCurrentNode;
@@ -1576,14 +1608,21 @@ Double_t TGeoNavigator::Safety(Bool_t inside)
       return fSafety;
    }
    Double_t point[3];
+   Double_t safpar = TGeoShape::Big();
    if (!inside) fSafety = TGeoShape::Big();
+   // Check if parallel navigation is enabled
+   if (fGeometry->IsParallelWorldNav()) {
+      safpar = fGeometry->GetParallelWorld()->Safety(fPoint);
+   }   
+
    if (fIsOutside) {
       fSafety = fGeometry->GetTopVolume()->GetShape()->Safety(fPoint,kFALSE);
       if (fSafety < gTolerance) {
          fSafety = 0;
          fIsOnBoundary = kTRUE;
-      }   
-      return fSafety;
+         return fSafety;
+      }
+      return TMath::Min(fSafety,safpar);
    }
    //---> convert point to local reference frame of current node
    fGlobalMatrix->MasterToLocal(fPoint, point);
@@ -1600,7 +1639,8 @@ Double_t TGeoNavigator::Safety(Bool_t inside)
       }
    }
 
-   //---> now check the safety to the last node
+   //---> Check against the parallel geometry safety
+   if (safpar < fSafety) fSafety = safpar;
 
    //---> if we were just exiting, return this safety
    TObjArray *nodes = vol->GetNodes();
@@ -1763,6 +1803,22 @@ void TGeoNavigator::SafetyOverlaps()
 TGeoNode *TGeoNavigator::SearchNode(Bool_t downwards, const TGeoNode *skipnode)
 {
 // Returns the deepest node containing fPoint, which must be set a priori.
+   // Check if parallel world navigation is enabled
+   if (fGeometry->IsParallelWorldNav()) {
+      TGeoPhysicalNode *pnode = fGeometry->GetParallelWorld()->FindNode(fPoint);
+      if (pnode) {
+         // A node from the parallel world contains the point -> stop the search
+         // and synchronize with navigation state
+         pnode->cd();
+         Int_t crtindex = fCurrentNode->GetVolume()->GetCurrentNodeIndex();
+         while (crtindex>=0 && downwards) {
+        // Make sure we did not end up in an assembly.
+            CdDown(crtindex);
+            crtindex = fCurrentNode->GetVolume()->GetCurrentNodeIndex();
+         }   
+         return fCurrentNode;
+      }
+   }
    Double_t point[3];
    fNextDaughterIndex = -2;
    TGeoVolume *vol = 0;

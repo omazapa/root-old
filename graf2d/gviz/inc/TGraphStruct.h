@@ -25,12 +25,7 @@
 #include "TList.h"
 #endif
 
-#if !defined(__CINT__)
-#include <types.h>
-#else
-struct Agraph_t;
-#endif
-
+struct GVizAgraph_t;
 struct GVC_s;
 
 //////////////////////////////////////////////////////////////////////////
@@ -46,11 +41,11 @@ class TGraphStruct : public TObject {
 
 protected:
 
-   Agraph_t *fGVGraph; //Graphviz graph
-   GVC_s    *fGVC;     //Graphviz context
-   TList    *fNodes;   //List of nodes in this TGraphStruct
-   TList    *fEdges;   //List of edges in this TGraphStruct
-   Double_t  fMargin;  //Margin around the graph (in dots)
+   GVizAgraph_t *fGVGraph; //Graphviz graph
+   GVC_s    *fGVC;         //Graphviz context
+   TList    *fNodes;       //List of nodes in this TGraphStruct
+   TList    *fEdges;       //List of edges in this TGraphStruct
+   Double_t  fMargin;      //Margin around the graph (in dots)
 
 public:
 
@@ -69,7 +64,7 @@ public:
    virtual void SavePrimitive(ostream &out, Option_t *option = "");
    void         SetMargin(Double_t m=10) {fMargin = m;}
 
-   ClassDef(TGraphStruct,1)  //Graph structure class
+   ClassDef(TGraphStruct,2)  //Graph structure class
 };
 
 #endif

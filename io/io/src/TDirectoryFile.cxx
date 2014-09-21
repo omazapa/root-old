@@ -391,7 +391,7 @@ TObject *TDirectoryFile::CloneObject(const TObject *obj, Bool_t autoadd /* = kTR
       buffer.MapObject(obj);  //register obj in map to handle self reference
       {
          Bool_t isRef = obj->TestBit(kIsReferenced); 
-         ((TObject*)obj)->ResetBit(kIsReferenced);	
+         ((TObject*)obj)->ResetBit(kIsReferenced);
 
          ((TObject*)obj)->Streamer(buffer);
 
@@ -424,6 +424,7 @@ TObject *TDirectoryFile::FindObjectAnyFile(const char *name) const
    // Scan the memory lists of all files for an object with name
 
    TFile *f;
+   R__LOCKGUARD2(gROOTMutex);
    TIter next(gROOT->GetListOfFiles());
    while ((f = (TFile*)next())) {
       TObject *obj = f->GetList()->FindObject(name);

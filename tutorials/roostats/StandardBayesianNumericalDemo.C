@@ -35,6 +35,7 @@ and performs the integration using ROOT's numeric integration utilities
 #include "RooStats/SimpleInterval.h"
 #include "RooStats/RooStatsUtils.h"
 #include "RooPlot.h"
+#include "TSystem.h"
 
 using namespace RooFit;
 using namespace RooStats;
@@ -45,7 +46,7 @@ TString integrationType = "";  // integration Type (default is adaptive (numeric
                                //  "VEGAS" , "MISER", or "PLAIN"  (these are all possible MC integration) 
 int nToys = 10000;             // number of toys used for the MC integrations - for Vegas should be probably set to an higher value 
 bool scanPosterior = false;    // flag to compute interval by scanning posterior (it is more robust but maybe less precise) 
-int nScanPoints = 50;          // number of points for scanning the posterior (if scanPosterior = false it is used only for plotting)
+int nScanPoints = 20;          // number of points for scanning the posterior (if scanPosterior = false it is used only for plotting)
 int intervalType = 1;          // type of interval (0 is shortest, 1 central, 2 upper limit) 
 double   maxPOI = -999;        // force a different value of POI for doing the scan (default is given value)
 
@@ -58,40 +59,38 @@ void StandardBayesianNumericalDemo(const char* infile = "",
   // First part is just to access a user-defined file 
   // or create the standard example file if it doesn't exist
   ////////////////////////////////////////////////////////////
-  TString filename = infile;
-  if (filename.IsNull()) { 
-    filename = "results/example_combined_GaussExample_model.root";
-    std::cout << "Use standard file generated with HistFactory : " << filename << std::endl;
-  }
 
-  // Check if example input file exists
-  TFile *file = TFile::Open(filename);
-
-  // if input file was specified but not found, quit
-  if(!file && !TString(infile).IsNull()){
-     cout <<"file " << filename << " not found" << endl;
-     return;
-  } 
-
-  // if default file not found, try to create it
-  if(!file ){
-    // Normally this would be run on the command line
-    cout <<"will run standard hist2workspace example"<<endl;
-    gROOT->ProcessLine(".! prepareHistFactory .");
-    gROOT->ProcessLine(".! hist2workspace config/example.xml");
-    cout <<"\n\n---------------------"<<endl;
-    cout <<"Done creating example input"<<endl;
-    cout <<"---------------------\n\n"<<endl;
-
-    // now try to access the file again
-    file = TFile::Open(filename);
-  }
-
-  if(!file){
-    // if it is still not there, then we can't continue
-    cout << "Not able to run hist2workspace to create example input" <<endl;
-    return;
-  }
+   const char* filename = "";
+   if (!strcmp(infile,"")) {
+      filename = "results/example_combined_GaussExample_model.root";
+      bool fileExist = !gSystem->AccessPathName(filename); // note opposite return code
+      // if file does not exists generate with histfactory
+      if (!fileExist) {
+#ifdef _WIN32
+         cout << "HistFactory file cannot be generated on Windows - exit" << endl;
+         return;
+#endif
+         // Normally this would be run on the command line
+         cout <<"will run standard hist2workspace example"<<endl;
+         gROOT->ProcessLine(".! prepareHistFactory .");
+         gROOT->ProcessLine(".! hist2workspace config/example.xml");
+         cout <<"\n\n---------------------"<<endl;
+         cout <<"Done creating example input"<<endl;
+         cout <<"---------------------\n\n"<<endl;
+      }
+      
+   }
+   else
+      filename = infile;
+   
+   // Try to open the file
+   TFile *file = TFile::Open(filename);
+   
+   // if input file was specified byt not found, quit
+   if(!file ){
+      cout <<"StandardRooStatsDemoMacro: Input file " << filename << " is not found" << endl;
+      return;
+   } 
 
   
   /////////////////////////////////////////////////////////////
@@ -117,6 +116,29 @@ void StandardBayesianNumericalDemo(const char* infile = "",
     cout << "data or ModelConfig was not found" <<endl;
     return;
   }
+   
+  // do first a fit to the model to get an idea of poi values
+   RooAbsPdf * model = mc->GetPdf();
+   RooFitResult * fitres = model->fitTo(*data, RooFit::PrintLevel(-1), RooFit::Save(1));
+   fitres->Print();
+   
+   RooRealVar* poi = (RooRealVar*) mc->GetParametersOfInterest()->first();
+   double poiMin = poi->getVal()-100*poi->getError();
+   double poiMax = poi->getVal()+100*poi->getError();
+   poi->setMin( TMath::Max(poiMin, poi->getMin() ) );
+   poi->setMax( TMath::Min(poiMax, poi->getMax() ) );
+   
+   // set also the nuisance parameters limits
+   RooArgList nuisParams(*mc->GetNuisanceParameters());
+   for (int i = 0; i < nuisParams.getSize(); ++i) {
+      RooRealVar & v = (RooRealVar & ) nuisParams[i];
+      v.setMin(TMath::Max(v.getVal()-10*v.getError(), v.getMin() ) );+
+      v.setMax(TMath::Min(v.getVal()+10*v.getError(), v.getMax() ) );
+   }
+   
+   if (maxPOI != -999 &&  maxPOI > poi->getMin())
+      poi->setMax(maxPOI);
+   
 
   /////////////////////////////////////////////
   // create and use the BayesianCalculator
@@ -149,7 +171,7 @@ void StandardBayesianNumericalDemo(const char* infile = "",
      bayesianCalc.SetNumIters(nToys); // set number of ietrations (i.e. number of toys for MC integrations)
   }
 
-  // in case of toyMC make a nnuisance pdf
+  // in case of toyMC make a nuisance pdf
   if (integrationType.Contains("TOYMC") ) { 
     RooAbsPdf * nuisPdf = RooStats::MakeNuisancePdf(*mc, "nuisance_pdf");
     cout << "using TOYMC integration: make nuisance pdf from the model " << std::endl;
@@ -162,10 +184,7 @@ void StandardBayesianNumericalDemo(const char* infile = "",
   if (scanPosterior)   
      bayesianCalc.SetScanOfPosterior(nScanPoints);
 
-  RooRealVar* poi = (RooRealVar*) mc->GetParametersOfInterest()->first();
-  if (maxPOI != -999 &&  maxPOI > poi->getMin())
-    poi->setMax(maxPOI);
-
+ 
 
   SimpleInterval* interval = bayesianCalc.GetInterval();
 

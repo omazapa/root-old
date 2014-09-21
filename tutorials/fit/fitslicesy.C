@@ -17,11 +17,7 @@ void fitslicesy() {
    gStyle->SetTitleH(0.1);
 
 // Connect the input file and get the 2-d histogram in memory
-   TString dir = gSystem->UnixPathName(gInterpreter->GetCurrentMacroName());
-   dir.ReplaceAll("fitslicesy.C","../hsimple.C");
-   dir.ReplaceAll("/./","/");
-   if (!gInterpreter->IsLoaded(dir.Data())) gInterpreter->LoadMacro(dir.Data());
-   TFile *hsimple = (TFile*)gROOT->ProcessLineFast("hsimple(1)");
+   TFile* hsimple = TFile::Open("hsimple.root");
    if (!hsimple) return;
    TH2F *hpxpy = (TH2F*)hsimple->Get("hpxpy");
 
@@ -29,8 +25,7 @@ void fitslicesy() {
    TCanvas *c1 = new TCanvas("c1","c1",700,500);
    c1->SetFillColor(42);
    c1->Divide(2,1);
-   c1->cd(1);
-   TPad *left = (TPad*)gPad;
+   TPad *left = c1->cd(1);
    left->Divide(1,2);
 
 // Draw 2-d original histogram
@@ -49,8 +44,7 @@ void fitslicesy() {
    left->cd(2);
    gPad->SetFillColor(33);
    hpxpy_0->Draw();
-   c1->cd(2);
-   TPad *right = (TPad*)gPad;
+   TPad *right = c1->cd(2);;
    right->Divide(1,2);
    right->cd(1);
    gPad->SetTopMargin(0.12);

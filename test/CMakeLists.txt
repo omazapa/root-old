@@ -8,11 +8,9 @@ cmake_minimum_required(VERSION 2.6 FATAL_ERROR)
 project(test)
 find_package(ROOT REQUIRED)
 
-include(${ROOT_USE_FILE})
+#---Copy the CTestCustom.cmake file into the build directory---------------------------------
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/CTestCustom.cmake ${CMAKE_CURRENT_BINARY_DIR} COPYONLY)
 
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
 if(CMAKE_SYSTEM_NAME MATCHES Darwin)
   # To avoid to set ld_Library_path to locate the test libraries
@@ -41,8 +39,8 @@ ROOT_EXECUTABLE(testevent MainEvent.cxx LIBRARIES Event RIO Tree Hist Net)
 ROOT_ADD_TEST(test-event COMMAND testevent)
 
 #---hsimple------------------------------------------------------------------------------------
-ROOT_EXECUTABLE(hsimple hsimple.cxx LIBRARIES RIO Tree Hist)
-ROOT_ADD_TEST(test-hsimple COMMAND hsimple)
+#ROOT_EXECUTABLE(hsimple hsimple.cxx LIBRARIES RIO Tree Hist)
+#ROOT_ADD_TEST(test-hsimple COMMAND hsimple)
 
 #--minexam-------------------------------------------------------------------------------------
 ROOT_EXECUTABLE(minexam minexam.cxx LIBRARIES Minuit)
@@ -158,12 +156,10 @@ if(ROOT_roofit_FOUND)
 endif()
 
 #--stressHistFactory--------------------------------------------------------------------------------
-if(ROOT_roofit_FOUND)
-if(ROOT_xml_FOUND)
+if(ROOT_roofit_FOUND AND ROOT_xml_FOUND AND NOT WIN32)
   ROOT_EXECUTABLE(stressHistFactory stressHistFactory.cxx LIBRARIES RooStats HistFactory XMLParser)
   file(COPY ${CMAKE_SOURCE_DIR}/test/HistFactoryTest.tar DESTINATION  ${CMAKE_CURRENT_BINARY_DIR} )
   ROOT_ADD_TEST(test-stressHistFactory ENVIRONMENT ROOTSYS=${CMAKE_BINARY_DIR} COMMAND stressHistFactory -f ${CMAKE_SOURCE_DIR}/test/stressHistFactory_ref.root FAILREGEX "FAILED")  
-endif()
 endif()
 
 #--stressFit---------------------------------------------------------------------------------
@@ -188,13 +184,15 @@ ROOT_ADD_TEST(test-stressiterators COMMAND stressIterators FAILREGEX "FAILED")
 ROOT_EXECUTABLE(stressInterpreter stressInterpreter.cxx LIBRARIES Core)
 if(WIN32)
   set(cleantmpfiles POSTCMD cmd /c del AutoDict_*)
-  set(cfgdir /${CMAKE_BUILD_TYPE})
+  set(setenvironment "")
+else()
+  set(setenvironment ENVIRONMENT PATH=${CMAKE_BINARY_DIR}/bin${cfgdir}:$ENV{PATH})
 endif()
 ROOT_ADD_TEST(test-stressinterpreter COMMAND stressInterpreter
               PRECMD ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/stressInterpreter.cxx 
                                               $<TARGET_FILE_DIR:stressInterpreter>/stressInterpreter.cxx
               ${cleantmpfiles}
-              ENVIRONMENT PATH=${CMAKE_BINARY_DIR}/bin${cfgdir}#$ENV{PATH}
+              ${setenvironment}
               FAILREGEX "FAILED|Error")
 
 #--stressHepix-------------------------------------------------------------------------------

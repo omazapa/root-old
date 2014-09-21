@@ -52,6 +52,7 @@
 #include "TVirtualMutex.h"
 #include "compiledata.h"
 #include "RConfigure.h"
+#include "ThreadLocalStorage.h"
 
 const char *gRootDir;
 const char *gProgName;
@@ -63,6 +64,7 @@ TFileHandler *gXDisplay = 0;  // Display server event handler, set in TGClient
 static Int_t *gLibraryVersion    = 0;   // Set in TVersionCheck, used in Load()
 static Int_t  gLibraryVersionIdx = 0;   // Set in TVersionCheck, used in Load()
 static Int_t  gLibraryVersionMax = 256;
+
 
 ClassImp(TProcessEventTimer)
 
@@ -246,7 +248,7 @@ void TSystem::SetErrorStr(const char *errstr)
    // library that does not use standard errno).
 
    ResetErrno();   // so GetError() uses the fLastErrorString
-   fLastErrorString = errstr;
+   GetLastErrorString() = errstr;
 }
 
 //______________________________________________________________________________
@@ -254,8 +256,8 @@ const char *TSystem::GetError()
 {
    // Return system error string.
 
-   if (GetErrno() == 0 && fLastErrorString != "")
-      return fLastErrorString;
+   if (GetErrno() == 0 && GetLastErrorString() != "")
+      return GetLastErrorString();
    return Form("errno: %d", GetErrno());
 }
 
@@ -1998,6 +2000,28 @@ void TSystem::ListLibraries(const char *regexp)
 }
 
 //______________________________________________________________________________
+TString &TSystem::GetLastErrorString()
+{
+   // Return the thread local storage for the custom last error message
+
+#ifdef R__HAS_THREAD_LOCAL
+   thread_local TString gLastErrorString;
+   return gLastErrorString;
+#else
+   return TTHREAD_TLS_INIT<0 /* must be unique */, TString>();
+#endif
+
+}
+
+//______________________________________________________________________________
+const TString &TSystem::GetLastErrorString() const
+{
+   // Return the thread local storage for the custom last error message
+
+   return const_cast<TSystem*>(this)->GetLastErrorString();
+}
+
+//______________________________________________________________________________
 const char *TSystem::GetLinkedLibraries()
 {
    // Get list of shared libraries loaded at the start of the executable.
@@ -3607,7 +3631,7 @@ int TSystem::CompileMacro(const char *filename, Option_t *opt,
          if (!compilationResult) {
             ::Info("ACLiC","The compiler has not found any problem with your macro.\n"
             "\tProbably your macro uses something rootcint can't parse.\n"
-            "\tCheck http://root.cern.ch/viewvc/trunk/cint/doc/limitati.txt for Cint's limitations.");
+            "\tCheck http://root.cern.ch/viewvc/branches/v5-34-00-patches/cint/doc/limitati.txt for Cint's limitations.");
             TString objfile=expFileName;
             Ssiz_t len=objfile.Length();
             objfile.Replace(len-extension.Length(), len, GetObjExt());

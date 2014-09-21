@@ -5,8 +5,8 @@
 #include "TSystem.h"
 #include "TStopwatch.h"
 
+#ifdef R__HAS_MATHMORE
 #include "Math/GSLRndmEngines.h"
-#if not defined(__CINT__)
 #include "Math/Random.h"
 #endif
 
@@ -17,7 +17,14 @@
 #include <cassert>
 
 /*N.B.: The tests' expected values (expectedDn and expectedA2) were computed on Pcphsft54.cern.ch i386 GNU/Linux computer (slc4_ia32_gcc34)
+
+  LM. (16/9/14)  Expected values for AD2 test have been computed with R kSamples package
 */
+
+#ifndef R__HAS_CXX11
+double landau(double x) { return TMath::Landau(x); }
+#endif
+
 struct GoFTStress {
 
    static enum EDebugLevelTypes {
@@ -47,21 +54,26 @@ struct GoFTStress {
       Bool_t UNIX = strcmp(gSystem->GetName(), "Unix") == 0;
       printf("******************************************************************\n");
       if (UNIX) {
-         FILE *fp = gSystem->OpenPipe("uname -a", "r");
-         Char_t line[60];
-         fgets(line,60,fp); line[59] = 0;
-         printf("*  SYS: %s\n",line);
-         gSystem->ClosePipe(fp);
+         TString sp = gSystem->GetFromPipe("uname -a");
+         sp.Resize(60);
+         printf("*  SYS: %s\n",sp.Data());
+         if (strstr(gSystem->GetBuildNode(),"Linux")) {
+            sp = gSystem->GetFromPipe("lsb_release -d -s");
+            printf("*  SYS: %s\n",sp.Data());
+         }
+         if (strstr(gSystem->GetBuildNode(),"Darwin")) {
+            sp  = gSystem->GetFromPipe("sw_vers -productVersion");
+            sp += " Mac OS X ";
+            printf("*  SYS: %s\n",sp.Data());
+         }
       } else {
          const Char_t *os = gSystem->Getenv("OS");
          if (!os) {
          printf("*  SYS: Windows 95\n");
          } else {
-         printf("*  SYS: %s %s \n",os,gSystem->Getenv("PROCESSOR_IDENTIFIER"));
+            printf("*  SYS: %s %s \n",os,gSystem->Getenv("PROCESSOR_IDENTIFIER"));
          }
-      }
-         
-      printf("*****************************************************************************************\n");
+      }printf("*****************************************************************************************\n");
       gBenchmark->Print("GoFTestStress");
 #ifdef __CINT__
       Double_t reftime = 0.02 ; // slc4rabacal interpreted (CPU time taken to run complete tests with ACLiC)
@@ -88,6 +100,7 @@ struct GoFTStress {
    /*
       Data set adapted from the paper (1)
       "K-Sample Anderson-Darling Tests of Fit for continuous and discrete cases" by Scholz and Stephens
+      values of expected A2 taken by running R kSamples code
    */
       const Double_t smp1[smpSize1] = {194, 15, 41, 29, 33, 181, 413, 14, 58, 37, 100, 65, 9, 169, 447, 18, 4, 36, 201, 118, 34, 31, 18, 18, 67, 57, 62, 7, 22, 34, 90, 10, 60, 186, 61, 49, 14, 24, 56, 20, 79, 84, 44, 59, 29, 118, 25, 156, 310, 76, 26, 44, 23, 62, 130, 208, 70, 101, 208, 74, 57, 48, 29, 502, 12, 70, 21, 29, 386, 59, 27};
    
@@ -98,13 +111,13 @@ struct GoFTStress {
       Double_t A2 = goft->AndersonDarling2SamplesTest("t"); // standartized A2_akN
    //     Double_t pvalueAD = goft->AndersonDarling2SamplesTest();
       Double_t pvalueAD = (*goft)(ROOT::Math::GoFTest::kAD2s);
-   
-      Double_t expectedA2_akN = 1.58334 ; // A2_akN in (1)
-   
+
+      Double_t expectedA2_akN = 1.5686 ; // A2_akN in (1)
+
       Double_t sigmaN = 0.754539;    // sigmaN in (1)
-   
-      Double_t zScore = 0.773108;    // zScore in (1)
-   
+
+      Double_t zScore = 0.75360;    // zScore in (1)
+
       Int_t result = PrintResultAD2Samples(nsmps, A2, expectedA2_akN, sigmaN, zScore, pvalueAD);
    
    //     Double_t Dn = goft->KolmogorovSmirnov2SamplesTest("t"); // standartized A2_akN
@@ -136,13 +149,13 @@ struct GoFTStress {
    //     Double_t A2 = goft->AndersonDarling2SamplesTest("t"); // standartized A2_akN
       Double_t A2 = (*goft)(ROOT::Math::GoFTest::kAD2s, "t");
       Double_t pvalueAD = goft->AndersonDarling2SamplesTest();
-   
-      Double_t expectedA2_akN = 4.5735; // unstandardized A2_akN in (1)
-   
-      Double_t sigmaN = 0.719388;   // sigmaN in (1)
-   
-      Double_t zScore = 4.96748;    // zScore in (1)
-   
+
+      Double_t expectedA2_akN = 4.5516; // unstandardized A2_akN in (1) (values verified and obtained with R kSamples )
+
+      Double_t sigmaN = 0.71939;   // sigmaN in (1)
+
+      Double_t zScore = 4.9369;    // zScore in (1) (version 1)
+
       Int_t result = PrintResultAD2Samples(nsmps, A2, expectedA2_akN, sigmaN, zScore, pvalueAD);
    
       Double_t Dn = goft->KolmogorovSmirnov2SamplesTest("t"); // standartized A2_akN
@@ -158,7 +171,13 @@ struct GoFTStress {
    }
    
    Int_t UnitTest3() {
+
       std::cout << "UNIT TEST 3" << std::endl;
+
+#ifndef R__HAS_MATHMORE
+      std::cout << "SKIPPED (Mathmore is not present) " << std::endl;
+      return 0; 
+#else
       
       UInt_t nEvents = 1000;
       UInt_t nsmps = 1;
@@ -196,6 +215,7 @@ struct GoFTStress {
    
       delete goft;
       return result;
+#endif      
    }
    
    Int_t UnitTest4() {
@@ -336,7 +356,11 @@ struct GoFTStress {
       // need to specify min and max otherwise pdf does not converge
       ROOT::Math::GoFTest* goft = new ROOT::Math::GoFTest(nEvents, sample); 
 
-      ROOT::Math::Functor1D userPdf(&TMath::Landau);
+#ifdef R__USE_CXX11
+      ROOT::Math::Functor1D userPdf([](double x){ return TMath::Landau(x);});
+#else
+      ROOT::Math::Functor1D userPdf(&landau);
+#endif
       // need to use a reasanble range for the Landau 
       // but must be bigger than xmin and xmax 
       double xmin = 3*TMath::MinElement(nEvents, sample);
@@ -509,7 +533,7 @@ Int_t stressGoFTest(Int_t argc = 1 , Char_t* argv[] = 0) {
    return RunTests(argc, argv);
 }
    
-#if not defined(__CINT__) && not defined(__MAKECINT__)
+#ifndef __CINT__
 Int_t main(Int_t argc, Char_t* argv[]) {
    return RunTests(argc, argv);
 }

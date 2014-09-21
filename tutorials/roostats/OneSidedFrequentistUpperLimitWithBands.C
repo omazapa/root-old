@@ -100,6 +100,18 @@ limit this should not be a big effect.  This can be avoided if the nominal value
 This version does not deal with this issue, but it will be addressed in a future version.
 */
 
+// This macro cannot run in CINT
+#if defined(__CINT__) && !defined(__MAKECINT__)
+{
+   cout << "Run this Macro with ACLIC. We are using a custom test statistic ";
+   cout << "which requires that this tutorial must be compiled ";
+   cout << "with ACLIC" << endl;
+   TString macroFileName = gSystem->UnixPathName(gInterpreter->GetCurrentMacroName());
+   gSystem->CompileMacro(macroFileName, "k");
+   OneSidedFrequentistUpperLimitWithBands();
+}
+#else
+
 #include "TFile.h"
 #include "TROOT.h"
 #include "TH1F.h"
@@ -141,45 +153,44 @@ void OneSidedFrequentistUpperLimitWithBands(const char* infile = "",
 #endif
 
   double confidenceLevel=0.95;
-  int nPointsToScan = 30;
-  int nToyMC = 500;
+  int nPointsToScan = 20;
+  int nToyMC = 200;
 
   /////////////////////////////////////////////////////////////
   // First part is just to access a user-defined file 
   // or create the standard example file if it doesn't exist
   ////////////////////////////////////////////////////////////
-  const char* filename = "";
-  if (!strcmp(infile,""))
-    filename = "results/example_combined_GaussExample_model.root";
-  else
-    filename = infile;
-  // Check if example input file exists
-  TFile *file = TFile::Open(filename);
-
-  // if input file was specified byt not found, quit
-  if(!file && strcmp(infile,"")){
-    cout <<"file not found" << endl;
-    return;
-  } 
-
-  // if default file not found, try to create it
-  if(!file ){
-    // Normally this would be run on the command line
-    cout <<"will run standard hist2workspace example"<<endl;
-    gROOT->ProcessLine(".! prepareHistFactory .");
-    gROOT->ProcessLine(".! hist2workspace config/example.xml");
-    cout <<"\n\n---------------------"<<endl;
-    cout <<"Done creating example input"<<endl;
-    cout <<"---------------------\n\n"<<endl;
-  }
-
-  // now try to access the file again
-  file = TFile::Open(filename);
-  if(!file){
-    // if it is still not there, then we can't continue
-    cout << "Not able to run hist2workspace to create example input" <<endl;
-    return;
-  }
+   const char* filename = "";
+   if (!strcmp(infile,"")) {
+      filename = "results/example_combined_GaussExample_model.root";
+      bool fileExist = !gSystem->AccessPathName(filename); // note opposite return code
+      // if file does not exists generate with histfactory
+      if (!fileExist) {
+#ifdef _WIN32
+         cout << "HistFactory file cannot be generated on Windows - exit" << endl;
+         return;
+#endif
+         // Normally this would be run on the command line
+         cout <<"will run standard hist2workspace example"<<endl;
+         gROOT->ProcessLine(".! prepareHistFactory .");
+         gROOT->ProcessLine(".! hist2workspace config/example.xml");
+         cout <<"\n\n---------------------"<<endl;
+         cout <<"Done creating example input"<<endl;
+         cout <<"---------------------\n\n"<<endl;
+      }
+      
+   }
+   else
+      filename = infile;
+   
+   // Try to open the file
+   TFile *file = TFile::Open(filename);
+   
+   // if input file was specified byt not found, quit
+   if(!file ){
+      cout <<"StandardRooStatsDemoMacro: Input file " << filename << " is not found" << endl;
+      return;
+   }
 
   
   /////////////////////////////////////////////////////////////
@@ -223,7 +234,7 @@ void OneSidedFrequentistUpperLimitWithBands(const char* infile = "",
   // so this is NOT a Feldman-Cousins interval
   FeldmanCousins fc(*data,*mc);
   fc.SetConfidenceLevel(confidenceLevel); 
-  //  fc.AdditionalNToysFactor(0.25); // degrade/improve sampling that defines confidence belt
+  fc.AdditionalNToysFactor(0.25); // degrade/improve sampling that defines confidence belt
   //  fc.UseAdaptiveSampling(true); // speed it up a bit, don't use for expectd limits
   fc.SetNBins(nPointsToScan); // set how many points per parameter of interest to scan
   fc.CreateConfBelt(true); // save the information in the belt for plotting
@@ -303,7 +314,7 @@ void OneSidedFrequentistUpperLimitWithBands(const char* infile = "",
   // For FeldmanCousins, the lower cut off is always 0
   for(Int_t i=0; i<parameterScan->numEntries(); ++i){
     tmpPoint = (RooArgSet*) parameterScan->get(i)->clone("temp");
-    cout <<"get threshold"<<endl;
+    //cout <<"get threshold"<<endl;
     double arMax = belt->GetAcceptanceRegionMax(*tmpPoint);
     double poiVal = tmpPoint->getRealValue(firstPOI->GetName()) ;
     histOfThresholds->Fill(poiVal,arMax);
@@ -523,3 +534,5 @@ void OneSidedFrequentistUpperLimitWithBands(const char* infile = "",
   delete nll;
 
 }
+
+#endif

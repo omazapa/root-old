@@ -46,6 +46,10 @@
 //                                                                      //
 //////////////////////////////////////////////////////////////////////////
 
+#if __cplusplus >= 201103L
+#include <atomic>
+#endif
+
 #include "Riostream.h"
 #include "TROOT.h"
 #include "TClass.h"
@@ -61,10 +65,8 @@
 #include "TVirtualStreamerInfo.h"
 #include "TSchemaRuleSet.h"
 
-extern "C" void R__zipMultipleAlgorithm(int cxlevel, int *srcsize, char *src, int *tgtsize, char *tgt, int *irep, int compressionAlgorithm);
-extern "C" void R__unzip(Int_t *nin, UChar_t *bufin, Int_t *lout, char *bufout, Int_t *nout);
-extern "C" int R__unzip_header(Int_t *nin, UChar_t *bufin, Int_t *lout);
-const Int_t kMAXBUF = 0xffffff;
+#include "RZip.h"
+
 const Int_t kTitleMax = 32000;
 #if 0
 const Int_t kMAXFILEBUFFER = 262144;
@@ -78,7 +80,11 @@ const ULong64_t kPidOffsetMask = 0xffffffffffffUL;
 const UChar_t kPidOffsetShift = 48;
 
 static TString gTDirectoryString = "TDirectory";
-UInt_t keyAbsNumber = 0;
+#if __cplusplus >= 201103L
+std::atomic<UInt_t> keyAbsNumber{0};
+#else
+UInt_t keyAbsNumber(0);
+#endif
 
 ClassImp(TKey)
 
@@ -251,7 +257,7 @@ TKey::TKey(const TObject *obj, const char *name, Int_t bufsize, TDirectory* moth
    Int_t cxlevel = GetFile() ? GetFile()->GetCompressionLevel() : 0;
    Int_t cxAlgorithm = GetFile() ? GetFile()->GetCompressionAlgorithm() : 0;
    if (cxlevel > 0 && fObjlen > 256) {
-      Int_t nbuffers = 1 + (fObjlen - 1)/kMAXBUF;
+      Int_t nbuffers = 1 + (fObjlen - 1)/kMAXZIPBUF;
       Int_t buflen = TMath::Max(512,fKeylen + fObjlen + 9*nbuffers + 28); //add 28 bytes in case object is placed in a deleted gap
       fBuffer = new char[buflen];
       char *objbuf = fBufferRef->Buffer() + fKeylen;
@@ -260,7 +266,7 @@ TKey::TKey(const TObject *obj, const char *name, Int_t bufsize, TDirectory* moth
       nzip   = 0;
       for (Int_t i = 0; i < nbuffers; ++i) {
          if (i == nbuffers - 1) bufmax = fObjlen - nzip;
-         else               bufmax = kMAXBUF;
+         else               bufmax = kMAXZIPBUF;
          R__zipMultipleAlgorithm(cxlevel, &bufmax, objbuf, &bufmax, bufcur, &nout, cxAlgorithm);
          if (nout == 0 || nout >= fObjlen) { //this happens when the buffer cannot be compressed
             fBuffer = fBufferRef->Buffer();
@@ -271,8 +277,8 @@ TKey::TKey(const TObject *obj, const char *name, Int_t bufsize, TDirectory* moth
          }
          bufcur += nout;
          noutot += nout;
-         objbuf += kMAXBUF;
-         nzip   += kMAXBUF;
+         objbuf += kMAXZIPBUF;
+         nzip   += kMAXZIPBUF;
       }
       Create(noutot);
       fBufferRef->SetBufferOffset(0);
@@ -342,7 +348,7 @@ TKey::TKey(const void *obj, const TClass *cl, const char *name, Int_t bufsize, T
    Int_t cxlevel = GetFile() ? GetFile()->GetCompressionLevel() : 0;
    Int_t cxAlgorithm = GetFile() ? GetFile()->GetCompressionAlgorithm() : 0;
    if (cxlevel > 0 && fObjlen > 256) {
-      Int_t nbuffers = 1 + (fObjlen - 1)/kMAXBUF;
+      Int_t nbuffers = 1 + (fObjlen - 1)/kMAXZIPBUF;
       Int_t buflen = TMath::Max(512,fKeylen + fObjlen + 9*nbuffers + 28); //add 28 bytes in case object is placed in a deleted gap
       fBuffer = new char[buflen];
       char *objbuf = fBufferRef->Buffer() + fKeylen;
@@ -351,7 +357,7 @@ TKey::TKey(const void *obj, const TClass *cl, const char *name, Int_t bufsize, T
       nzip   = 0;
       for (Int_t i = 0; i < nbuffers; ++i) {
          if (i == nbuffers - 1) bufmax = fObjlen - nzip;
-         else               bufmax = kMAXBUF;
+         else               bufmax = kMAXZIPBUF;
          R__zipMultipleAlgorithm(cxlevel, &bufmax, objbuf, &bufmax, bufcur, &nout, cxAlgorithm);
          if (nout == 0 || nout >= fObjlen) { //this happens when the buffer cannot be compressed
             fBuffer = fBufferRef->Buffer();
@@ -362,8 +368,8 @@ TKey::TKey(const void *obj, const TClass *cl, const char *name, Int_t bufsize, T
          }
          bufcur += nout;
          noutot += nout;
-         objbuf += kMAXBUF;
-         nzip   += kMAXBUF;
+         objbuf += kMAXZIPBUF;
+         nzip   += kMAXZIPBUF;
       }
       Create(noutot);
       fBufferRef->SetBufferOffset(0);
@@ -765,6 +771,10 @@ TObject *TKey::ReadObj()
    // Create an instance of this class
 
    char *pobj = (char*)cl->New();
+   if (!pobj) {
+      Error("ReadObj", "Cannot create new object of class %s", fClassName.Data());
+      return 0;
+   }
    Int_t baseOffset = cl->GetBaseClassOffset(TObject::Class());
    if (baseOffset==-1) {
       // cl does not inherit from TObject.
@@ -774,10 +784,6 @@ TObject *TKey::ReadObj()
             fClassName.Data());
    }
    tobj = (TObject*)(pobj+baseOffset);
-   if (!pobj) {
-      Error("ReadObj", "Cannot create new object of class %s", fClassName.Data());
-      return 0;
-   }
    if (kvers > 1)
       fBufferRef->MapObject(pobj,cl);  //register obj in map to handle self reference
 
@@ -789,7 +795,7 @@ TObject *TKey::ReadObj()
       while (1) {
          Int_t hc = R__unzip_header(&nin, bufcur, &nbuf);
          if (hc!=0) break;
-         R__unzip(&nin, bufcur, &nbuf, objbuf, &nout);
+         R__unzip(&nin, bufcur, &nbuf, (unsigned char*) objbuf, &nout);
          if (!nout) break;
          noutot += nout;
          if (noutot >= fObjlen) break;
@@ -801,7 +807,9 @@ TObject *TKey::ReadObj()
          delete [] fBuffer;
       } else {
          delete [] fBuffer;
-         delete pobj;
+         // Even-though we have a TObject, if the class is emulated the virtual
+         // table may not be 'right', so let's go via the TClass.
+         cl->Destructor(pobj);
          pobj = 0;
          tobj = 0;
          goto CLEAR;
@@ -892,6 +900,10 @@ TObject *TKey::ReadObjWithBuffer(char *bufferRead)
    // Create an instance of this class
 
    char *pobj = (char*)cl->New();
+   if (!pobj) {
+      Error("ReadObjWithBuffer", "Cannot create new object of class %s", fClassName.Data());
+      return 0;
+   }
    Int_t baseOffset = cl->GetBaseClassOffset(TObject::Class());
    if (baseOffset==-1) {
       // cl does not inherit from TObject.
@@ -901,10 +913,7 @@ TObject *TKey::ReadObjWithBuffer(char *bufferRead)
             fClassName.Data());
    }
    tobj = (TObject*)(pobj+baseOffset);
-   if (!pobj) {
-      Error("ReadObjWithBuffer", "Cannot create new object of class %s", fClassName.Data());
-      return 0;
-   }
+
    if (kvers > 1)
       fBufferRef->MapObject(pobj,cl);  //register obj in map to handle self reference
 
@@ -916,7 +925,7 @@ TObject *TKey::ReadObjWithBuffer(char *bufferRead)
       while (1) {
          Int_t hc = R__unzip_header(&nin, bufcur, &nbuf);
          if (hc!=0) break;
-         R__unzip(&nin, bufcur, &nbuf, objbuf, &nout);
+         R__unzip(&nin, bufcur, &nbuf, (unsigned char*) objbuf, &nout);
          if (!nout) break;
          noutot += nout;
          if (noutot >= fObjlen) break;
@@ -926,7 +935,9 @@ TObject *TKey::ReadObjWithBuffer(char *bufferRead)
       if (nout) {
          tobj->Streamer(*fBufferRef); //does not work with example 2 above
       } else {
-         delete pobj;
+         // Even-though we have a TObject, if the class is emulated the virtual
+         // table may not be 'right', so let's go via the TClass.
+         cl->Destructor(pobj);
          pobj = 0;
          tobj = 0;
          goto CLEAR;
@@ -1061,7 +1072,7 @@ void *TKey::ReadObjectAny(const TClass* expectedClass)
       while (1) {
          Int_t hc = R__unzip_header(&nin, bufcur, &nbuf);
          if (hc!=0) break;
-         R__unzip(&nin, bufcur, &nbuf, objbuf, &nout);
+         R__unzip(&nin, bufcur, &nbuf, (unsigned char*) objbuf, &nout);
          if (!nout) break;
          noutot += nout;
          if (noutot >= fObjlen) break;
@@ -1151,7 +1162,7 @@ Int_t TKey::Read(TObject *obj)
       while (1) {
          Int_t hc = R__unzip_header(&nin, bufcur, &nbuf);
          if (hc!=0) break;
-         R__unzip(&nin, bufcur, &nbuf, objbuf, &nout);
+         R__unzip(&nin, bufcur, &nbuf, (unsigned char*) objbuf, &nout);
          if (!nout) break;
          noutot += nout;
          if (noutot >= fObjlen) break;

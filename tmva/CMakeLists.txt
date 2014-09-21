@@ -39,7 +39,7 @@ set(headers4 TNeuron.h TSynapse.h TActivationChooser.h TActivation.h TActivation
          TActivationTanh.h TActivationRadial.h TNeuronInputChooser.h TNeuronInput.h TNeuronInputSum.h
 	     TNeuronInputSqSum.h TNeuronInputAbs.h Types.h Ranking.h RuleFit.h RuleFitAPI.h IMethod.h MsgLogger.h
 	     VariableTransformBase.h VariableIdentityTransform.h VariableDecorrTransform.h VariablePCATransform.h 
-	     VariableGaussTransform.h VariableNormalizeTransform.h VariableRearrangeTransform.h)
+	     VariableGaussTransform.h VariableNormalizeTransform.h VariableRearrangeTransform.h ROCCalc.h)
 
 #---Need to suffix each header name by TMVA/  -----------------
 foreach(hs headers1 headers2 headers3 headers4)
@@ -60,10 +60,18 @@ ROOT_LINKER_LIBRARY(TMVA *.cxx G__TMVA1.cxx G__TMVA2.cxx G__TMVA3.cxx G__TMVA4.c
                     DEPENDENCIES RIO Hist Tree MLP Minuit XMLIO)
 
 install(DIRECTORY inc/TMVA/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/TMVA
+                            COMPONENT headers
                             PATTERN ".svn" EXCLUDE
                             REGEX "LinkDef" EXCLUDE )
-#if(NOT CMAKE_SOURCE_DIR STREQUAL CMAKE_INSTALL_PREFIX)
-#  install(DIRECTORY test DESTINATION ${CMAKE_INSTALL_DOCDIR}/tmva PATTERN ".svn" EXCLUDE)
-#endif()
+set_property(GLOBAL APPEND PROPERTY ROOT_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/inc)
+
+if(NOT gnuinstall)
+  install(DIRECTORY test DESTINATION tmva 
+  FILES_MATCHING PATTERN "*.C" 
+                 PATTERN "*.gif" 
+                 PATTERN "*.png" 
+                 PATTERN "README"
+                 PATTERN "data" EXCLUDE)
+endif()
 
 

@@ -19,18 +19,23 @@
 
 // ROOT
 #include "TClass.h"
+#include "TFunction.h"
 #include "TMethod.h"
+
+#include "TClonesArray.h"
 #include "TCollection.h"
 #include "TDirectory.h"
-#include "TSeqCollection.h"
-#include "TClonesArray.h"
-#include "TObject.h"
-#include "TFunction.h"
 #include "TError.h"
+#include "TObject.h"
+#include "TObjArray.h"
+#include "TSeqCollection.h"
 
 #include "TTree.h"
 #include "TBranch.h"
+#include "TBranchElement.h"
 #include "TLeaf.h"
+#include "TStreamerElement.h"
+#include "TStreamerInfo.h"
 
 // CINT
 #include "Api.h"
@@ -748,6 +753,23 @@ namespace {
       return index;
    }
 
+//- TObjArray behavior ---------------------------------------------------------
+   PyObject* TObjArrayLen( PyObject* self )
+   {
+   // GetSize on a TObjArray returns its capacity, not size in use
+      PyObject* size = CallPyObjMethod( self, "GetLast" );
+      if ( ! size )
+         return 0;
+
+      long lsize = PyLong_AsLong( size );
+      if ( lsize == -1 && PyErr_Occurred() )
+         return 0;
+
+      Py_DECREF( size );
+      return PyInt_FromLong( lsize + 1 );
+   }
+
+
 //- TClonesArray behavior ------------------------------------------------------
    PyObject* TClonesArraySetItem( ObjectProxy* self, PyObject* args )
    {
@@ -1233,9 +1255,24 @@ namespace PyROOT {      // workaround for Intel icc on Linux
 
       if ( branch ) {
       // found a branched object, wrap its address for the object it represents
+
+      // for partial return of a split object
+         if ( branch->InheritsFrom(TBranchElement::Class()) ) {
+            TBranchElement* be = (TBranchElement*)branch;
+            if ( be->GetCurrentClass() != be->GetTargetClass() && 0 <= be->GetID() ) {
+               Long_t offset = ((TStreamerElement*)be->GetInfo()->GetElements()->At(be->GetID()))->GetOffset();
+               return BindRootObjectNoCast( be->GetObject() + offset, be->GetCurrentClass() );
+            }
+         }
+
+      // for return of a full object
          TClass* klass = TClass::GetClass( branch->GetClassName() );
          if ( klass && branch->GetAddress() )
             return BindRootObjectNoCast( *(char**)branch->GetAddress(), klass );
+
+      // try leaf, otherwise indicate failure by returning a typed null-object
+         if ( ! tree->GetLeaf( name ) )
+            return BindRootObjectNoCast( NULL, klass );
       }
 
    // if not, try leaf
@@ -1269,7 +1306,11 @@ namespace PyROOT {      // workaround for Intel icc on Linux
          } else {
          // value types
             TConverter* pcnv = CreateConverter( leaf->GetTypeName() );
-            PyObject* value = pcnv->FromMemory( (void*)leaf->GetValuePointer() );
+            PyObject* value = 0;
+            if ( TClass::GetClass( leaf->GetTypeName() ) )
+               value = pcnv->FromMemory( (void*)*(char**)leaf->GetValuePointer() );
+            else
+               value = pcnv->FromMemory( (void*)leaf->GetValuePointer() );
             delete pcnv;
 
             return value;
@@ -2132,6 +2173,10 @@ Bool_t PyROOT::Pythonize( PyObject* pyclass, const std::string& name )
       Utility::AddToClass( pyclass, "index", (PyCFunction) TSeqCollectionIndex, METH_O );
 
       return kTRUE;
+   }
+
+   if ( name == "TObjArray" ) {
+      Utility::AddToClass( pyclass, "__len__", (PyCFunction) TObjArrayLen, METH_NOARGS );
    }
 
    if ( name == "TClonesArray" ) {

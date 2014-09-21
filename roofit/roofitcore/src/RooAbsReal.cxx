@@ -75,7 +75,10 @@
 #endif
 #include "RooChi2Var.h"
 #include "RooFitResult.h"
+#include "RooAbsMoment.h"
 #include "RooMoment.h"
+#include "RooFirstMoment.h"
+#include "RooSecondMoment.h"
 #include "RooBrentRootFinder.h"
 #include "RooVectorDataStore.h"
 #include "RooCachedReal.h"
@@ -1195,7 +1198,9 @@ RooDataHist* RooAbsReal::fillDataHist(RooDataHist *hist, const RooArgSet* normSe
     }
     const RooArgSet* obs = hist->get(i) ;
     Double_t binVal = theClone->getVal(normSet?normSet:obs)*scaleFactor ;
-    if (correctForBinSize) binVal*= hist->binVolume() ;
+    if (correctForBinSize) {
+      binVal*= hist->binVolume() ;
+    }
     hist->set(binVal) ;
   }
 
@@ -4132,24 +4137,29 @@ RooDerivative* RooAbsReal::derivative(RooRealVar& obs, const RooArgSet& normSet,
 
 
 //_____________________________________________________________________________
-RooMoment* RooAbsReal::moment(RooRealVar& obs, Int_t order, Bool_t central, Bool_t takeRoot) 
+RooAbsMoment* RooAbsReal::moment(RooRealVar& obs, Int_t order, Bool_t central, Bool_t takeRoot) 
 {
   // Return function representing moment of function of given order. If central is
   // true, the central moment is given <(x-<x>)^2>
   string name=Form("%s_MOMENT_%d%s_%s",GetName(),order,(central?"C":""),obs.GetName()) ;
-  string title=Form("%sMoment of order %d of %s w.r.t %s ",(central?"Central ":""),order,GetName(),obs.GetName()) ;
+  string title=Form("%sMoment of order %d of %s w.r.t %s ",(central?"Central ":""),order,GetName(),obs.GetName()) ;  
+  if (order==1) return new RooFirstMoment(name.c_str(),title.c_str(),*this,obs) ;
+  if (order==2) return new RooSecondMoment(name.c_str(),title.c_str(),*this,obs,central,takeRoot) ;
   return new RooMoment(name.c_str(),title.c_str(),*this,obs,order,central,takeRoot) ;
 }
 
 
 //_____________________________________________________________________________
-RooMoment* RooAbsReal::moment(RooRealVar& obs, const RooArgSet& normObs, Int_t order, Bool_t central, Bool_t takeRoot, Bool_t intNormObs) 
+RooAbsMoment* RooAbsReal::moment(RooRealVar& obs, const RooArgSet& normObs, Int_t order, Bool_t central, Bool_t takeRoot, Bool_t intNormObs) 
 {
   // Return function representing moment of p.d.f (normalized w.r.t given observables) of given order. If central is
   // true, the central moment is given <(x-<x>)^2>. If intNormObs is true, the moment of the function integrated over
   // all normalization observables is returned.
   string name=Form("%s_MOMENT_%d%s_%s",GetName(),order,(central?"C":""),obs.GetName()) ;
   string title=Form("%sMoment of order %d of %s w.r.t %s ",(central?"Central ":""),order,GetName(),obs.GetName()) ;
+
+  if (order==1) return new RooFirstMoment(name.c_str(),title.c_str(),*this,obs,normObs,intNormObs) ;
+  if (order==2) return new RooSecondMoment(name.c_str(),title.c_str(),*this,obs,normObs,central,takeRoot,intNormObs) ;
   return new RooMoment(name.c_str(),title.c_str(),*this,obs,normObs,order,central,takeRoot,intNormObs) ;
 }
 

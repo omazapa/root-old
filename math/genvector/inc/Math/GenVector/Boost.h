@@ -58,9 +58,9 @@ public:
 
   enum EBoostMatrixIndex {
       kXX =  0, kXY =  1, kXZ =  2, kXT =  3
-    	      , kYY =  4, kYZ =  5, kYT =  6
-    		        , kZZ =  7, kZT =  8
-    			          , kTT =  9
+     , kYY =  4, kYZ =  5, kYT =  6
+     , kZZ =  7, kZT =  8
+     , kTT =  9
   };
 
   // ========== Constructors and Assignment =====================
@@ -74,7 +74,7 @@ public:
      Construct given a three Scalars beta_x, beta_y, and beta_z
    */
   Boost(Scalar beta_x, Scalar beta_y, Scalar beta_z) 
-  				{ SetComponents(beta_x, beta_y, beta_z); }
+   { SetComponents(beta_x, beta_y, beta_z); }
 
   /**
      Construct given a beta vector (which must have methods x(), y(), z())
@@ -154,7 +154,7 @@ public:
   template <class Avector>
   void
   SetComponents (const Avector & beta) 
-		  	{ SetComponents(beta.x(), beta.y(), beta.z()); } 
+   { SetComponents(beta.x(), beta.y(), beta.z()); }
 
   /**
      Set given a pair of pointers or iterators defining the beginning and end of 
@@ -162,6 +162,7 @@ public:
    */
   template<class IT>
   void SetComponents(IT begin, IT end) {
+    (void)end;
     IT a = begin; IT b = ++begin; IT c = ++begin;
     assert (++begin==end);
     SetComponents (*a, *b, *c);
@@ -173,6 +174,7 @@ public:
    */
   template<class IT>
   void GetComponents(IT begin, IT end) const {
+    (void)end;
     IT a = begin; IT b = ++begin; IT c = ++begin;
     assert (++begin==end);
     GetComponents (*a, *b, *c);

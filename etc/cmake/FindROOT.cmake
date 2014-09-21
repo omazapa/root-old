@@ -44,7 +44,7 @@ endif()
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(ROOT DEFAULT_MSG ROOT_CONFIG_EXECUTABLE
-    ROOTSYS ROOT_VERSION ROOT_INCLUDE_DIR ROOT_LIBRARIES	ROOT_LIBRARY_DIR)
+    ROOTSYS ROOT_VERSION ROOT_INCLUDE_DIR ROOT_LIBRARIES   ROOT_LIBRARY_DIR)
 
 mark_as_advanced(ROOT_CONFIG_EXECUTABLE)
 
@@ -64,18 +64,16 @@ function(ROOT_GENERATE_DICTIONARY dictionary)
   get_directory_property(incdirs INCLUDE_DIRECTORIES)
   set(includedirs) 
   foreach( d ${incdirs})    
-  	set(includedirs ${includedirs} -I${d})
+     set(includedirs ${includedirs} -I${d})
   endforeach()
   #---Get the list of header files-------------------------
   set(headerfiles)
   foreach(fp ${ARG_UNPARSED_ARGUMENTS})
-    file(GLOB files ${fp})
-    if(files)
+    if(${fp} MATCHES "[*?]") # Is this header a globbing expression?
+      file(GLOB files ${fp})
       foreach(f ${files})
-        if(NOT f MATCHES LinkDef)
-          find_file(headerFile ${f} PATHS ${incdirs})
-          set(headerfiles ${headerfiles} ${headerFile})
-          unset(headerFile CACHE)
+        if(NOT f MATCHES LinkDef) # skip LinkDefs from globbing result
+          set(headerfiles ${headerfiles} ${f})
         endif()
       endforeach()
     else()

@@ -19,6 +19,9 @@ set(CPACK_PACKAGE_VERSION_MAJOR ${ROOT_MAJOR_VERSION})
 set(CPACK_PACKAGE_VERSION_MINOR ${ROOT_MINOR_VERSION})
 set(CPACK_PACKAGE_VERSION_PATCH ${ROOT_PATCH_VERSION})
 
+string(REGEX REPLACE "^([0-9]+).*$" "\\1" CXX_MAJOR ${CMAKE_CXX_COMPILER_VERSION})
+string(REGEX REPLACE "^([0-9]+)\\.([0-9]+).*$" "\\2" CXX_MINOR ${CMAKE_CXX_COMPILER_VERSION})
+
 #---Resource Files-----------------------------------------------------------------------------------
 configure_file(README/README README.txt COPYONLY)
 configure_file(LICENSE LICENSE.txt COPYONLY)
@@ -45,20 +48,31 @@ set(CPACK_SOURCE_IGNORE_FILES
 set(CPACK_SOURCE_STRIP_FILES "")
 
 #---Binary package setup-----------------------------------------------------------------------------
-set(CPACK_PACKAGE_RELOCATABLE True)
-set(CPACK_PACKAGE_INSTALL_DIRECTORY "ROOT ${ROOT_MAJOR_VERSION}.${ROOT_MINOR_VERSION}")
-if(CMAKE_BUILD_TYPE STREQUAL Release)
-  set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${ROOT_VERSION}-${ROOT_ARCHITECTURE}")
+if(MSVC)
+  math(EXPR VS_VERSION "${VC_MAJOR} - 6")
+  set(COMPILER_NAME_VERSION ".vc${VS_VERSION}")
 else()
-  set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${ROOT_VERSION}-${ROOT_ARCHITECTURE}-${CMAKE_BUILD_TYPE}")
+  if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    set(COMPILER_NAME_VERSION "-gcc${CXX_MAJOR}.${CXX_MINOR}")
+  elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    set(COMPILER_NAME_VERSION "-clang${CXX_MAJOR}${CXX_MINOR}")
+  endif()
+endif()
+
+set(CPACK_PACKAGE_RELOCATABLE True)
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "root_v${ROOT_VERSION}")
+if(CMAKE_BUILD_TYPE STREQUAL Release)
+  set(CPACK_PACKAGE_FILE_NAME "root_v${ROOT_VERSION}.${ROOT_ARCHITECTURE}${COMPILER_NAME_VERSION}")
+else()
+  set(CPACK_PACKAGE_FILE_NAME "root_v${ROOT_VERSION}.${ROOT_ARCHITECTURE}${COMPILER_NAME_VERSION}.${CMAKE_BUILD_TYPE}")
 endif()
 set(CPACK_PACKAGE_EXECUTABLES "root" "ROOT")
 
 if(WIN32)
-  set(CPACK_GENERATOR "NSIS;ZIP")
+  set(CPACK_GENERATOR "ZIP;NSIS;TGZ")
   set(CPACK_SOURCE_GENERATOR "TGZ;ZIP")
 elseif(APPLE)
-  set(CPACK_GENERATOR "PackageMaker;TGZ")
+  set(CPACK_GENERATOR "TGZ;PackageMaker")
   set(CPACK_SOURCE_GENERATOR "TGZ;TBZ2")
 else()
   set(CPACK_GENERATOR "STGZ;TGZ")
@@ -83,21 +97,21 @@ cpack_add_install_type(developer DISPLAY_NAME "Developer Installation")
 cpack_add_component(applications 
     DISPLAY_NAME "ROOT Applications" 
     DESCRIPTION "ROOT executables such as root.exe"
-	  INSTALL_TYPES full minimal developer)
+     INSTALL_TYPES full minimal developer)
 
 cpack_add_component(libraries 
     DISPLAY_NAME "ROOT Libraries" 
     DESCRIPTION "All ROOT libraries and dictionaries"
-	  INSTALL_TYPES full minimal developer)
+     INSTALL_TYPES full minimal developer)
 
 cpack_add_component(headers 
     DISPLAY_NAME "C++ Headers" 
     DESCRIPTION "These are needed to do any development"
-	  INSTALL_TYPES full developer)
-	  
+     INSTALL_TYPES full developer)
+     
 cpack_add_component(tests 
     DISPLAY_NAME "ROOT Tests and Tutorials" 
     DESCRIPTION "These are needed to do any test and tutorial"
-	  INSTALL_TYPES full developer)
+     INSTALL_TYPES full developer)
 
 

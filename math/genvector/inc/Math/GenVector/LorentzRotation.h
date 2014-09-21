@@ -140,9 +140,9 @@ public:
                   Scalar  tx, Scalar  ty, Scalar  tz, Scalar tt)
  {
     SetComponents (xx, xy, xz, xt, 
-    		   yx, yy, yz, yt, 
+                   yx, yy, yz, yt,
                    zx, zy, zz, zt,
-		   tx, ty, tz, tt);
+                   tx, ty, tz, tt);
  }
 
   /** 
@@ -253,7 +253,8 @@ public:
    */
   template<class IT>
   void SetComponents(IT begin, IT end) {
-     for (int i = 0; i <16; ++i) { 
+     (void)end;
+     for (int i = 0; i <16; ++i) {
         fM[i] = *begin;
         ++begin; 
      }
@@ -266,7 +267,8 @@ public:
    */
   template<class IT>
   void GetComponents(IT begin, IT end) const {
-     for (int i = 0; i <16; ++i) { 
+     (void)end;
+     for (int i = 0; i <16; ++i) {
         *begin = fM[i];
         ++begin;  
      }

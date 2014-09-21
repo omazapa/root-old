@@ -2,7 +2,6 @@
 // a spectrum (flux vs wavelength)
 void FITS_tutorial5()
 {
-   TVectorD *v;
    
    printf("\n\n--------------------------------\n");
    printf("WELCOME TO FITS tutorial #5 !!!!\n");
@@ -19,9 +18,11 @@ void FITS_tutorial5()
       //printf("Press ENTER to start..."); getchar();
       //printf("\n");
    }
-    
+  
+   TString dir = gSystem->DirName(gInterpreter->GetCurrentMacroName());
+
    //Open the table
-   TFITSHDU *hdu = new TFITSHDU("sample4.fits[1]");
+   TFITSHDU *hdu = new TFITSHDU(dir+"/sample4.fits[1]");
    if (hdu == 0) {
       printf("ERROR: could not access the HDU\n"); return;
    }
@@ -32,8 +33,10 @@ void FITS_tutorial5()
    vecs[0] = hdu->GetTabRealVectorCell(0, "mag");
    vecs[1] = hdu->GetTabRealVectorCell(1, "mag");
    for (int iVec=0; iVec < 2; iVec++) {
+      fprintf(stderr,"pointer is %p\n",vecs[iVec]);
+      vecs[iVec]->IsA()->Print();
       printf("Vector %d = (", iVec+1);
-      v = vecs[iVec]; 
+      TVectorD *v = vecs[iVec]; 
       for(int i=0; i < v->GetNoElements(); i++) {
          if (i>0) printf(", ");
          printf("%lg", (*v)[i]); //NOTE: the asterisk is for using the overloaded [] operator of the TVectorD object

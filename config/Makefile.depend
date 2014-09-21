@@ -38,7 +38,7 @@ PROOFPLAYERLIBDEPM     = $(PROOFLIB) $(HISTLIB) $(IOLIB) $(TREELIB) $(NETLIB) \
                          $(THREADLIB) $(MATHCORELIB)
 PROOFDRAWLIBDEPM       = $(TREEPLAYERLIB) $(G3DLIB) $(GRAFLIB) $(GPADLIB) \
                          $(PROOFPLAYERLIB) $(HISTLIB) $(TREELIB) $(PROOFLIB)
-PROOFXLIBDEPM          = $(NETLIB) $(PROOFLIB) $(THREADLIB)
+PROOFXLIBDEPM          = $(NETLIB) $(PROOFLIB) $(THREADLIB) $(IOLIB)
 PROOFBENCHLIBDEPM      = $(PROOFLIB) $(PROOFDRAWLIB) $(PROOFPLAYERLIB) \
                          $(TREELIB) $(GRAFLIB) $(HISTLIB) $(GPADLIB) $(IOLIB)
 SESSIONVIEWERLIBDEPM   = $(PROOFLIB) $(GUILIB) $(HISTLIB) $(GPADLIB) \
@@ -139,6 +139,8 @@ MEMSTATLIBDEPM         = $(TREELIB) $(GPADLIB) $(GRAFLIB) $(HISTLIB) $(IOLIB)
 MEMSTATGUILIBDEPM      = $(MEMSTATLIB) $(TREELIB) $(GUILIB)
 RECLIBDEPM             = $(IOLIB) $(TREELIB) $(GUILIB) $(THREADLIB)
 FITSIOLIBDEPM          = $(HISTLIB) $(GPADLIB) $(GRAFLIB) $(MATRIXLIB)
+HTTPLIBDEPM            = $(THREADLIB) $(TREELIB) $(HISTLIB) $(GPADLIB) \
+                         $(GRAFLIB) $(IOLIB) $(XMLLIB)
 
 RLIBDEPM               = $(MATRIXLIB) $(CINTLIB)
 
@@ -245,6 +247,7 @@ MEMSTATGUILIBDEP       = $(MEMSTATGUILIBDEPM)
 RECLIBDEP              = $(RECLIBDEPM)
 FITSIOLIBDEP           = $(FITSIOLIBDEPM)
 RLIBDEP                = $(RLIBDEPM)
+HTTPLIBDEP             = $(HTTPLIBDEPM)
 
 ifeq ($(PLATFORM),win32)
 
@@ -294,7 +297,8 @@ PROOFDRAWLIBEXTRA       = lib/libTreePlayer.lib lib/libGraf3d.lib \
                           lib/libGraf.lib lib/libGpad.lib \
                           lib/libProofPlayer.lib lib/libHist.lib \
                           lib/libTree.lib lib/libProof.lib
-PROOFXLIBEXTRA          = lib/libNet.lib lib/libProof.lib lib/libThread.lib
+PROOFXLIBEXTRA          = lib/libNet.lib lib/libProof.lib lib/libThread.lib \
+                          lib/libRIO.lib
 PROOFBENCHLIBEXTRA      = lib/libProof.lib lib/libProofDraw.lib \
                           lib/libProofPlayer.lib lib/libTree.lib lib/libGraf.lib \
                           lib/libHist.lib lib/libGpad.lib lib/libRIO.lib
@@ -345,7 +349,7 @@ GEOMPAINTERLIBEXTRA     = lib/libGeom.lib lib/libTree.lib lib/libGraf3d.lib \
 GEOMBUILDERLIBEXTRA     = lib/libGeom.lib  lib/libGraf3d.lib lib/libGpad.lib \
                           lib/libGraf.lib lib/libGui.lib lib/libGed.lib
 QTROOTLIBEXTRA          = lib/libGui.lib lib/libGQt.lib
-GQTLIBEXTRA             = lib/libGui.lib libGpad.lib lib/libGraf.lib \
+GQTLIBEXTRA             = lib/libGui.lib lib/libGpad.lib lib/libGraf.lib \
                           lib/libRint.lib
 RUBYLIBEXTRA            = lib/libHist.lib lib/libMathCore.lib
 GUIBLDLIBEXTRA          = lib/libGui.lib lib/libGraf.lib lib/libMathCore.lib
@@ -420,6 +424,12 @@ RECLIBEXTRA             = lib/libGui.lib lib/libRIO.lib lib/libTree.lib \
                           lib/libThread.lib
 FITSIOLIBEXTRA          = lib/libHist.lib lib/libGpad.lib lib/libGraf.lib \
                           lib/libMatrix.lib
+HTTPLIBEXTRA            = lib/libThread.lib lib/libTree.lib lib/libHist.lib \
+                          lib/libGpad.lib lib/libGraf.lib  lib/libRIO.lib \
+                          lib/libXMLIO.lib
+ifeq ($(USEFASCGI), yes)
+HTTPLIBEXTRA           += libfcgi
+endif
 
 else
 
@@ -451,7 +461,7 @@ PROOFPLAYERLIBEXTRA     = -Llib -lProof -lHist -lTree -lRIO -lNet -lThread \
                           -lMathCore
 PROOFDRAWLIBEXTRA       = -Llib -lTreePlayer -lGraf3d -lGraf -lGpad \
                           -lProofPlayer -lHist -lTree -lProof
-PROOFXLIBEXTRA          = -Llib -lNet -lProof -lThread
+PROOFXLIBEXTRA          = -Llib -lNet -lProof -lThread -lRIO
 PROOFBENCHLIBEXTRA      = -Llib -lProof -lProofDraw -lProofPlayer -lTree \
                           -lGraf -lHist -lGpad -lRIO
 SESSIONVIEWERLIBEXTRA   = -Llib -lProof -lGui -lHist -lGpad -lGraf -lTree \
@@ -547,6 +557,10 @@ MEMSTATGUILIBEXTRA      = -Llib -lMemStat -lTree -lGui
 RECLIBEXTRA             = -Llib -lGui -lRIO -lTree -lThread
 FITSIOLIBEXTRA          = -Llib -lHist -lGpad -lGraf -lMatrix
 RLIBEXTRA               = -Llib -lCore -lCint -lMatrix -lreadline
+HTTPLIBEXTRA            = -Llib -lThread -lTree -lHist -lGpad -lGraf -lRIO -lXMLIO
+ifeq ($(USEFASCGI), yes)
+HTTPLIBEXTRA           += -lfcgi
+endif
 
 endif
 

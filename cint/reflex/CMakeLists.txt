@@ -6,6 +6,7 @@ if(CMAKE_PROJECT_NAME STREQUAL ROOT)
   ROOT_USE_PACKAGE(core/clib)
   ROOT_USE_PACKAGE(core/meta)
   ROOT_USE_PACKAGE(core/cont)  
+  ROOT_USE_PACKAGE(core/thread)
   ROOT_USE_PACKAGE(cint/cint)
   
   ROOT_GLOB_HEADERS(headers RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/inc 
@@ -20,14 +21,15 @@ if(CMAKE_PROJECT_NAME STREQUAL ROOT)
   #---Reflex library---------------------------------------------------------
   ROOT_LINKER_LIBRARY(Reflex *.cxx LIBRARIES ${CMAKE_DL_LIBS})  
   #---genreflex files--------------------------------------------------------
-  install(CODE "file(WRITE \$ENV{DESTDIR}${CMAKE_INSTALL_FULL_LIBDIR}/python/genreflex/gccxmlpath.py \"gccxmlpath = '${GCCXML_EXECUTABLE}'\n\")")
+  install(CODE "file(WRITE \$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/python/genreflex/gccxmlpath.py \"gccxmlpath = '${GCCXML_EXECUTABLE}'\n\")")
   install(DIRECTORY python/genreflex DESTINATION ${CMAKE_INSTALL_LIBDIR}/python FILES_MATCHING PATTERN "*.py" PATTERN ".svn" EXCLUDE)
-  install(CODE "execute_process(COMMAND python -m compileall  \$ENV{DESTDIR}${CMAKE_INSTALL_FULL_LIBDIR}/python/genreflex)")
+  install(CODE "execute_process(COMMAND python -m compileall  \$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/python/genreflex)")
   #---genmap executable------------------------------------------------------
   ROOT_EXECUTABLE(genmap genmap/genmap.cxx LIBRARIES Reflex ${CMAKE_DL_LIBS})
   #---install headers--------------------------------------------------------
   #ROOT_INSTALL_HEADERS()
   install(DIRECTORY inc/Reflex/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/Reflex
+                            COMPONENT headers
                             PATTERN ".svn" EXCLUDE
                             PATTERN "Makefile.am" EXCLUDE
                             REGEX "LinkDef" EXCLUDE )

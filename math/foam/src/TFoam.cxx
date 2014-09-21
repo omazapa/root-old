@@ -156,6 +156,29 @@ static const Double_t gVlow=-1.0e150;
 
 #define SW2 setprecision(7) << setw(12)
 
+// class to wrap a global function in a TFoamIntegrand function
+class FoamIntegrandFunction : public TFoamIntegrand { 
+
+public:
+
+   typedef Double_t (*FunctionPtr)(Int_t, Double_t*); 
+
+   FoamIntegrandFunction(FunctionPtr func) : fFunc(func) {}
+
+   virtual ~FoamIntegrandFunction() {}
+
+   // evaluate the density using the provided function pointer
+   Double_t Density (Int_t nDim, Double_t * x) { 
+      return fFunc(nDim,x); 
+   }
+
+private: 
+
+   FunctionPtr fFunc; 
+   
+};
+
+
 //________________________________________________________________________________________________
 TFoam::TFoam() : 
    fDim(0), fNCells(0), fRNmax(0), 
@@ -274,6 +297,8 @@ TFoam::~TFoam()
       fHistDbg->Delete(); 
       delete fHistDbg; 
    }
+   // delete function object if it has been created here in SetRhoInt
+   if (fRho && dynamic_cast<FoamIntegrandFunction*>(fRho) ) delete fRho; 
 }
 
 
@@ -886,19 +911,19 @@ void TFoam::Grow()
          Int_t kEcho=10;
          if(fLastCe>=10000) kEcho=100;
          if( (fLastCe%kEcho)==0) {
-	   if (fChat>0) {
-	     if(fDim<10)
-	       cout<<fDim<<flush;
-             else
-	       cout<<"."<<flush;
-	     if( (fLastCe%(100*kEcho))==0)  cout<<"|"<<fLastCe<<endl<<flush;
-	   }
-	 }
+            if (fChat>0) {
+               if(fDim<10)
+                  cout<<fDim<<flush;
+               else
+                  cout<<"."<<flush;
+               if( (fLastCe%(100*kEcho))==0)  cout<<"|"<<fLastCe<<endl<<flush;
+            }
+         }
       }
       if( Divide( newCell )==0) break;  // and divide it into two
    }
    if (fChat>0) {
-     cout<<endl<<flush;
+      cout<<endl<<flush;
    }
    CheckAll(0);   // set arg=1 for more info
 }// Grow
@@ -1027,13 +1052,25 @@ void TFoam::ResetPseRan(TRandom *PseRan)
 //__________________________________________________________________________________________
 void TFoam::SetRho(TFoamIntegrand *fun)
 {
-// User may use this method to set (register) random number generator used by
-// the given instance of the FOAM event generator. Note that single r.n. generator
-// may serve several FOAM objects.
+// User may use this method to set the distribution object
 
    if (fun)
       fRho=fun;
    else
+      Error("SetRho", "Bad function \n" );
+}
+//__________________________________________________________________________________________
+void TFoam::SetRhoInt(Double_t (*fun)(Int_t, Double_t *) )
+{
+// User may use this method to set the distribution object as a global function pointer
+// (and not as an interpreted function). 
+
+   // This is needed for both AClic and Cling
+   if (fun) {
+      // delete function object if it has been created here in SetRho
+      if (fRho && dynamic_cast<FoamIntegrandFunction*>(fRho) ) delete fRho; 
+      fRho= new FoamIntegrandFunction(fun);
+   } else
       Error("SetRho", "Bad function \n" );
 }
 
@@ -1055,7 +1092,7 @@ void TFoam::ResetRho(TFoamIntegrand *fun)
 }
 
 //__________________________________________________________________________________________
-void TFoam::SetRhoInt(void *fun)
+void TFoam::SetRhoInt( void * f)
 {
 // User may use this to set pointer to the global function (not descending
 // from TFoamIntegrand) serving as a distribution for FOAM.
@@ -1063,7 +1100,7 @@ void TFoam::SetRhoInt(void *fun)
 // Note that persistency for FOAM object will not work in the case of such
 // a distribution.
 
-   const char *namefcn = gCint->Getp2f2funcname(fun); //name of integrand function
+   const char *namefcn = gCint->Getp2f2funcname(f); //name of integrand function
    if(namefcn) {
       fMethodCall=new TMethodCall();
       fMethodCall->InitWithPrototype(namefcn, "Int_t, Double_t *");

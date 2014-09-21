@@ -56,7 +56,7 @@ public:
    */
    EulerAngles( Scalar phi, Scalar theta, Scalar psi ) :
       fPhi(phi), fTheta(theta), fPsi(psi)
-   {Rectify();}			// Added 27 Jan. 06   JMM
+   {Rectify();} // Added 27 Jan. 06   JMM
 
    /**
       Construct given a pair of pointers or iterators defining the
@@ -149,11 +149,12 @@ public:
    */
    template<class IT>
    void SetComponents(IT begin, IT end) {
+      (void)end;
       fPhi   = *begin++;
       fTheta = *begin++;
       fPsi   = *begin++;
       assert(begin == end); 
-      Rectify();			// Added 27 Jan. 06   JMM
+      Rectify(); // Added 27 Jan. 06   JMM
    }
 
    /**
@@ -162,6 +163,7 @@ public:
    */
    template<class IT>
    void GetComponents(IT begin, IT end) const {
+      (void)end;
       *begin++ = fPhi;
       *begin++ = fTheta;
       *begin++ = fPsi;
@@ -183,7 +185,7 @@ public:
    */
    void SetComponents(Scalar phi, Scalar theta, Scalar psi) {
       fPhi=phi; fTheta=theta; fPsi=psi; 
-      Rectify();			// Added 27 Jan. 06   JMM
+      Rectify(); // Added 27 Jan. 06   JMM
    }
 
    /**
@@ -194,7 +196,7 @@ public:
    }
 
    /**
-      Set Phi Euler angle		// JMM 30 Jan. 2006
+      Set Phi Euler angle // JMM 30 Jan. 2006
    */
    void SetPhi(Scalar phi) { fPhi=phi; Rectify(); }
 
@@ -204,7 +206,7 @@ public:
    Scalar Phi() const { return fPhi; }
 
    /**
-      Set Theta Euler angle		// JMM 30 Jan. 2006
+      Set Theta Euler angle // JMM 30 Jan. 2006
    */
    void SetTheta(Scalar theta) { fTheta=theta; Rectify(); }
 
@@ -214,7 +216,7 @@ public:
    Scalar Theta() const { return fTheta; }
 
    /**
-      Set Psi Euler angle		// JMM 30 Jan. 2006
+      Set Psi Euler angle // JMM 30 Jan. 2006
    */
    void SetPsi(Scalar psi) { fPsi=psi; Rectify(); }
 

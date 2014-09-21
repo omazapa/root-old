@@ -1,20 +1,3 @@
-#include "Riostream.h"
-#include "TCanvas.h"
-#include "TFile.h"
-#include "TMath.h"
-#include "TTree.h"
-#include "TArrayF.h"
-#include "TH1.h"
-#include "TF1.h"
-#include "TLegend.h"
-#include "TSystem.h"
-
-#include "TMatrixD.h"
-#include "TMatrixDSym.h"
-#include "TVectorD.h"
-#include "TQpProbDens.h"
-#include "TGondzioSolver.h"
-
 //+ This macro shows in detail the use of the quadratic programming package quadp .
 // Running this macro :
 //     .x portfolio.C+
@@ -111,6 +94,31 @@
 //    as an equality constrain, otherwise add an inequality constrain .
 //
 //Author: Eddy Offermann
+#if defined(__CINT__) && !defined(__MAKECINT__)
+{
+   Info("portfolio.C",
+        "Has to be run in compiled mode ... doing this for you.");
+   TString dir = gSystem->DirName(gInterpreter->GetCurrentMacroName());
+   gSystem->CompileMacro(dir+"/portfolio.C");
+   portfolio();
+}
+#else
+#include "Riostream.h"
+#include "TCanvas.h"
+#include "TFile.h"
+#include "TMath.h"
+#include "TTree.h"
+#include "TArrayF.h"
+#include "TH1.h"
+#include "TF1.h"
+#include "TLegend.h"
+#include "TSystem.h"
+
+#include "TMatrixD.h"
+#include "TMatrixDSym.h"
+#include "TVectorD.h"
+#include "TQpProbDens.h"
+#include "TGondzioSolver.h"
 
 const Int_t nrStocks = 10;
 static const Char_t *stocks[] =
@@ -268,6 +276,13 @@ TVectorD OptimalInvest(Double_t riskFactor,TVectorD r,TMatrixDSym Covar)
 //---------------------------------------------------------------------------
 void portfolio()
 {
+
+#if defined(__CINT__) && !defined(__MAKECINT__) 
+   cout << "ERROR: This tutorial can run only using ACliC, you must run it by doing: " << endl;
+   cout << "\t .x $ROOTSYS/tutorials/quadp/portfolio.C+" << endl;
+   return;
+#endif 
+
   const Int_t sDay = 20000809;
   const Int_t eDay = 20040602;
 
@@ -363,3 +378,4 @@ void portfolio()
   legend2->AddEntry(h2,"low  risk","f");
   legend2->Draw();
 }
+#endif

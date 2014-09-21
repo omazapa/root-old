@@ -23,7 +23,9 @@ if(NOT builtin_zlib)
    endif()
 endif()
 if(builtin_zlib)
-  set(ZLIB_LIBRARY "")
+  if(WIN32)
+    set(ZLIB_LIBRARY "")
+  endif()
 endif()
 
 #---Check for Freetype---------------------------------------------------------------
@@ -34,7 +36,7 @@ if(NOT builtin_freetype)
     set(FREETYPE_INCLUDE_DIR ${FREETYPE_INCLUDE_DIR_freetype2})
   else()
     message(STATUS "FreeType not found. Switching on builtin_freetype option")
-    set(builtin_freetype ON CACHE BOOL "" FORCE) 	
+    set(builtin_freetype ON CACHE BOOL "" FORCE)
   endif()
 endif()
 if(builtin_freetype)  
@@ -54,7 +56,7 @@ if(NOT builtin_pcre)
   if(PCRE_FOUND)
   else()
     message(STATUS "PCRE not found. Switching on builtin_pcre option")
-    set(builtin_pcre ON CACHE BOOL "" FORCE) 	
+    set(builtin_pcre ON CACHE BOOL "" FORCE)
   endif() 
 endif()
 if(builtin_pcre)
@@ -73,7 +75,7 @@ if(NOT builtin_lzma)
   if(LZMA_FOUND)
   else()
     message(STATUS "LZMA not found. Switching on builtin_lzma option")
-    set(builtin_lzma ON CACHE BOOL "" FORCE) 	
+    set(builtin_lzma ON CACHE BOOL "" FORCE)
   endif() 
 endif()
 if(builtin_lzma)
@@ -81,14 +83,14 @@ if(builtin_lzma)
   message(STATUS "Building LZMA version ${lzma_version} included in ROOT itself")
   if(WIN32)
     ExternalProject_Add(
-	  LZMA
-	  URL ${CMAKE_SOURCE_DIR}/core/lzma/src/xz-${lzma_version}-win32.tar.gz 
-	  URL_MD5  65693dc257802b6778c28ed53ecca678
-	  PREFIX LZMA
-	  INSTALL_DIR ${CMAKE_BINARY_DIR}
+     LZMA
+     URL ${CMAKE_SOURCE_DIR}/core/lzma/src/xz-${lzma_version}-win32.tar.gz 
+     URL_MD5  65693dc257802b6778c28ed53ecca678
+     PREFIX LZMA
+     INSTALL_DIR ${CMAKE_BINARY_DIR}
       CONFIGURE_COMMAND "" BUILD_COMMAND ""
-	  INSTALL_COMMAND cmake -E copy lib/liblzma.dll <INSTALL_DIR>/bin/${CMAKE_CFG_INTDIR}
-	  BUILD_IN_SOURCE 1)
+     INSTALL_COMMAND cmake -E copy lib/liblzma.dll <INSTALL_DIR>/bin
+     BUILD_IN_SOURCE 1)
     install(FILES ${CMAKE_BINARY_DIR}/LZMA/src/LZMA/lib/liblzma.dll DESTINATION ${CMAKE_INSTALL_BINDIR})
     set(LZMA_LIBRARIES ${CMAKE_BINARY_DIR}/LZMA/src/LZMA/lib/liblzma.lib)
     set(LZMA_INCLUDE_DIR ${CMAKE_BINARY_DIR}/LZMA/src/LZMA/include)
@@ -105,7 +107,7 @@ if(builtin_lzma)
       INSTALL_DIR ${CMAKE_BINARY_DIR}
       CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix <INSTALL_DIR> --with-pic --disable-shared CFLAGS=${LZMA_CFLAGS}
       BUILD_IN_SOURCE 1)
-    set(LZMA_LIBRARIES -L${CMAKE_BINARY_DIR}/lib -llzma)
+    set(LZMA_LIBRARIES ${CMAKE_BINARY_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}lzma${CMAKE_STATIC_LIBRARY_SUFFIX})
     set(LZMA_INCLUDE_DIR ${CMAKE_BINARY_DIR}/include)
   endif()
 endif()
@@ -163,7 +165,7 @@ if(NOT builtin_afterimage)
   find_package(AfterImage)
   if(NOT AFTERIMAGE_FOUND)
     message(STATUS "AfterImage not found. Switching on builtin_afterimage option")
-    set(builtin_afterimage ON CACHE BOOL "" FORCE) 	
+    set(builtin_afterimage ON CACHE BOOL "" FORCE)    
   endif()
 endif()
 
@@ -190,7 +192,7 @@ if(asimage)
 endif()
 
 #---Check for GSL library---------------------------------------------------------------
-if(mathmore)
+if(mathmore OR builtin_gsl)
   message(STATUS "Looking for GSL")
   if(NOT builtin_gsl)
     find_package(GSL 1.10)
@@ -207,10 +209,13 @@ if(mathmore)
       GSL
       URL http://mirror.switch.ch/ftp/mirror/gnu/gsl/gsl-${gsl_version}.tar.gz
       INSTALL_DIR ${CMAKE_BINARY_DIR}
-      CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix <INSTALL_DIR>
+      CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix <INSTALL_DIR> --enable-shared=no CFLAGS=${CMAKE_C_FLAGS}
     )
     set(GSL_INCLUDE_DIR ${CMAKE_BINARY_DIR}/include)
-    set(GSL_LIBRARIES -L${CMAKE_BINARY_DIR}/lib -lgsl -lgslcblas -lm)
+    foreach(l gsl gslcblas)
+      list(APPEND GSL_LIBRARIES ${CMAKE_BINARY_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${l}${CMAKE_STATIC_LIBRARY_SUFFIX})
+    endforeach()
+    set(mathmore ON CACHE BOOL "" FORCE)
   endif()
 endif()
 
@@ -518,7 +523,7 @@ if(fftw3)
 endif()
 
 #---Check for fitsio-------------------------------------------------------------------
-if(fitsio)
+if(fitsio OR builtin_cfitsio)
   if(builtin_cfitsio)
     set(cfitsio_version 3.280)
     string(REPLACE "." "" cfitsio_version_no_dots ${cfitsio_version})
@@ -531,7 +536,8 @@ if(fitsio)
       BUILD_IN_SOURCE 1
     )
     set(CFITSIO_INCLUDE_DIR ${CMAKE_BINARY_DIR}/include)
-    set(CFITSIO_LIBRARIES -L${CMAKE_BINARY_DIR}/lib -lcfitsio)
+    set(CFITSIO_LIBRARIES ${CMAKE_BINARY_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}cfitsio${CMAKE_STATIC_LIBRARY_SUFFIX})
+    set(fitsio ON CACHE BOOL "" FORCE)
   else()
     message(STATUS "Looking for CFITSIO")  
     find_package(CFITSIO)
@@ -593,8 +599,10 @@ if(builtin_xrootd)
   set(xrootd_version 3.3.6)
   set(xrootd_versionnum 300030006)
   message(STATUS "Downloading and building XROOTD version ${xrootd_version}") 
-  string(REPLACE "-Wall " "" __cxxflags "${CMAKE_CXX_FLAGS}")                        # Otherwise it produces tones of warnings
-  string(REPLACE "-W " "" __cxxflags "${__cxxflags} -Wno-deprecated-declarations -Wno-duplicate-decl-specifier")
+  string(REPLACE "-Wall " "" __cxxflags "${CMAKE_CXX_FLAGS}")  # Otherwise it produces many warnings
+  string(REPLACE "-W " "" __cxxflags "${__cxxflags}")          # Otherwise it produces many warnings
+  ROOT_ADD_CXX_FLAG(__cxxflags -Wno-duplicate-decl-specifier)
+  ROOT_ADD_CXX_FLAG(__cxxflags -Wno-deprecated-declarations)
   ExternalProject_Add(
     XROOTD
     URL http://xrootd.org/download/v${xrootd_version}/xrootd-${xrootd_version}.tar.gz
@@ -618,6 +626,9 @@ if(builtin_xrootd)
                        ${CMAKE_BINARY_DIR}/${_LIBDIR_DEFAULT}/libXrdClient${CMAKE_SHARED_LIBRARY_SUFFIX}
                        ${CMAKE_BINARY_DIR}/${_LIBDIR_DEFAULT}/libXrdCl${CMAKE_SHARED_LIBRARY_SUFFIX})
   set(XROOTD_CFLAGS "-DROOTXRDVERS=${xrootd_versionnum}")
+  install(DIRECTORY ${CMAKE_BINARY_DIR}/${_LIBDIR_DEFAULT}/ DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                    COMPONENT libraries
+                    FILES_MATCHING PATTERN "libXrd*")
   set(xrootd ON CACHE BOOL "" FORCE)
 endif()
 if(xrootd AND xrootd_versionnum VERSION_GREATER 300030005)
@@ -704,21 +715,79 @@ if(builtin_ftgl)
 endif()
 
 #---Check for DavIx library-----------------------------------------------------------
-if(davix)
-  set(DAVIX_VERSION 0.2.7)
-  message(STATUS "Downloading and building Davix version ${DAVIX_VERSION}")
+if(davix OR builtin_davix)
+  if(builtin_davix)
+    if(NOT davix)
+      set(davix ON CACHE BOOL "" FORCE)
+    endif()
+    set(DAVIX_VERSION 0.3.6)
+    message(STATUS "Downloading and building Davix version ${DAVIX_VERSION}")
+    string(REPLACE "-Wall " "" __cxxflags "${CMAKE_CXX_FLAGS}")                      # Otherwise it produces tones of warnings
+    string(REPLACE "-W " "" __cxxflags "${__cxxflags}")
+    string(REPLACE "-Wall " "" __cflags "${CMAKE_C_FLAGS}")                          # Otherwise it produces tones of warnings
+    string(REPLACE "-W " "" __cflags "${__cflags}")
+    ROOT_ADD_CXX_FLAG(__cxxflags -Wno-unused-const-variable)
+    ROOT_ADD_C_FLAG(__cflags -Wno-format)
+    ROOT_ADD_C_FLAG(__cflags -Wno-implicit-function-declaration)
     ExternalProject_Add(
       DAVIX
-      URL http://grid-deployment.web.cern.ch/grid-deployment/dms/lcgutil/tar/davix/davix-${DAVIX_VERSION}.tar.gz
-      INSTALL_DIR ${CMAKE_BINARY_DIR}
-      CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR> -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DLIB_SUFFIX=
+      PREFIX DAVIX
+      URL http://grid-deployment.web.cern.ch/grid-deployment/dms/lcgutil/tar/davix/davix-embedded-${DAVIX_VERSION}.tar.gz
+      INSTALL_DIR ${CMAKE_BINARY_DIR}/DAVIX-install
+      CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+                 -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} 
+                 -DBOOST_EXTERNAL=OFF
+                 -DSTATIC_LIBRARY=ON
+                 -DSHARED_LIBRARY=OFF
+                 -DENABLE_TOOLS=OFF
+                 -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+                 -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+                 -DCMAKE_C_FLAGS=${__cflags}
+                 -DCMAKE_CXX_FLAGS=${__cxxflags}
+                 -DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT}
+                 -DCMAKE_OSX_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}
     )
-    set(DAVIX_INCLUDE_DIR ${CMAKE_BINARY_DIR}/include/davix)
-    set(DAVIX_LIBRARY -L${CMAKE_BINARY_DIR}/lib -ldavix)
+    if(${SYSCTL_OUTPUT} MATCHES x86_64)
+      set(_LIBDIR "lib64")
+    else()
+      set(_LIBDIR "lib")
+    endif()
+    set(DAVIX_INCLUDE_DIR ${CMAKE_BINARY_DIR}/DAVIX-install/include/davix)
+    set(DAVIX_LIBRARY ${CMAKE_BINARY_DIR}/DAVIX-install/${_LIBDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}davix${CMAKE_STATIC_LIBRARY_SUFFIX})
     set(DAVIX_INCLUDE_DIRS ${DAVIX_INCLUDE_DIR})
-    set(DAVIX_LIBRARIES ${DAVIX_LIBRARY})
+    foreach(l davix neon boost_static_internal)
+      list(APPEND DAVIX_LIBRARIES ${CMAKE_BINARY_DIR}/DAVIX-install/${_LIBDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${l}${CMAKE_STATIC_LIBRARY_SUFFIX})
+    endforeach()
+  else()
+    message(STATUS "Looking for DAVIX")
+    find_package(Davix)
+    if(NOT DAVIX_FOUND)
+      message(STATUS "Davix not found. You can enable the option 'builtin_davix' to build the library internally'")
+      message(STATUS "                 For the time being switching off 'davix' option")
+      set(davix OFF CACHE BOOL "" FORCE)
+    endif()
+  endif()
 endif()
 
+#---Check for vc and its compatibility-----------------------------------------------
+if(vc)
+  if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.5)
+      message(STATUS "VC requires GCC version >= 4.5; switching OFF 'vc' option")
+      set(vc OFF CACHE BOOL "" FORCE)
+    endif()
+  elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.0)
+      message(STATUS "VC requires Clang version >= 4.0; switching OFF 'vc' option")
+      set(vc OFF CACHE BOOL "" FORCE)
+    endif()
+  elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 17.0)  # equivalent to MSVC 2010
+      message(STATUS "VC requires MSVC version >= 2011; switching OFF 'vc' option")
+      set(vc OFF CACHE BOOL "" FORCE)
+    endif()
+  endif()
+endif()
 
 #---Report non implemented options---------------------------------------------------
 foreach(opt afs chirp clarens glite hdfs pch peac sapdb srp)

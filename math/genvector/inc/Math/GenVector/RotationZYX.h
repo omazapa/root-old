@@ -87,7 +87,7 @@ public:
    */
    RotationZYX( Scalar phi, Scalar theta, Scalar psi ) :
       fPhi(phi), fTheta(theta), fPsi(psi)
-   {Rectify();}			// Added 27 Jan. 06   JMM
+   {Rectify();}  // Added 27 Jan. 06   JMM
 
    /**
       Construct given a pair of pointers or iterators defining the
@@ -132,11 +132,12 @@ public:
    */
    template<class IT>
    void SetComponents(IT begin, IT end) {
+      (void)end;
       fPhi   = *begin++;
       fTheta = *begin++;
       fPsi   = *begin++;
       assert(begin == end); 
-      Rectify();		
+      Rectify();
    }
 
    /**
@@ -145,6 +146,7 @@ public:
    */
    template<class IT>
    void GetComponents(IT begin, IT end) const {
+      (void)end; 
       *begin++ = fPhi;
       *begin++ = fTheta;
       *begin++ = fPsi;
@@ -166,7 +168,7 @@ public:
    */
    void SetComponents(Scalar phi, Scalar theta, Scalar psi) {
       fPhi=phi; fTheta=theta; fPsi=psi; 
-      Rectify();			
+      Rectify();
    }
 
    /**
@@ -177,27 +179,27 @@ public:
    }
 
    /**
-      Set Phi angle (Z rotation angle) 		
+      Set Phi angle (Z rotation angle)
    */
    void SetPhi(Scalar phi) { fPhi=phi; Rectify(); }
 
    /**
-      Return Phi angle (Z rotation angle) 		
+      Return Phi angle (Z rotation angle)
    */
    Scalar Phi() const { return fPhi; }
 
    /**
-      Set Theta angle (Y' rotation angle) 				
+      Set Theta angle (Y' rotation angle)
    */
    void SetTheta(Scalar theta) { fTheta=theta; Rectify(); }
 
    /**
-      Return Theta angle (Y' rotation angle) 				
+      Return Theta angle (Y' rotation angle)
    */
    Scalar Theta() const { return fTheta; }
 
    /**
-      Set Psi angle (X'' rotation angle)	    
+      Set Psi angle (X'' rotation angle)
    */
    void SetPsi(Scalar psi) { fPsi=psi; Rectify(); }
 

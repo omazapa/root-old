@@ -843,16 +843,18 @@ Bool_t RooWorkspace::import(RooAbsData& inData,
     }
   }
 
-  // Now import the dataset observables
-  TIterator* iter = clone->get()->createIterator() ;
+  // Now import the dataset observables, unless dataset is embedded
   RooAbsArg* carg ;
-  while((carg=(RooAbsArg*)iter->Next())) {
-    if (!arg(carg->GetName())) {
-      import(*carg) ;
+  if (!embedded) {
+    TIterator* iter = clone->get()->createIterator() ;
+    while((carg=(RooAbsArg*)iter->Next())) {
+      if (!arg(carg->GetName())) {
+	import(*carg) ;
+      }
     }
+    delete iter ;
   }
-  delete iter ;
-    
+
   dataList.Add(clone) ;
   if (_dir) {	
     _dir->InternalAppend(clone) ;
@@ -3022,7 +3024,7 @@ void RooWorkspace::exportObj(TObject* wobj)
   }
 
   // Declare correctly typed reference to object in CINT in the namespace associated with this workspace
-  string cintExpr = Form("namespace %s { %s& %s = *(%s *)%p ; }",_exportNSName.c_str(),wobj->IsA()->GetName(),wobj->GetName(),wobj->IsA()->GetName(),wobj) ;
+  string cintExpr = Form("namespace %s { %s& %s = *(%s *)0x%lx ; }",_exportNSName.c_str(),wobj->IsA()->GetName(),wobj->GetName(),wobj->IsA()->GetName(),(ULong_t)wobj) ;
   gROOT->ProcessLine(cintExpr.c_str()) ;  
 }
 

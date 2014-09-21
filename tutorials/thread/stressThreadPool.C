@@ -2,11 +2,20 @@
 // root [0] .L stressThreadPool.C++
 // root [1] stressThreadPool(10)   10 = numThreads
 
+#if defined(__CINT__) && !defined(__MAKECINT__)
+{
+  gROOT->ProcessLine(TString(".L ")+gInterpreter->GetCurrentMacroName()+"+");
+  stressThreadPool(10);
+}
+#else
+
 // STD
 #include <iostream>
 #include <iterator>
 #include <vector>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 // ThreadPool
 #include "TThreadPool.h"
 // ROOT
@@ -25,7 +34,7 @@ class TTestTask: public TThreadPoolTaskImp<TTestTask, EProc> {
 public:
    bool runTask(EProc /*_param*/) {
       m_tid = TThread::SelfId();
-      sleep(g_sleeptime);
+      TThread::Sleep(g_sleeptime, 0L);
       return true;
    }
    unsigned long threadID() const {
@@ -86,3 +95,5 @@ void stressThreadPool(size_t _numThreads, bool _needDbg = false)
 
    cout << "ThreadPool: simple test - "<< (testOK? "OK": "Failed") << endl;
 }
+#endif
+

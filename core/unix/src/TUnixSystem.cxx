@@ -36,7 +36,11 @@
 #include "Riostream.h"
 #include "TVirtualMutex.h"
 #include "TObjArray.h"
+#include "ThreadLocalStorage.h"
 #include <map>
+#if __cplusplus >= 201103L
+#include <atomic>
+#endif
 
 //#define G__OLDEXPAND
 
@@ -439,7 +443,11 @@ static void SigHandler(ESignals sig)
 //______________________________________________________________________________
 static const char *GetExePath()
 {
-   static TString exepath;
+#ifdef R__HAS_THREAD_LOCAL
+   thread_local TString exepath;
+#else
+   TString &exepath( TTHREAD_TLS_INIT<3 /* must be unique */, TString>() );
+#endif
    if (exepath == "") {
 #if defined(R__MACOSX)
       exepath = _dyld_get_image_name(0);
@@ -582,7 +590,6 @@ static void DylibAdded(const struct mach_header *mh, intptr_t /* vmaddr_slide */
    }
 }
 #endif
-
 
 ClassImp(TUnixSystem)
 
@@ -728,8 +735,9 @@ const char *TUnixSystem::GetError()
    // Return system error string.
 
    Int_t err = GetErrno();
-   if (err == 0 && fLastErrorString != "")
-      return fLastErrorString;
+   if (err == 0 && GetLastErrorString() != "")
+      return GetLastErrorString();
+
 #if defined(R__SOLARIS) || defined (R__LINUX) || defined(R__AIX) || \
     defined(R__FBSD) || defined(R__OBSD) || defined(R__HURD)
    return strerror(err);
@@ -1583,7 +1591,8 @@ Bool_t TUnixSystem::AccessPathName(const char *path, EAccessMode mode)
 
    if (::access(StripOffProto(path, "file:"), mode) == 0)
       return kFALSE;
-   fLastErrorString = GetError();
+   GetLastErrorString() = GetError();
+
    return kTRUE;
 }
 
@@ -1630,7 +1639,7 @@ int TUnixSystem::Rename(const char *f, const char *t)
    // Rename a file. Returns 0 when successful, -1 in case of failure.
 
    int ret = ::rename(f, t);
-   fLastErrorString = GetError();
+   GetLastErrorString() = GetError();
    return ret;
 }
 
@@ -1832,7 +1841,7 @@ needshell:
       } else {
          hd = UnixHomedirectory(0);
          if (hd == 0) {
-            fLastErrorString = GetError();
+            GetLastErrorString() = GetError();
             return kTRUE;
          }
          cmd += hd;
@@ -1842,7 +1851,7 @@ needshell:
       cmd += stuffedPat;
 
    if ((pf = ::popen(cmd.Data(), "r")) == 0) {
-      fLastErrorString = GetError();
+      GetLastErrorString() = GetError();
       return kTRUE;
    }
 
@@ -1865,7 +1874,7 @@ again:
    while (ch != EOF) {
       ch = fgetc(pf);
       if (ch == ' ' || ch == '\t') {
-         fLastErrorString = "expression ambigous";
+         GetLastErrorString() = "expression ambigous";
          ::pclose(pf);
          return kTRUE;
       }
@@ -3776,8 +3785,8 @@ void TUnixSystem::UnixIgnoreSignal(ESignals sig, Bool_t ignr)
    // If ignr is true ignore the specified signal, else restore previous
    // behaviour.
 
-   static Bool_t ignoreSig[kMAXSIGNALS] = { kFALSE };
-   static struct sigaction oldsigact[kMAXSIGNALS];
+   TTHREAD_TLS(Bool_t) ignoreSig[kMAXSIGNALS] = { kFALSE };
+   TTHREAD_TLS_ARRAY(struct sigaction,kMAXSIGNALS,oldsigact);
 
    if (ignr != ignoreSig[sig]) {
       ignoreSig[sig] = ignr;
@@ -3881,7 +3890,11 @@ Long64_t TUnixSystem::UnixNow()
 {
    // Get current time in milliseconds since 0:00 Jan 1 1995.
 
+#if __cplusplus >= 201103L
+   static std::atomic<time_t> jan95{0};
+#else
    static time_t jan95 = 0;
+#endif
    if (!jan95) {
       struct tm tp;
       tp.tm_year  = 95;
@@ -5173,13 +5186,13 @@ static void GetDarwinProcInfo(ProcInfo_t *procinfo)
    } else {
       // resident size does not require any calculation. Virtual size
       // needs to be adjusted if traversing memory objects do not include the
-   	// globally shared text and data regions
-   	mach_port_t object_name;
-   	vm_address_t address;
-   	vm_region_top_info_data_t info;
-   	vm_size_t vsize, vprvt, rsize, size;
-   	rsize = ti.resident_size;
-   	vsize = ti.virtual_size;
+      // globally shared text and data regions
+      mach_port_t object_name;
+      vm_address_t address;
+      vm_region_top_info_data_t info;
+      vm_size_t vsize, vprvt, rsize, size;
+      rsize = ti.resident_size;
+      vsize = ti.virtual_size;
       vprvt = 0;
       for (address = 0; ; address += size) {
          // get memory region

@@ -104,6 +104,7 @@
 #include "TMap.h"
 #include "TObjString.h"
 #include "TVirtualMutex.h"
+#include "ThreadLocalStorage.h"
 #ifdef R__HAS_CLING
 # include "TCintWithCling.h"
 #else
@@ -279,6 +280,10 @@ TROOT::TROOT(const char *name, const char *title, VoidFuncPtr_t *initfunc)
 
    gROOT      = this;
    gDirectory = 0;
+  
+   // initialize gClassTable is not already done
+   if (!gClassTable) new TClassTable;
+  
    SetName(name);
    SetTitle(title);
 
@@ -735,14 +740,14 @@ void TROOT::CloseFiles()
 }
 
 //______________________________________________________________________________
-void TROOT::EndOfProcessCleanups()
+void TROOT::EndOfProcessCleanups(bool altInterpreter /* = false */)
 {
    // Execute the cleanups necessary at the end of the process, in particular
    // those that must be executed before the library start being unloaded.
 
    CloseFiles();
    
-   if (gInterpreter) {
+   if (gInterpreter && !altInterpreter) {
       gInterpreter->ResetGlobals();
    }
 
@@ -1816,6 +1821,24 @@ void TROOT::ReadGitInfo()
    }
    delete [] filename;
 }
+
+Bool_t &GetReadingObject() {
+   TTHREAD_TLS(Bool_t) fgReadingObject = false;
+   return fgReadingObject;
+}
+
+//______________________________________________________________________________
+Bool_t TROOT::ReadingObject() const 
+{ 
+   /* Deprecated (will be removed in next release) */ 
+   return GetReadingObject();
+}
+
+void TROOT::SetReadingObject(Bool_t flag) 
+{ 
+   GetReadingObject() = flag;
+}
+
 
 //______________________________________________________________________________
 const char *TROOT::GetGitDate()

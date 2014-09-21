@@ -164,8 +164,15 @@ TNetXNGFile::TNetXNGFile(const char *url,
       return;
    }
 
+   if( (fMode & OpenFlags::New) || (fMode & OpenFlags::Delete) ||
+       (fMode & OpenFlags::Update) )
+      fWritable = true;
+
    // Initialize the file
-   TFile::Init(false);
+   bool create = false;
+   if( (fMode & OpenFlags::New) || (fMode & OpenFlags::Delete) )
+      create = true;
+   TFile::Init(create);
 
    // Get the vector read limits
    GetVectorReadLimits();
@@ -346,6 +353,7 @@ Bool_t TNetXNGFile::ReadBuffer(char *buffer, Long64_t position, Int_t length)
       return kTRUE;
 
    // Try to read from cache
+   fOffset = position;
    Int_t status;
    if ((status = ReadBufferViaCache(buffer, length))) {
       if (status == 2)
@@ -365,7 +373,7 @@ Bool_t TNetXNGFile::ReadBuffer(char *buffer, Long64_t position, Int_t length)
    }
 
    // Bump the globals
-   fOffset     += length;
+   fOffset     += bytesRead;
    fBytesRead  += bytesRead;
    fgBytesRead += bytesRead;
    fReadCalls  ++;
@@ -403,7 +411,8 @@ Bool_t TNetXNGFile::ReadBuffers(char *buffer, Long64_t *position, Int_t *length,
    std::vector<XRootDStatus*> *statuses;
    TSemaphore                 *semaphore;
    Int_t                       totalBytes = 0;
-   Int_t                       offset     = 0;
+   Long64_t                    offset     = 0;
+   char                       *cursor     = buffer;
 
    Double_t start = 0;
    if (gPerfStats) start = TTimeStamp();
@@ -425,16 +434,17 @@ Bool_t TNetXNGFile::ReadBuffers(char *buffer, Long64_t *position, Int_t *length,
          // Add as many max-size chunks as are divisible
          for (j = 0; j < nsplit; ++j) {
             offset = position[i] + (j * fReadvIorMax);
-            chunks.push_back(ChunkInfo(offset, fReadvIorMax, buffer));
+            chunks.push_back(ChunkInfo(offset, fReadvIorMax, cursor));
+            cursor += fReadvIorMax;
          }
 
          // Add the remainder
          offset = position[i] + (j * fReadvIorMax);
-         chunks.push_back(ChunkInfo(offset, rem, buffer));
-
+         chunks.push_back(ChunkInfo(offset, rem, cursor));
+         cursor += rem;
       } else {
-         offset = position[i];
-         chunks.push_back(ChunkInfo(offset, length[i], buffer));
+         chunks.push_back(ChunkInfo(position[i], length[i], cursor));
+         cursor += length[i];
       }
 
       // If there are more than or equal to max chunks, make another chunk list
@@ -449,7 +459,8 @@ Bool_t TNetXNGFile::ReadBuffers(char *buffer, Long64_t *position, Int_t *length,
    }
 
    // Push back the last chunk list
-   chunkLists.push_back(chunks);
+   if( !chunks.empty() )
+      chunkLists.push_back(chunks);
 
    TAsyncReadvHandler *handler;
    XRootDStatus        status;
@@ -462,7 +473,7 @@ Bool_t TNetXNGFile::ReadBuffers(char *buffer, Long64_t *position, Int_t *length,
    {
       handler = new TAsyncReadvHandler(statuses, it - chunkLists.begin(),
                                        semaphore);
-      status  = fFile->VectorRead(*it, buffer, handler);
+      status = fFile->VectorRead(*it, 0, handler);
 
       if (!status.IsOK()) {
          Error("ReadBuffers", "%s", status.ToStr().c_str());
@@ -481,13 +492,13 @@ Bool_t TNetXNGFile::ReadBuffers(char *buffer, Long64_t *position, Int_t *length,
 
       if (!st->IsOK()) {
          Error("ReadBuffers", "%s", st->ToStr().c_str());
-         delete statuses;
-         delete semaphore;
          for( ; it != chunkLists.end(); ++it )
          {
             st = statuses->at( it - chunkLists.begin() );
             delete st;
          }
+         delete statuses;
+         delete semaphore;
 
          return kTRUE;
       }
@@ -529,6 +540,12 @@ Bool_t TNetXNGFile::WriteBuffer(const char *buffer, Int_t length)
    if (!IsUseable())
       return kTRUE;
 
+   if (!fWritable) {
+      if (gDebug > 1)
+         Info("WriteBuffer", "file not writable");
+      return kTRUE;
+   }
+
    // Check the write cache
    Int_t status;
    if ((status = WriteBufferViaCache(buffer, length))) {
@@ -552,6 +569,30 @@ Bool_t TNetXNGFile::WriteBuffer(const char *buffer, Int_t length)
    return kFALSE;
 }
 
+//_____________________________________________________________________________
+void TNetXNGFile::Flush()
+{
+   if (!IsUseable())
+      return;
+
+   if (!fWritable) {
+      if (gDebug > 1)
+         Info("Flush", "file not writable - do nothing");
+      return;
+   }
+
+   FlushWriteCache();
+
+   //
+   // Flush via the remote xrootd
+   XrdCl::XRootDStatus status = fFile->Sync();
+   if( !status.IsOK() )
+      Error("Flush", "%s", status.ToStr().c_str());
+
+   if (gDebug > 1)
+      Info("Flush", "XrdClient::Sync succeeded.");
+}
+
 //______________________________________________________________________________
 void TNetXNGFile::Seek(Long64_t offset, ERelativeTo position)
 {
@@ -573,7 +614,7 @@ XrdCl::OpenFlags::Flags TNetXNGFile::ParseOpenMode(Option_t *modestr)
    // returns:      correctly parsed option mode
 
    using namespace XrdCl;
-   OpenFlags::Flags mode = OpenFlags::None;
+   OpenFlags::Flags mode = OpenFlags::Read;
    TString mod = ToUpper(TString(modestr));
 
    if (mod == "NEW" || mod == "CREATE")  mode = OpenFlags::New;
@@ -610,22 +651,29 @@ Bool_t TNetXNGFile::GetVectorReadLimits()
 
    using namespace XrdCl;
 
+   fReadvIorMax = 2097136;
+   fReadvIovMax = 1024;
+
    // Check the file isn't a zombie or closed
    if (!IsUseable())
       return kFALSE;
 
+#if XrdVNUMBER >= 40000
+   std::string dataServerStr;
+   if( !fFile->GetProperty( "DataServer", dataServerStr ) )
+      return kFALSE;
+   URL dataServer(dataServerStr);
+#else
    URL dataServer(fFile->GetDataServer());
+#endif
    FileSystem fs(dataServer);
    Buffer  arg;
    Buffer *response;
    arg.FromString(std::string("readv_ior_max readv_iov_max"));
 
    XRootDStatus status = fs.Query(QueryCode::Config, arg, response);
-   if (!status.IsOK()) {
-      fReadvIorMax = 2097136;
-      fReadvIovMax = 1024;
+   if (!status.IsOK())
       return kFALSE;
-   }
 
    Ssiz_t from = 0;
    TString token;

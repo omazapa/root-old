@@ -108,26 +108,26 @@ void RooStudyManager::runProof(Int_t nExperiments, const char* proofHost, Bool_t
 
   // Suppress GUI if so requested
   if (!showGui) {
-    gROOT->ProcessLineFast(Form("((TProof*)%p)->SetProgressDialog(0) ;",p)) ;
+    gROOT->ProcessLineFast(Form("((TProof*)0x%lx)->SetProgressDialog(0) ;",(ULong_t)p)) ;
   }
 
   // Propagate workspace to proof nodes
   coutP(Generation) << "RooStudyManager::runProof(" << GetName() << ") sending work package to PROOF servers" << endl ;
-  gROOT->ProcessLineFast(Form("((TProof*)%p)->AddInput((TObject*)%p) ;",p,(void*)_pkg) ) ;
+  gROOT->ProcessLineFast(Form("((TProof*)0x%lx)->AddInput((TObject*)0x%lx) ;",(ULong_t)p,(ULong_t)_pkg) ) ;
 
   // Run selector in parallel
   coutP(Generation) << "RooStudyManager::runProof(" << GetName() << ") starting PROOF processing of " << nExperiments << " experiments" << endl ;
 			 
-  gROOT->ProcessLineFast(Form("((TProof*)%p)->Process(\"RooProofDriverSelector\",%d) ;",p,nExperiments)) ;
+  gROOT->ProcessLineFast(Form("((TProof*)0x%lx)->Process(\"RooProofDriverSelector\",%d) ;",(ULong_t)p,nExperiments)) ;
 
   // Aggregate results data
   coutP(Generation) << "RooStudyManager::runProof(" << GetName() << ") aggregating results data" << endl ;
-  TList* olist = (TList*) gROOT->ProcessLineFast(Form("((TProof*)%p)->GetOutputList()",p)) ;
+  TList* olist = (TList*) gROOT->ProcessLineFast(Form("((TProof*)0x%lx)->GetOutputList()",(ULong_t)p)) ;
   aggregateData(olist) ;
 
   // cleaning up                                                                                                                                           
   coutP(Generation) << "RooStudyManager::runProof(" << GetName() << ") cleaning up input list" << endl ;                                                   
-  gROOT->ProcessLineFast(Form("((TProof*)%p)->GetInputList()->Remove((TObject*)%p) ;",p,(void*)_pkg) ) ;                                                   
+  gROOT->ProcessLineFast(Form("((TProof*)0x%lx)->GetInputList()->Remove((TObject*)0x%lx) ;",(ULong_t)p,(ULong_t)_pkg) ) ;                                                   
   
 }
 
@@ -141,15 +141,15 @@ void RooStudyManager::closeProof(Option_t *option)
   // where it is essential to properly close all connections and delete
   // the TProof instance (frees ports).
 
-  if (gROOT->GetListOfProofs()->LastIndex() != -1  &&  gROOT->ProcessLineFast("TProof::gProof;"))
+  if (gROOT->GetListOfProofs()->LastIndex() != -1  &&  gROOT->ProcessLineFast("gProof;"))
   {
-    gROOT->ProcessLineFast(Form("TProof::gProof->Close(\"%s\") ;",option)) ;
-    gROOT->ProcessLineFast("TProof::gProof->CloseProgressDialog() ;") ;
+    gROOT->ProcessLineFast(Form("gProof->Close(\"%s\") ;",option)) ;
+    gROOT->ProcessLineFast("gProof->CloseProgressDialog() ;") ;
 
     // CloseProgressDialog does not do anything when run without GUI. This detects
     // whether the proof instance is still there and deletes it if that is the case.
-    if (gROOT->GetListOfProofs()->LastIndex() != -1  &&  gROOT->ProcessLineFast("TProof::gProof;")) {
-      gROOT->ProcessLineFast("delete TProof::gProof ;") ;
+    if (gROOT->GetListOfProofs()->LastIndex() != -1  &&  gROOT->ProcessLineFast("gProof;")) {
+      gROOT->ProcessLineFast("delete gProof ;") ;
     }
   } else {
     ooccoutI((TObject*)NULL,Generation) << "RooStudyManager: No global Proof objects. No connections closed." << endl ;

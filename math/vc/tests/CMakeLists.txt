@@ -1,13 +1,24 @@
 include(AddFileDependencies)
+if(CMAKE_VERSION VERSION_GREATER 3.0.0)
+  cmake_policy(SET CMP0042 OLD)
+endif()
+
 
 add_definitions(-DCOMPILE_FOR_UNIT_TESTS) # -DVC_CHECK_ALIGNMENT)
 if(Vc_COMPILER_IS_MSVC)
    AddCompilerFlag("/wd4267") # Disable warning "conversion from 'size_t' to 'int', possible loss of data"
    AddCompilerFlag("/wd4723") # Disable warning "potential divide by 0" (suppress doesn't work)
+   AddCompilerFlag("/wd4290") # Disable warning "C++ exception specification ignored except to indicate a function is not __declspec(nothrow)"
 endif()
 
 if(DEFINED Vc_INSIDE_ROOT)
    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "")  # Reset the ROOT default executable destination
+   if(Vc_COMPILER_IS_MSVC)
+      foreach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
+         string( TOUPPER ${OUTPUTCONFIG} OUTPUTCONFIG )
+         set( CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} )
+      endforeach( OUTPUTCONFIG CMAKE_CONFIGURATION_TYPES )
+   endif()
    set(Vc_TEST_TARGET_PREFIX "vc-")
 else()
    set(Vc_TEST_TARGET_PREFIX "")

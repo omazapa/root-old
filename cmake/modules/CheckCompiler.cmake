@@ -23,9 +23,11 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
 
 #----Test if clang setup works----------------------------------------------------------------------
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-  exec_program(${CMAKE_C_COMPILER} ARGS "-v" OUTPUT_VARIABLE _clang_version_info)
-  string(REGEX REPLACE "^.*[ ]([0-9]+)\\.[0-9].*$" "\\1" CLANG_MAJOR "${_clang_version_info}")
-  string(REGEX REPLACE "^.*[ ][0-9]+\\.([0-9]).*$" "\\1" CLANG_MINOR "${_clang_version_info}")
+  exec_program(${CMAKE_CXX_COMPILER} ARGS "--version 2>&1 | grep version" OUTPUT_VARIABLE _clang_version_info)
+  string(REGEX REPLACE "^.*[ ]version[ ]([0-9]+)\\.[0-9]+.*" "\\1" CLANG_MAJOR "${_clang_version_info}")
+  string(REGEX REPLACE "^.*[ ]version[ ][0-9]+\\.([0-9]+).*" "\\1" CLANG_MINOR "${_clang_version_info}")
+  message(STATUS "Found Clang. Major version ${CLANG_MAJOR}, minor version ${CLANG_MINOR}")
+  set(COMPILER_VERSION clang${CLANG_MAJOR}${CLANG_MINOR})
 else()
   set(CLANG_MAJOR 0)
   set(CLANG_MINOR 0)
@@ -55,14 +57,16 @@ else()
 endif()
 
 #---Set a default build type for single-configuration CMake generators if no build type is set------
+set(CMAKE_CONFIGURATION_TYPES Release MinSizeRel Debug RelWithDebInfo)
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "" FORCE)
+  set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Choose the type of build, options are: Release, MinSizeRel, Debug, RelWithDebInfo." FORCE)
 endif()
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
+include(CheckCXXCompilerFlag)
+include(CheckCCompilerFlag)
 #---Check for cxx11 option------------------------------------------------------------
 if(cxx11)
-  include(CheckCXXCompilerFlag)
   CHECK_CXX_COMPILER_FLAG("-std=c++11" HAS_CXX11)
   if(NOT HAS_CXX11)
     message(STATUS "Current compiler does not suppport -std=c++11 option. Switching OFF cxx11 option")
@@ -70,8 +74,16 @@ if(cxx11)
   endif()
 endif()
 
+#---Check for other compiler flags-------------------------------------------------------------------
+CHECK_CXX_COMPILER_FLAG("-Wno-array-bounds" CXX_HAS_Wno-array-bounds)
+
 #---Need to locate thead libraries and options to set properly some compilation flags---------------- 
 find_package(Threads)
+if(CMAKE_USE_PTHREADS_INIT)
+  set(CMAKE_THREAD_FLAG -pthread)
+else()
+  set(CMAKE_THREAD_FLAG)
+endif()
 
 #---Setup details depending opn the major platform type----------------------------------------------
 if(CMAKE_SYSTEM_NAME MATCHES Linux)
@@ -81,6 +93,9 @@ elseif(APPLE)
 elseif(WIN32)
   include(SetupWindows)
 endif()
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_THREAD_FLAG}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_THREAD_FLAG}")
 
 if(cxx11)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")

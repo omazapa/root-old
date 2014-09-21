@@ -27,8 +27,6 @@
 #include "TRef.h"
 #include <algorithm>
 
-R__EXTERN TTree *gTree;
-
 ClassImp(TVirtualBranchBrowsable);
 
 //______________________________________________________________________________
@@ -110,8 +108,8 @@ void TVirtualBranchBrowsable::Browse(TBrowser *b)
 
       TTree* tree=0;
       if (!fBranch) {
-         Warning("Browse", "branch not set - might access wrong tree!");
-         tree=gTree;
+         Error("Browse", "branch not set - might access wrong tree!");
+         return;
       } else tree=fBranch->GetTree();
       tree->Draw(name, "", b ? b->GetDrawOption() : "");
       if (gPad) gPad->Update();
@@ -166,12 +164,11 @@ TClass* TVirtualBranchBrowsable::GetCollectionContainedType(const TBranch* branc
 
          // check if we're in a sub-branch of this class
          // we can only find out asking the streamer given our ID
-         ULong_t *elems=0;
          TStreamerElement *element=0;
          if (be->GetID()>=0 && be->GetInfo() 
-            && (be->GetID() < be->GetInfo()->GetNdata())
-            && ((elems=be->GetInfo()->GetElems()))
-            && ((element=(TStreamerElement *)elems[be->GetID()]))) {
+            && (be->GetID() < be->GetInfo()->GetNelement())
+            && be->GetInfo()->IsCompiled()
+            && (element=be->GetInfo()->GetElement(be->GetID()))) {
             // if contained is set (i.e. GetClonesName was successful),
             // this element containes the container, otherwise it's the 
             // contained
@@ -195,7 +192,7 @@ TClass* TVirtualBranchBrowsable::GetCollectionContainedType(const TBranch* branc
          type=TClass::GetClass(clonesname);
       }
    } else {
-      if (gTree) gTree->Warning("GetCollectionContainedType", "Neither branch nor parent given!");
+      ::Warning("TVirtualBranchBrowsable::GetCollectionContainedType", "Neither branch nor parent given!");
       return 0;
    }
 
@@ -778,8 +775,7 @@ Int_t TCollectionPropertyBrowsable::GetBrowsables(TList& li, const TBranch* bran
          }
       }
    } else {
-      if (gTree)
-         gTree->Warning("GetBrowsables", "Neither branch nor parent is set!");
+      ::Warning("TCollectionPropertyBrowsable::GetBrowsables", "Neither branch nor parent is set!");
       return 0;
    }
 

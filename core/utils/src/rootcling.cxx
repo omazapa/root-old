@@ -3483,7 +3483,7 @@ void WriteClassFunctions(const clang::CXXRecordDecl *cl)
    (*dictSrcOut) << "//_______________________________________"
                  << "_______________________________________" << std::endl;
    if (add_template_keyword) (*dictSrcOut) << "template <> ";
-   (*dictSrcOut) << "TClass *" << clsname.c_str() << "::fgIsA = 0;  // static to hold class pointer" << std::endl
+   (*dictSrcOut) << "atomic_TClass_ptr " << clsname.c_str() << "::fgIsA(0);  // static to hold class pointer" << std::endl
                  << std::endl
 
                  << "//_______________________________________"
@@ -3518,8 +3518,8 @@ void WriteClassFunctions(const clang::CXXRecordDecl *cl)
                  << "_______________________________________" << std::endl;
    if (add_template_keyword) (*dictSrcOut) << "template <> ";
    (*dictSrcOut) << "TClass *" << clsname.c_str() << "::Class()" << std::endl << "{" << std::endl;
-   (*dictSrcOut) << "   if (!fgIsA) fgIsA = ::ROOT::GenerateInitInstanceLocal((const ::";
-   (*dictSrcOut) << fullname.c_str() << "*)0x0)->GetClass();" << std::endl
+   (*dictSrcOut) << "   if (!fgIsA) { R__LOCKGUARD2(gCINTMutex); if(!fgIsA) {fgIsA = ::ROOT::GenerateInitInstanceLocal((const ::";
+   (*dictSrcOut) << fullname.c_str() << "*)0x0)->GetClass();} }" << std::endl
                  << "   return fgIsA;" << std::endl
                  << "}" << std::endl << std::endl;
 
@@ -4074,10 +4074,10 @@ const clang::FieldDecl *R__GetDataMemberFromAll(const clang::CXXRecordDecl &cl, 
    
 }
 
-bool CXXRecordDecl__FindOrdinaryMember 	( const clang::CXXBaseSpecifier *  	Specifier,
-                                           clang::CXXBasePath &  	Path,
-                                           void *  	Name 
-                                           ) 	
+bool CXXRecordDecl__FindOrdinaryMember ( const clang::CXXBaseSpecifier *Specifier,
+                                           clang::CXXBasePath &Path,
+                                           void *Name
+                                           )
 {
    clang::RecordDecl *BaseRecord = Specifier->getType()->getAs<clang::RecordType>()->getDecl();
    const clang::CXXRecordDecl *clxx = llvm::dyn_cast<clang::CXXRecordDecl>(BaseRecord);
@@ -6514,6 +6514,8 @@ int main(int argc, char **argv)
                  << "#include \"TCintWithCling.h\"" << std::endl
                  << "#include \"TBuffer.h\"" << std::endl
                  << "#include \"TMemberInspector.h\"" << std::endl
+                 << "#include \"TInterpreter.h\"" << std::endl
+                 << "#include \"TVirtualMutex.h\"" << std::endl
                  << "#include \"TError.h\"" << std::endl << std::endl
                  << "#ifndef G__ROOT" << std::endl
                  << "#define G__ROOT" << std::endl

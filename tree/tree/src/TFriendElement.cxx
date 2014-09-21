@@ -30,8 +30,6 @@
 #include "TFile.h"
 #include "TROOT.h"
 
-R__EXTERN TTree *gTree;
-
 ClassImp(TFriendElement)
 
 //______________________________________________________________________________
@@ -43,7 +41,7 @@ TFriendElement::TFriendElement() : TNamed()
    fFile       = 0;
    fTree       = 0;
    fOwnFile    = kFALSE;
-   fParentTree = gTree;
+   fParentTree = 0;
 }
 
 //______________________________________________________________________________

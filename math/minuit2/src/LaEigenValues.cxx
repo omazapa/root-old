@@ -29,9 +29,9 @@ LAVector eigenvalues(const LASymMatrix& mat) {
          tmp(i + j*nrow) = mat(i,j);
          tmp(i*nrow + j) = mat(i,j);
       }
-         
-         int info = mneigen(tmp.Data(), nrow, nrow, work.size(), work.Data(), 1.e-6);
-   
+
+   int info = mneigen(tmp.Data(), nrow, nrow, work.size(), work.Data(), 1.e-6);
+   (void)info;
    assert(info == 0);
    
    LAVector result(nrow);

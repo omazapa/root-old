@@ -36,6 +36,7 @@
 #include "TRegexp.h"
 #include "TString.h"
 #include "TError.h"
+#include "ThreadLocalStorage.h"
 
 const unsigned TRegexp::fgMaxpat = 2048;
 
@@ -143,7 +144,13 @@ const char *TRegexp::MakeWildcard(const char *re)
    // from *.eps). The special treatment of "/" allows the easy matching of
    // pathnames, e.g. "*.root" will match "aap.root", but not "pipo/aap.root".
 
-   static char buf[fgMaxpat];
+#ifdef R__HAS_THREAD_LOCAL
+   thread_local char buf[fgMaxpat];
+#else
+   //static char buf[fgMaxpat];
+   typedef char buf_t[fgMaxpat];
+   buf_t &buf( TTHREAD_TLS_INIT_ARRAY<4 /* must be unique */, buf_t, char>() );
+#endif
    char *s = buf;
    if (!re) return "";
    int len = strlen(re);
