@@ -27,7 +27,10 @@ RDH          := $(MODDIRI)/RExports.h \
                 $(MODDIRI)/TRFunction.h \
                 $(MODDIRI)/compilerdata.h 
 
-RH    := $(RDH) 
+RDHF         := $(MODDIRI)/TRInternalFunction.h \
+                $(MODDIRI)/TRInternalFunction__ctors.h
+                
+RH    := $(RDH) $(RDHF)
 
 RS    := $(filter-out $(MODDIRS)/G__%,$(wildcard $(MODDIRS)/*.cxx))
 RO    := $(call stripsrc,$(RS:.cxx=.o))

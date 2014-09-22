@@ -15,10 +15,19 @@
 #ifndef ROOT_R_TRFunction
 #define ROOT_R_TRFunction
 
-#ifndef ROOT_R_RExports
-#include<RExports.h>
+#if !defined(__CINT__)
+#ifndef ROOT_R_TRInternalFunction
+#include<TRInternalFunction.h>
 #endif
+#else
+namespace ROOT {
+   namespace R {
 
+      class TRInternalFunction ;
+   }
+}
+
+#endif
 //________________________________________________________________________________________________________
 /**
    This is a base class to pass functions from ROOT to R
@@ -35,7 +44,7 @@ namespace ROOT {
          friend class TRInterface;
          friend SEXP Rcpp::wrap<TRFunction>(const TRFunction &f);
       protected:
-         Rcpp::InternalFunction *f;
+         TRInternalFunction *f;
       public:
          TRFunction();
 
@@ -45,7 +54,7 @@ namespace ROOT {
          template<class T> TRFunction(T fun) {
             //template constructor that supports a lot
             // of function's prototypes
-            f = new Rcpp::InternalFunction(fun);
+            f = new TRInternalFunction(fun);
          }
 #endif
          ClassDef(TRFunction, 0) //

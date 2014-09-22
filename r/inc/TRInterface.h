@@ -24,6 +24,10 @@
 #include<TRFunction.h>
 #endif
 
+#ifndef ROOT_TThread
+#include<TThread.h>
+#endif
+
 //utility macro to easily create a method from R function in the TRInterface
 #define R_FUNCTION(func) inline void func(TString opt){ \
       TString code=#func;\
@@ -57,6 +61,7 @@ namespace ROOT {
       class TRInterface: public TObject {
       protected:
          RInside *fR;
+	 TThread *th;
       public:
          //Proxy class to use operators for assignation Ex: r["name"]=object;
          class Binding {
@@ -106,6 +111,7 @@ namespace ROOT {
 
 
          void Interactive();
+	 void ProcessEventsLoop();
 
          R_FUNCTION(plot)
          R_FUNCTION(points)

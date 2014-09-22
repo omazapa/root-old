@@ -12,7 +12,7 @@
 #include<TRInterface.h>
 #include"TRCompletion.h"
 #include<vector>
-
+static Bool_t statusEventLoop;
 const char *argvs[] = {"rootr", "--no-save", "--silent"};
 ROOT::R::TRInterface *gR = new ROOT::R::TRInterface(3, argvs, true, false, true);
 //______________________________________________________________________________
@@ -139,7 +139,7 @@ TRInterface::TRInterface(const int argc, const char *argv[], const bool loadRcpp
    RComp_getFileCompSym   = Rf_install(".getFileComp");
    RComp_retrieveCompsSym = Rf_install(".retrieveCompletions");
    rl_attempted_completion_function = R_custom_completion;
-
+   ProcessEventsLoop();
 }
 
 //______________________________________________________________________________
@@ -224,6 +224,7 @@ void TRInterface::Interactive()
    }
 }
 
+
 //______________________________________________________________________________
 void TRInterface::Install(TString pkg, TString options)
 {
@@ -240,4 +241,29 @@ void TRInterface::Remove(TString pkg)
    //utility function to remove R's packages with the default options.
    pkg.Prepend("revome.packages('").Append("')");
    Parse(pkg);
+}
+
+#undef _POSIX_C_SOURCE
+#include <R_ext/eventloop.h>
+
+static void _REventLoop(void * args)
+{
+while (kTRUE) {
+            fd_set *fd;
+            int usec = 10000;
+            fd = R_checkActivity(usec, 0);
+            R_runHandlers(R_InputHandlers, fd);
+            gSystem->Sleep(100);  
+}
+}
+
+//______________________________________________________________________________
+void TRInterface::ProcessEventsLoop()
+{
+   //run the R's eventloop to process graphics events
+   if (!statusEventLoop) {
+      th = new TThread(_REventLoop);
+      th->Run();
+      statusEventLoop = kTRUE;
+   }
 }
