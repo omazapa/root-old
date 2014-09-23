@@ -139,7 +139,6 @@ TRInterface::TRInterface(const int argc, const char *argv[], const bool loadRcpp
    RComp_getFileCompSym   = Rf_install(".getFileComp");
    RComp_retrieveCompsSym = Rf_install(".retrieveCompletions");
    rl_attempted_completion_function = R_custom_completion;
-   ProcessEventsLoop();
 }
 
 //______________________________________________________________________________
