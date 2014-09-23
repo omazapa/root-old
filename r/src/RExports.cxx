@@ -20,7 +20,7 @@ namespace Rcpp {
    }
    template<> TString as(SEXP s)
    {
-      return TString(::Rcpp::as<const char*>(s));
+      return TString(::Rcpp::as<const char *>(s));
    }
 //TVectorD
    template<> SEXP wrap(const TVectorD &v)

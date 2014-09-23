@@ -52,6 +52,11 @@
 #if defined(__GNUC__)
 #pragma GCC diagnostic ignored "-Wshadow"
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wextra"
+#pragma GCC diagnostic ignored "-Wignored-qualifiers"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+
 #endif
 
 #if  defined(__CINT__)

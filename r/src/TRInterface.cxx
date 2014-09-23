@@ -148,9 +148,10 @@ Int_t  TRInterface::ParseEval(const TString &code, TRObjectProxy  &ans)
 // Parse R code and returns status of execution.
 // the RObject's response is saved in  ans
    SEXP fans;
-   Int_t fResult = fR->parseEval(code.Data(), fans);
+   Int_t rc = fR->parseEval(code.Data(), fans);
    ans = fans;
-   return fResult;
+   ans.SetStatus((rc == 0) ? kTRUE : kFALSE);
+   return rc;
 }
 
 //______________________________________________________________________________
@@ -170,8 +171,14 @@ TRObjectProxy TRInterface::ParseEval(const TString &code, Bool_t exception)
 // if the code has an error prints the error and continues executing.
 //if exception is true, the code launches an exception and stops the execution.
 //The RObject result of execution is returned in TRObjectProxy
-   if (exception) return TRObjectProxy((SEXP)fR->parseEval(code.Data()));
-   else return TRObjectProxy((SEXP)fR->parseEvalNT(code.Data()));
+   SEXP ans;
+   int rc = fR->parseEval(code.Data(), ans);
+   if (rc != 0 && exception) {
+      if (exception) throw std::runtime_error(std::string("Error evaluating: ") + code.Data());
+   } else if (rc != 0) {
+      Error("ParseEval", (std::string("Error evaluating: ") + code.Data()).c_str());
+   }
+   return TRObjectProxy(ans , (rc == 0) ? kTRUE : kFALSE);
 }
 
 
@@ -183,7 +190,7 @@ void TRInterface::SetVerbose(Bool_t status)
 }
 
 //______________________________________________________________________________
-TRInterface::Binding TRInterface::operator[](const TString& name)
+TRInterface::Binding TRInterface::operator[](const TString &name)
 {
    return Binding(this, name);
 }
@@ -202,7 +209,7 @@ void TRInterface::Xwin(TString opt)
 }
 
 //______________________________________________________________________________
-void TRInterface::Assign(const TRFunction &obj, const TString & name)
+void TRInterface::Assign(const TRFunction &obj, const TString &name)
 {
    //This method lets you pass c++ functions to R environment.
    fR->assign(*obj.f, name.Data());
@@ -215,7 +222,7 @@ void TRInterface::Interactive()
    //pass to ROOT calling the apropiate method.
 
    while (kTRUE) {
-      char * line = readline("[r]:");
+      char *line = readline("[r]:");
       if (!line) continue;
       if (std::string(line) == ".q") break;
       Parse(line, false);
@@ -246,15 +253,15 @@ void TRInterface::Remove(TString pkg)
 #undef _POSIX_C_SOURCE
 #include <R_ext/eventloop.h>
 
-static void _REventLoop(void * args)
+static void _REventLoop(void *args)
 {
-while (kTRUE) {
-            fd_set *fd;
-            int usec = 10000;
-            fd = R_checkActivity(usec, 0);
-            R_runHandlers(R_InputHandlers, fd);
-            gSystem->Sleep(100);  
-}
+   while (kTRUE) {
+      fd_set *fd;
+      int usec = 10000;
+      fd = R_checkActivity(usec, 0);
+      R_runHandlers(R_InputHandlers, fd);
+      gSystem->Sleep(100);
+   }
 }
 
 //______________________________________________________________________________

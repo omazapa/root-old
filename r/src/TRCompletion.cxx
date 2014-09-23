@@ -49,7 +49,7 @@ char *ROOT::R::R_completion_generator(const char *text, int state)
       list_index = 0;
       ncomp = Rf_length(completions);
       if (ncomp > 0) {
-         compstrings = (char **) malloc(ncomp * sizeof(char*));
+         compstrings = (char **) malloc(ncomp * sizeof(char *));
          if (!compstrings)  return (char *)NULL;
          for (i = 0; i < ncomp; i++)
             compstrings[i] = strdup(Rf_translateChar(STRING_ELT(completions, i)));
@@ -68,7 +68,7 @@ char *ROOT::R::R_completion_generator(const char *text, int state)
 }
 
 
-char ** ROOT::R::R_custom_completion(const char *text, int start, int end)
+char **ROOT::R::R_custom_completion(const char *text, int start, int end)
 {
    //NOTE: R based code and ajusted to Rcpp
    char **matches = (char **)NULL;

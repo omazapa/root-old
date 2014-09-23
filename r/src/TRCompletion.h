@@ -24,7 +24,7 @@ extern "C"
    extern char **rl_completion_matches PARAMS((const char *, rl_compentry_func_t *));
    extern char *readline PARAMS((const char *));
    extern void add_history PARAMS((const char *));
-   extern rl_completion_func_t * rl_attempted_completion_function;
+   extern rl_completion_func_t *rl_attempted_completion_function;
    extern char *rl_line_buffer;
    extern int rl_completion_append_character;
    extern int rl_attempted_completion_over;
@@ -34,7 +34,7 @@ extern "C"
 namespace ROOT {
    namespace R {
       char *R_completion_generator(const char *text, int state);
-      char ** R_custom_completion(const char *text, int start, int end);
+      char **R_custom_completion(const char *text, int start, int end);
       //Readline variables.
       extern SEXP
       RComp_assignBufferSym,

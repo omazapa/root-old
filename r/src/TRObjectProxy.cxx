@@ -53,6 +53,9 @@ ClassImp(TRObjectProxy)
 TRObjectProxy::TRObjectProxy(SEXP xx): x(xx) { }
 
 //______________________________________________________________________________
+TRObjectProxy::TRObjectProxy(SEXP xx, Bool_t status): x(xx), fStatus(status) { }
+
+//______________________________________________________________________________
 TString TRObjectProxy::ToString()
 {
    return TString(::Rcpp::as<std::string>(x));

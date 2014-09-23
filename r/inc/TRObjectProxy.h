@@ -31,18 +31,29 @@ namespace ROOT {
       class TRObjectProxy: public TObject {
       private:
          Rcpp::RObject x;
+         Bool_t fStatus;
       public:
          TRObjectProxy() {};
          TRObjectProxy(SEXP xx);
+         TRObjectProxy(SEXP xx, Bool_t status);
 
          void operator=(SEXP xx);
+         void SetStatus(Bool_t status)
+         {
+            fStatus = status;
+         }
+         Bool_t GetStatus()
+         {
+            return fStatus;
+         }
          TString ToString();
          template<class Type> Type ToScalar();
          template<class Type> TVectorT<Type> ToVector();
          template<class Type> std::vector<Type> ToStdVector();
          template<class TypeClass, class TypeData> TypeClass   ToArray();
          template<class Type> TMatrixT<Type>   ToMatrix();
-         template <typename T> operator T() {
+         template <typename T> operator T()
+         {
             return ::Rcpp::as<T>(x);
          }
          ClassDef(TRObjectProxy, 0) //
@@ -55,24 +66,32 @@ namespace ROOT {
    template<class Type> Type ROOT::R::TRObjectProxy::ToScalar()
    {
       //Returns R-scalars like integers and doubles as Int_t and Doublet_t.
-      return ::Rcpp::as<Type>(x);
+      Type scalar = 0;
+      if (fStatus) scalar =::Rcpp::as<Type>(x);
+      else Error("ToScalar", "Can not convert to scalar, returning 0");
+      return scalar;
    }
 
 //______________________________________________________________________________
    template<class Type> TVectorT<Type> ROOT::R::TRObjectProxy::ToVector()
    {
       //Returns R-vectors like TVectorT template with the indicated type.
-      std::vector<Type> vec =::Rcpp::as<std::vector<Type> >(x);
+      std::vector<Type> vec;
+      if (fStatus) vec =::Rcpp::as<std::vector<Type> >(x);
+      else Error("ToVector", "Can not convert to TVectorT, returning empty vector");
       return TVectorT<Type>(vec.size(), vec.data());
    }
 
 //______________________________________________________________________________
    template<class Type> std::vector<Type> ROOT::R::TRObjectProxy::ToStdVector()
    {
-      return ::Rcpp::as<std::vector<Type> >(x);
+      std::vector<Type> vec;
+      if (fStatus) vec =::Rcpp::as<std::vector<Type> >(x);
+      else Error("ToStdVector", "Can not convert to std::vector, returning empty vector");
+      return vec;
    }
-   
-   
+
+
 //______________________________________________________________________________
    template<class TypeClass, class TypeData> TypeClass   ROOT::R::TRObjectProxy::ToArray()
    {

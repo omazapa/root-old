@@ -61,22 +61,25 @@ namespace ROOT {
       class TRInterface: public TObject {
       protected:
          RInside *fR;
-	 TThread *th;
+         TThread *th;
       public:
          //Proxy class to use operators for assignation Ex: r["name"]=object;
          class Binding {
          public:
             Binding(TRInterface *rnt, TString name): fInterface(rnt), fName(name) {}
-            Binding& operator=(const Binding& obj) {
+            Binding &operator=(const Binding &obj)
+            {
                fInterface = obj.fInterface;
                fName = obj.fName;
                return *this;
             }
-            template <class T> Binding& operator=(const T &data) {
+            template <class T> Binding &operator=(const T &data)
+            {
                fInterface->Assign<T>(data, fName);
                return *this;
             }
-            Binding& operator=(const TRFunction &fun) {
+            Binding &operator=(const TRFunction &fun)
+            {
                //The method assign is not a template for a function
                fInterface->Assign(fun, fName);
                return *this;
@@ -96,13 +99,14 @@ namespace ROOT {
          TRObjectProxy ParseEval(const TString &code, Bool_t exception = kFALSE);
 
          //______________________________________________________________________________
-         template<typename T >void Assign(const T &var, const TString & name) {
+         template<typename T >void Assign(const T &var, const TString &name)
+         {
             // This method lets you pass variables from ROOT to R.
             // The template T should be a supported ROOT datatype and
             // the TString's name is the name of the variable in the R enviroment.
             fR->assign<T>(var, name.Data());
          }
-         void Assign(const TRFunction &fun, const TString & name);
+         void Assign(const TRFunction &fun, const TString &name);
 
          void Xwin(TString opt = "");
 
@@ -111,7 +115,7 @@ namespace ROOT {
 
 
          void Interactive();
-	 void ProcessEventsLoop();
+         void ProcessEventsLoop();
 
          R_FUNCTION(plot)
          R_FUNCTION(points)
@@ -121,12 +125,14 @@ namespace ROOT {
          R_FUNCTION(segments)
          R_FUNCTION(curve)
 
-         Binding operator[](const TString& name);
+         Binding operator[](const TString &name);
 
-         TRInterface& Instance() {
+         TRInterface &Instance()
+         {
             return *this;
          }
-         TRInterface* InstancePtr() {
+         TRInterface *InstancePtr()
+         {
             return this;
          }
 

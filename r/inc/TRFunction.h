@@ -51,7 +51,8 @@ namespace ROOT {
          TRFunction(const TRFunction &fun);
 #if !defined(__CINT__)
          //________________________________________________________________________________________________________
-         template<class T> TRFunction(T fun) {
+         template<class T> TRFunction(T fun)
+         {
             //template constructor that supports a lot
             // of function's prototypes
             f = new TRInternalFunction(fun);
