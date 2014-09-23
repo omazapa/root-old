@@ -1,5 +1,6 @@
 #include<TRInterface.h>
 #include<vector>
+#include<TArrayD.h>
 //script to test RExport a TRobjectProxy
 void Proxy()
 {
@@ -13,19 +14,23 @@ void Proxy()
    TVectorD v = gR->ParseEval("c(1,2,3,4)").ToVector<Double_t>();
    std::vector<Double_t> sv=gR->ParseEval("c(1.01,2,3,4)").ToStdVector<Double_t>();
    TMatrixD m = gR->ParseEval("matrix(c(1,2,3,4),2,2)").ToMatrix<Double_t>();
+   TArrayD arr= gR->ParseEval("c(0.0,0.1,0.2)").ToArray<TArrayD,Double_t>();
 #else   
    TVectorD v = gR->ParseEval("c(1,2,3,4)").ToVector();
    std::vector<Double_t> sv=gR->ParseEval("c(1.01,2,3,4)").ToStdVector();
    TMatrixD m = gR->ParseEval("matrix(c(1,2,3,4),2,2)").ToMatrix();
+   TArrayD arr=gR->ParseEval("c(0.0,0.1,0.2)").ToArray();
 #endif   
-   std::cout<<"-----------------------------------"<<endl;
+   std::cout<<"-----------------------------------"<<std::endl;
    std::cout << s << std::endl;
-   std::cout<<"-----------------------------------"<<endl;
+   std::cout<<"-----------------------------------"<<std::endl;
    v.Print();
-   std::cout<<"-----------------------------------"<<endl;
+   std::cout<<"-----------------------------------"<<std::endl;
    for(int i=0;i<sv.size();i++) std::cout<<sv[i]<<" "<<std::endl;
-   std::cout<<"-----------------------------------"<<endl;
+   std::cout<<"-----------------------------------"<<std::endl;
    m.Print();
+   std::cout<<"-----------------------------------"<<std::endl;
+   std::cout<<arr[0]<<" "<<arr[1]<<" "<<arr[2]<<std::endl; 
 
 #if defined(__ACLIC__)
    Double_t d = gR->ParseEval("1.1").ToScalar<Double_t>();
@@ -70,5 +75,17 @@ void Proxy()
 
    gR->Assign(i, "i");
    gR->Parse("print(i)");
+   
+   //////////////////
+   //Handling Error//
+   //////////////////
+#if !defined(__ACLIC__)
+   TString something=gR->ParseEval("qwerty").ToString();
+//    int scalar=gR->ParseEval("qwerty").ToScalar();
+//    std::vector<double> vec=gR->ParseEval("qwerty").ToStdVector();
+//    TVectorD  tvec=gR->ParseEval("qwerty").ToVector();
+//    TMatrixD mat=gR->ParseEval("qwerty").ToMatrix();
+//    mat.Print();
+#endif
 
 }

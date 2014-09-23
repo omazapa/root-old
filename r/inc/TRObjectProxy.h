@@ -78,16 +78,17 @@ namespace ROOT {
       //Returns R-vectors like TVectorT template with the indicated type.
       std::vector<Type> vec;
       if (fStatus) vec =::Rcpp::as<std::vector<Type> >(x);
-      else Error("ToVector", "Can not convert to TVectorT, returning empty vector");
+      else Error("ToVector", "Can not convert to TVectorT, returning an empty vector");
       return TVectorT<Type>(vec.size(), vec.data());
    }
 
 //______________________________________________________________________________
    template<class Type> std::vector<Type> ROOT::R::TRObjectProxy::ToStdVector()
    {
+     //Return standard vectors like std::vector template with the indicated type.
       std::vector<Type> vec;
       if (fStatus) vec =::Rcpp::as<std::vector<Type> >(x);
-      else Error("ToStdVector", "Can not convert to std::vector, returning empty vector");
+      else Error("ToStdVector", "Can not convert to std::vector, returning an empty vector");
       return vec;
    }
 
@@ -95,7 +96,9 @@ namespace ROOT {
 //______________________________________________________________________________
    template<class TypeClass, class TypeData> TypeClass   ROOT::R::TRObjectProxy::ToArray()
    {
-      std::vector<TypeData> vec =::Rcpp::as<std::vector<TypeData> >(x);
+      std::vector<TypeData> vec;
+      if (fStatus) vec =::Rcpp::as<std::vector<TypeData> >(x);
+      else Error("ToArray", "Can not convert to TArray, returning an empty array");
       return TypeClass(vec.size(), vec.data());
    }
 
@@ -103,7 +106,9 @@ namespace ROOT {
    template<class Type> TMatrixT<Type>   ROOT::R::TRObjectProxy::ToMatrix()
    {
       //Returns R-matrixes like TMatrixT template with the indicated type.
-      Rcpp::NumericMatrix mat =::Rcpp::as<Rcpp::NumericMatrix>(x);
+      Rcpp::NumericMatrix mat(0,0);
+      if (fStatus)  mat=::Rcpp::as<Rcpp::NumericMatrix>(x);
+      else Error("ToMatrix", "Can not convert to TMatrixT, returning an empty matrix");
       return TMatrixT<Type>(mat.nrow(), mat.ncol(), mat.begin(), "F");
    }
 

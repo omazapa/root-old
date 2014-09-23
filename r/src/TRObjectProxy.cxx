@@ -58,7 +58,10 @@ TRObjectProxy::TRObjectProxy(SEXP xx, Bool_t status): x(xx), fStatus(status) { }
 //______________________________________________________________________________
 TString TRObjectProxy::ToString()
 {
-   return TString(::Rcpp::as<std::string>(x));
+  TString str;
+  if (fStatus) str =::Rcpp::as<std::string>(x);
+  else Error("ToString", "Can not convert to TString, returning and empty string");
+   return str;
 }
 
 //______________________________________________________________________________
