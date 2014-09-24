@@ -12,46 +12,35 @@ message(STATUS "Looking for Rcpp")
 find_program ( R_EXECUTABLE
                NAMES R R.exe
               )
-if ( R_EXECUTABLE )
-  execute_process ( COMMAND echo "Rcpp:::CxxFlags()"
+execute_process ( COMMAND echo "Rcpp:::CxxFlags()"
                     COMMAND ${R_EXECUTABLE} --vanilla --slave
                     OUTPUT_VARIABLE RCPP_INCLUDE_DIR
                     ERROR_VARIABLE RCPP_INCLUDE_DIR_ERR
                     OUTPUT_STRIP_TRAILING_WHITESPACE
                   )
   
-  execute_process ( COMMAND echo "Rcpp:::LdFlags(static=0)"
+execute_process ( COMMAND echo "cat(find.package('Rcpp'))"
                     COMMAND ${R_EXECUTABLE} --vanilla --slave
-                    OUTPUT_VARIABLE RCPP_LIBRARY
-                    ERROR_VARIABLE RCPP_LIBRARY_ERR
+                    OUTPUT_VARIABLE RCPP_PATH
+                    ERROR_VARIABLE RCPP_PATH_ERR
                     OUTPUT_STRIP_TRAILING_WHITESPACE
                   )
-else()
-
-set(RCPP_PKGCONF_INCLUDE_DIRS  
-	"/usr/local/include" "/usr/include"
-	"/opt/R/site-library/Rcpp/include" 
-        "/usr/local/lib/R/site-library/Rcpp/include" 
-        "/usr/lib/R/site-library/Rcpp/include")
-
-# Include dir
-find_path(RCPP_INCLUDE_DIR
-  NAMES Rcpp.h
-  PATHS ${RCPP_PKGCONF_INCLUDE_DIRS}
-)
+                  
+                  
 
 set(RCPP_PKGCONF_LIBRARY_DIRS  
 	"/usr/local/lib" "/usr/lib"
         "/opt/R/site-library/Rcpp/lib" 
         "/usr/local/lib/R/site-library/Rcpp/lib"
-        "/usr/lib/R/site-library/Rcpp/lib" )
+        "/usr/lib/R/site-library/Rcpp/lib"
+        "${RCPP_PATH}/libs"
+        )
 
 # Finally the library itself
 find_library(RCPP_LIBRARY
-  NAMES libRcpp.a libRcpp.lib
+  NAMES libRcpp.a libRcpp.so  libRcpp.lib Rcpp.so libRcpp.dll Rcpp.dll Rcpp.dylib libRcpp.dylib
   PATHS ${RCPP_PKGCONF_LIBRARY_DIRS}
 )
-endif ( R_EXECUTABLE )
 
 
 MESSAGE(STATUS "RCPP_INCLUDE_DIR=${RCPP_INCLUDE_DIR}")
