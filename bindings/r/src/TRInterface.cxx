@@ -190,9 +190,10 @@ Int_t  TRInterface::ParseEval(const TString &code, TRObjectProxy  &ans)
 // Parse R code and returns status of execution.
 // the RObject's response is saved in  ans
    SEXP fans;
-   Int_t fResult = fR->parseEval(code.Data(), fans);
+   Int_t rc = fR->parseEval(code.Data(), fans);
    ans = fans;
-   return fResult;
+   ans.SetStatus((rc == 0) ? kTRUE : kFALSE);
+   return rc;
 }
 
 //______________________________________________________________________________
@@ -212,8 +213,15 @@ TRObjectProxy TRInterface::ParseEval(const TString &code, Bool_t exception)
 // if the code has an error prints the error and continues executing.
 //if exception is true, the code launches an exception and stops the execution.
 //The RObject result of execution is returned in TRObjectProxy
-   if (exception) return TRObjectProxy((SEXP)fR->parseEval(code.Data()));
-   else return TRObjectProxy((SEXP)fR->parseEvalNT(code.Data()));
+  
+   SEXP ans;
+   int rc = fR->parseEval(code.Data(), ans);
+   if (rc != 0 && exception) {
+      if (exception) throw std::runtime_error(std::string("Error evaluating: ") + code.Data());
+   } else if (rc != 0) {
+      Error("ParseEval", (std::string("Error evaluating: ") + code.Data()).c_str());
+   }   
+   return TRObjectProxy(ans , (rc == 0) ? kTRUE : kFALSE);
 }
 
 

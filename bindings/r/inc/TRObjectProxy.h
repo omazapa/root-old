@@ -14,6 +14,7 @@
 #ifndef ROOT_R_RExports
 #include<RExports.h>
 #endif
+
 //________________________________________________________________________________________________________
 /**
    This is a class to get ROOT's objects from R's objects
@@ -28,9 +29,15 @@ namespace ROOT {
 	friend SEXP Rcpp::wrap<TRObjectProxy>(const TRObjectProxy &f);
       private:
          Rcpp::RObject x;
+         Bool_t fStatus;//status tell if is a valid object
       public:
          TRObjectProxy(): TObject() {};
          TRObjectProxy(SEXP xx);
+         TRObjectProxy(SEXP xx, Bool_t status);
+	 
+	 void SetStatus(Bool_t status){ fStatus = status;}
+         
+         Bool_t GetStatus() { return fStatus;}
 
          void operator=(SEXP xx);
 
@@ -40,15 +47,32 @@ namespace ROOT {
          }
          
          template<class T> T As() {
-            return ::Rcpp::as<T>(x);
+	   T data;
+	   if(fStatus)
+	   {
+	     data=::Rcpp::as<T>(x);
+	   }else
+	   {
+	     Error("Cast Operator", "Can not make the requested data, returning an unknow value");
+	   }
+            return data;
          }
 
          template<class T> T operator=(TRObjectProxy &obj) {
             return ::Rcpp::as<T>(obj);
          }
 
-         template <typename T> operator T() {
-            return ::Rcpp::as<T>(x);
+         template <class T> operator T() {
+	   T data;
+	     
+	   if(fStatus)
+	   {
+	     data=::Rcpp::as<T>(x);
+	   }else
+	   {
+	     Error("Cast Operator", "Can not make the requested data, returning an unknow value");
+	   }
+            return data;
          }
          ClassDef(TRObjectProxy, 0) //
       };
