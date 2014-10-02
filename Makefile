@@ -228,6 +228,9 @@ endif
 ifeq ($(BUILDRUBY),yes)
 MODULES      += bindings/ruby
 endif
+ifeq ($(BUILDR),yes)
+MODULES      += bindings/r
+endif
 ifeq ($(BUILDXML),yes)
 MODULES      += io/xmlparser
 endif

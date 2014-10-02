@@ -92,6 +92,7 @@ options="                    \
    enable_python             \
    enable_qt                 \
    enable_qtgsi              \
+   enable_r                  \
    enable_roofit             \
    enable_ruby               \
    enable_rfio               \
@@ -147,6 +148,7 @@ for c in $options $deprecated_options; do
 done
 for c in $options ; do eval ${c}_explicit="" ; done
 
+
 enable_cxx11=yes
 enable_libcxx=no
 enable_cocoa=
@@ -162,6 +164,7 @@ enable_qt=no
 enable_qtgsi=no
 enable_roofit=no
 enable_minuit2=no
+enable_r=yes
 enable_rpath=no
 enable_ruby=no
 enable_shadowpw=
@@ -194,6 +197,7 @@ if test "x$ENABLEALL" = "xyes"; then
     enable_unuran=yes
     enable_vc=yes
     enable_vdt=yes
+    enable_r=yes
 fi
 
 # Remove old log file
@@ -1664,6 +1668,7 @@ enable/disable options, prefix with either --enable- or --disable-
   python             Python ROOT bindings, requires python >= 2.5
   qt                 Qt graphics backend, requires libqt >= 4.8
   qtgsi              GSI's Qt integration, requires libqt >= 4.8
+  r                  Build R Interface for Statistical Computing  
   rfio               RFIO support, requires libshift from CASTOR >= 1.5.2
   roofit             Build the libRooFit advanced fitting package
   rpath              Set run-time library load path on executables
@@ -1772,6 +1777,9 @@ with options, prefix with --with-, enables corresponding support
   python-libdir      Python support, location of libpython
   qt-incdir          Qt support, location of Qt/qglobal.h
   qt-libdir          Qt support, location of libqt-mt or libqt
+  r-incdir           R support, location of R.h
+  r-libdir           R support, location of libR
+  r-sitedir          R support, location of modules Rcpp and Rinside  
   ruby-incdir        Ruby support, location of ruby.h
   ruby-libdir        Ruby support, location of libruby
   sapdb-incdir       SapDB support, location of sql.h
@@ -2156,6 +2164,9 @@ if test $# -gt 0 ; then
       --with-ruby-libdir=*)    rubylibdir=$optarg    ; enable_ruby="yes"    ;;
       --with-sapdb-incdir=*)   sapdbincdir=$optarg   ; enable_sapdb="yes"   ;;
       --with-sapdb-libdir=*)   sapdblibdir=$optarg   ; enable_sapdb="yes"   ;;
+      --with-r-incdir=*)       rincdir=$optarg       ; enable_r="yes"       ;;
+      --with-r-libdir=*)       rlibdir=$optarg       ; enable_r="yes"       ;;
+      --with-r-sitedir=*)      rsitedir=$optarg      ; enable_r="yes"       ;;     
       --with-rfio-incdir=*)    shiftincdir=$optarg   ; enable_rfio="yes"    ;;
       --with-rfio-libdir=*)    shiftlibdir=$optarg   ; enable_rfio="yes"    ;;
       --with-sqlite-incdir=*)  sqliteincdir=$optarg  ; enable_sqlite="yes"  ;;
@@ -6566,6 +6577,96 @@ check_explicit "$enable_mathmore" "$enable_mathmore_explicit" \
 
 ######################################################################
 #
+### echo %%% RInterface Library - Contributed library
+#
+if test ! "x$enable_r" = "xno"; then
+     checking_msg "R command"
+     if `$cwhich R > /dev/null 2>&1` ; then
+         REXE=`$cwhich R`
+         echo $REXE
+         # we found R - now check the version number
+         message "Checking for R version"
+         r_version=`$REXE CMD config -v | head -n  1 | awk -F":" '{print $2}' | awk -F" " '{print $1}' | awk -F"." '{print $1"."$2}'`
+         echo $r_version
+         
+         R_HOME=`echo 'cat(Sys.getenv("R_HOME"))'   | R --vanilla --slave 2> /dev/null`
+
+         RCPPFLAGS=`$REXE CMD config --cppflags`
+         if test "x$platform" = "xmacosx" ; then
+         RLDFLAGS="-L$R_HOME/lib -lR"
+         else
+         RLDFLAGS=`$REXE CMD config --ldflags`
+         fi
+         RBLAS=`$REXE CMD config BLAS_LIBS`
+         RLAPACK=`$REXE CMD config LAPACK_LIBS`
+         
+         checking_msg "Rcpp"
+         RCPPINCL=`echo 'Rcpp:::CxxFlags()'  | $REXE --vanilla --slave 2> /dev/null`
+         RCPPINCLSTATUS=$?
+         RCPPLIBS=`echo 'Rcpp:::LdFlags(static=0)'   | $REXE --vanilla --slave 2> /dev/null`
+         RCPPLIBSSTATUS=$?
+         
+         if test "x$RCPPLIBS" = "x" ;then
+            RCPPLIBS=`echo 'cat(find.package("Rcpp"))'   | $REXE --vanilla --slave 2> /dev/null`
+	    RCPPLIBS="$RCPPLIBS/libs"
+
+	    	if test -e "$RCPPLIBS/Rcpp.dll"; then
+            		RCPPLIBS="$RCPPLIBS/Rcpp.dll"
+            		RCPPLIBSSTATUS=$((0))
+		else
+	        	check_library "libRcpp Rcpp" "" "" $RCPPLIBS
+        	    	if test ! "x$found_lib" = "x"; then
+            			RCPPLIBS="$RCPPLIBS/$found_lib"
+            			RCPPLIBSSTATUS=$((0))
+            		fi
+		fi
+         fi
+         
+         if [ $RCPPINCLSTATUS -eq 0 ] && [ $RCPPLIBSSTATUS -eq 0 ];then
+            echo "Checking for Rcpp ... found"
+         else
+            message "Install it running 'R -e \"install.packages(\\\"RInside\\\",repos=\\\"http://cran.irsn.fr/\\\")\"'"
+            enable_r="no"
+            result "no"
+         fi
+         checking_msg "RInside"
+         RINSIDEINCL=`echo 'RInside:::CxxFlags()'  | $REXE --vanilla --slave 2> /dev/null`
+         RINSIDEINCLSTATUS=$?
+         RINSIDELIBS=`echo 'RInside:::LdFlags(static=0)'   | $REXE --vanilla --slave 2> /dev/null`
+         RINSIDELIBSSTATUS=$?
+
+         if [ $RINSIDEINCLSTATUS -eq 0 ] && [ $RINSIDELIBSSTATUS -eq 0 ] ; then
+             echo "found"
+	 else
+	    message "Install it running 'R -e \"install.packages(\"RInside\",repos=\"http://cran.irsn.fr/\")\"'"
+	    enable_r="no"
+	    result "no"
+         fi
+         rflags="$RCPPFLAGS $RCPPINCL $RINSIDEINCL"
+         rlibs=" $RCPPLIBS $RINSIDELIBS $RLDFLAGS"
+     else
+        message "R not found"
+        enable_r="no"
+        result "no"     
+     fi         
+fi
+message "Checking whether to build libRInterface"
+if test "x$enable_r" = "xyes"; then
+    ##adding this two lines to supoort ACLiC for RInterface
+    echo "#define RINCLUDEPATH \" $RCPPFLAGS $RCPPINCL $RINSIDEINCL\" " > bindings/r/inc/compilerdata.h
+    echo "#define RLINKEDLIBS  \" $RLDFLAGS  $RCPPLIBS $RINSIDELIBS\"  " >> bindings/r/inc/compilerdata.h
+    result "yes"
+    hasr="define"
+else
+    result "no"
+    hasr="undef"
+fi
+check_explicit "$enable_r" "$enable_r_explicit" \
+     "Explicitly required R dependencies not fulfilled"
+     
+     
+######################################################################
+#
 ### echo %%% GenVector Library - Contributed library
 #
 message "Checking whether to build libGenVector"
@@ -6776,6 +6877,8 @@ else
 fi
 result "$enable_afdsmgrd$afdsmgrdapmonmsg"
 
+
+
 ######################################################################
 #
 ### echo %%% Debian or Red Hat package list
@@ -6818,6 +6921,7 @@ if test "x$show_pkglist" = "xyes" ; then
     test "x$enable_krb5"     = "xyes" && pl="$pl root-plugin-net-krb5"
     test "x$enable_monalisa" = "xyes" && pl="$pl root-plugin-net-monalisa"
     test "x$enable_srp"      = "xyes" && pl="$pl root-plugin-net-srp"
+    test "x$enable_r"        = "xyes" && pl="$pl root-plugin-r"
     test "x$enable_mysql"    = "xyes" && pl="$pl root-plugin-sql-mysql"
     test "x$enable_odbc"     = "xyes" && pl="$pl root-plugin-sql-odbc"
     test "x$enable_oracle"   = "xyes" && pl="$pl root-plugin-sql-oracle"
@@ -6872,6 +6976,7 @@ if test "x$show_pkglist" = "xyes" ; then
         root-plugin-math-fumili \
         root-plugin-proof-proofplayer \
         root-plugin-proof-xproof \
+        root-plugin-r \
         root-plugin-tree-treeviewer \
         root-system-proofd \
         root-system-rootd \
@@ -7430,6 +7535,9 @@ sed -e "s|@globusincdir@|$globusincdir|"        \
     -e "s|@shiftlib@|$shiftlib|"                \
     -e "s|@shiftlibdir@|$shiftlibdir|"          \
     -e "s|@shiftcflags@|$shiftcflags|"          \
+    -e "s|@buildr@|$enable_r|"                  \
+    -e "s|@rflags@|$rflags|"                    \
+    -e "s|@rlibs@|$rlibs|"                      \
         < Makefile.tmp > Makefile.tmpp
 mv Makefile.tmpp Makefile.tmp
 
