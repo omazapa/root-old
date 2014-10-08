@@ -1447,7 +1447,7 @@ TClass::TClass(const TClass& cl) :
   fSharedLibs(cl.fSharedLibs),
   fIsA(cl.fIsA),
   fGlobalIsA(cl.fGlobalIsA),
-  fIsAMethod(cl.fIsAMethod),
+  fIsAMethod(0),
   fMerge(cl.fMerge),
   fResetAfterMerge(cl.fResetAfterMerge),
   fNew(cl.fNew),
@@ -1565,7 +1565,7 @@ TClass::~TClass()
 
    delete fStreamer;
    delete fCollectionProxy;
-   delete fIsAMethod;
+   delete fIsAMethod.load();
    delete fSchemaRules;
    if (fConversionStreamerInfo.load()) {
       std::map<std::string, TObjArray*>::iterator it;
@@ -2397,18 +2397,24 @@ TClass *TClass::GetActualClass(const void *object) const
       //will not work if the class derives from TObject but not as primary
       //inheritance.
       if (fIsAMethod==0) {
-         fIsAMethod = new TMethodCall((TClass*)this, "IsA", "");
+         TMethodCall* temp = new TMethodCall((TClass*)this, "IsA", "");
 
-         if (!fIsAMethod->GetMethod()) {
-            delete fIsAMethod;
-            fIsAMethod = 0;
+         if (!temp->GetMethod()) {
+            delete temp;
             Error("IsA","Can not find any IsA function for %s!",GetName());
             return (TClass*)this;
          }
+         //Force cache to be updated here so do not have to worry about concurrency
+         temp->ReturnType();
 
+         TMethodCall* expected = nullptr;
+         if( not fIsAMethod.compare_exchange_strong(expected,temp) ) {
+            //another thread beat us to it
+            delete temp;
+         }
       }
       char * char_result = 0;
-      fIsAMethod->Execute((void*)object, &char_result);
+      (*fIsAMethod).Execute((void*)object, &char_result);
       return (TClass*)char_result;
    }
 }
@@ -2796,6 +2802,19 @@ TClass *TClass::GetClass(const char *name, Bool_t load, Bool_t silent)
    } else {
       if (gInterpreter->AutoLoad(normalizedName.c_str(),kTRUE)) {
          loadedcl = LoadClassDefault(normalizedName.c_str(),silent);
+      }
+      // Maybe this was a typedef: let's try to see if this is the case
+      if (!loadedcl){
+         if (TDataType* theDataType = gROOT->GetType(normalizedName.c_str())){
+            // We have a typedef: we get the name of the underlying type
+            auto underlyingTypeName = theDataType->GetTypeName().Data();
+            // We see if we can bootstrap a class with it
+            auto underlyingTypeDict = TClassTable::GetDictNorm(underlyingTypeName);
+            if (underlyingTypeDict){
+               loadedcl = underlyingTypeDict();
+            }
+
+         }
       }
    }
    if (loadedcl) return loadedcl;
