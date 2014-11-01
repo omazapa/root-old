@@ -103,6 +103,7 @@ public:
    virtual Int_t    AutoParse(const char* cls) = 0;
    virtual void     ClearFileBusy() = 0;
    virtual void     ClearStack() = 0; // Delete existing temporary values
+   virtual void     Declare(const char* code) = 0;
    virtual void     EnableAutoLoading() = 0;
    virtual void     EndOfLineAction() = 0;
    virtual TClass  *GetClass(const std::type_info& typeinfo, Bool_t load) const = 0;
@@ -158,7 +159,7 @@ public:
    virtual void     UpdateListOfGlobalFunctions() = 0;
    virtual void     UpdateListOfTypes() = 0;
    virtual void     SetClassInfo(TClass *cl, Bool_t reload = kFALSE) = 0;
-   virtual Bool_t   CheckClassInfo(const char *name, Bool_t autoload = kTRUE, Bool_t isClassOrNamespaceOnly = kFALSE) = 0;
+   virtual Bool_t   CheckClassInfo(const char *name, Bool_t autoload, Bool_t isClassOrNamespaceOnly = kFALSE) = 0;
    virtual Bool_t   CheckClassTemplate(const char *name) = 0;
    virtual Long_t   Calc(const char *line, EErrorCode* error = 0) = 0;
    virtual void     CreateListOfBaseClasses(TClass *cl) const = 0;

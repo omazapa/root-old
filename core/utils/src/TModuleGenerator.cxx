@@ -42,7 +42,7 @@ using namespace clang;
 TModuleGenerator::TModuleGenerator(CompilerInstance *CI,
                                    const std::string &shLibFileName):
    fCI(CI),
-   fIsPCH(shLibFileName == "etc/allDict.cxx"),
+   fIsPCH(shLibFileName == "allDict.cxx"),
    fDictionaryName(llvm::sys::path::stem(shLibFileName)),
    fModuleDirName(llvm::sys::path::parent_path(shLibFileName))
 {
@@ -202,6 +202,8 @@ std::ostream &TModuleGenerator::WritePPDefines(std::ostream &out) const
           "  #define " << strPair.first;
       if (!strPair.second.empty()) {
          out << " " << strPair.second;
+      } else {
+         out << " 1";
       }
       out << "\n"
           "#endif\n";

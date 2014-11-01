@@ -977,6 +977,9 @@ TCling::TCling(const char *name, const char *title)
       clingArgsStorage.push_back(interpInclude);
 
       std::string pchFilename = interpInclude.substr(2) + "/allDict.cxx.pch";
+      if (gSystem->Getenv("ROOT_PCH")) {
+         pchFilename = gSystem->Getenv("ROOT_PCH");
+      }
       clingArgsStorage.push_back("-include-pch");
       clingArgsStorage.push_back(pchFilename);
 
@@ -1084,13 +1087,13 @@ TCling::TCling(const char *name, const char *title)
    //optind = 1;  // make sure getopt() works in the main program
 #endif // R__WIN32
 
-   if (!fromRootCling) {
-      fInterpreter->enableDynamicLookup();
-   }
-
    // Attach cling callbacks
    fClingCallbacks = new TClingCallbacks(fInterpreter);
    fInterpreter->setCallbacks(fClingCallbacks);
+
+   if (!fromRootCling) {
+      fInterpreter->enableDynamicLookup();
+   }
 }
 
 
@@ -1185,11 +1188,15 @@ bool TCling::LoadPCM(TString pcmFileName,
    // look in other places.
    searchPath.Append( gSystem->GetDynamicPath() );
 
-   static bool enableRootPcm = !gSystem->Getenv("DISABLE_ROOT_PCM");
-   if (!enableRootPcm) return kTRUE;
-
    if (!gSystem->FindFile(searchPath, pcmFileName))
       return kFALSE;
+
+   // Prevent the ROOT-PCMs hitting this during auto-load during
+   // JITting - which will cause recursive compilation. The PCMs that
+   // have their headers in the PCH have empty keys which don't trigger
+   // TVirtualStreamerInfo::Factory() - which means that the plugin gets
+   // called and JITted during some random library load instead.
+   TVirtualStreamerInfo::Factory();
 
    if (gROOT->IsRootFile(pcmFileName)) {
       Int_t oldDebug = gDebug;
@@ -1201,12 +1208,28 @@ bool TCling::LoadPCM(TString pcmFileName,
       }
 
       TDirectory::TContext ctxt(0);
+      
+      if (pcmFileName.Contains("MathCore")) { 
+         // LM: first time need to read an empty object otehrwise 
+         // reading new protoclasses fail
+         TFile *pcmFileTmp = new TFile(pcmFileName+"?filetype=pcm","READ");
+         TObjArray * dummyObj;
+         pcmFileTmp->GetObject("__Enums", dummyObj);
+         pcmFileTmp->Close(); 
+         delete pcmFileTmp;
+      }
+
       TFile *pcmFile = new TFile(pcmFileName+"?filetype=pcm","READ");
       TObjArray *protoClasses;
+      if (gDebug > 1) 
+            ::Info("TCling::LoadPCM","reading protoclasses for %s \n",pcmFileName.Data());
+      
       pcmFile->GetObject("__ProtoClasses", protoClasses);
+
       if (protoClasses) {
-         for (auto proto : *protoClasses) {
-            TClassTable::Add((TProtoClass*)proto);
+         for (auto obj : *protoClasses) {
+            TProtoClass * proto = (TProtoClass*)obj;
+            TClassTable::Add(proto);
          }
          // Now that all TClass-es know how to set them up we can update
          // existing TClasses, which might cause the creation of e.g. TBaseClass
@@ -1234,6 +1257,7 @@ bool TCling::LoadPCM(TString pcmFileName,
                }
             }
          }
+
          protoClasses->Clear(); // Ownership was transfered to TClassTable.
          delete protoClasses;
       }
@@ -1892,14 +1916,17 @@ void TCling::InspectMembers(TMemberInspector& insp, const void* obj,
 
    const clang::ASTContext& astContext = fInterpreter->getCI()->getASTContext();
    const clang::Decl *scopeDecl = 0;
+   const clang::Type *recordType = 0;
 
    if (cl->GetClassInfo()) {
       TClingClassInfo * clingCI = (TClingClassInfo *)cl->GetClassInfo();
       scopeDecl = clingCI->GetDecl();
+      recordType = clingCI->GetType();
    } else {
       const cling::LookupHelper& lh = fInterpreter->getLookupHelper();
       // Diags will complain about private classes:
-      scopeDecl = lh.findScope(clname, cling::LookupHelper::NoDiagnostics);
+      scopeDecl = lh.findScope(clname, cling::LookupHelper::NoDiagnostics,
+                               &recordType);
    }
    if (!scopeDecl) {
       Error("InspectMembers", "Cannot find Decl for class %s", clname);
@@ -1934,7 +1961,13 @@ void TCling::InspectMembers(TMemberInspector& insp, const void* obj,
         eField = recordDecl->field_end(); iField != eField;
         ++iField, ++iNField) {
 
-      clang::QualType memberQT = cling::utils::Transform::GetPartiallyDesugaredType(astContext, iField->getType(), fNormalizedCtxt->GetConfig(), false /* fully qualify */);
+
+      clang::QualType memberQT = iField->getType();
+      if (recordType) {
+         // if (we_need_to_do_the_subst_because_the_class_is_a_template_instance_of_double32_t)
+         memberQT = ROOT::TMetaUtils::ReSubstTemplateArg(memberQT, recordType);
+      }
+      memberQT = cling::utils::Transform::GetPartiallyDesugaredType(astContext, memberQT, fNormalizedCtxt->GetConfig(), false /* fully qualify */);
       if (memberQT.isNull()) {
          std::string memberName;
          llvm::raw_string_ostream stream(memberName);
@@ -1963,6 +1996,10 @@ void TCling::InspectMembers(TMemberInspector& insp, const void* obj,
          ispointer = true;
          clang::QualType ptrQT
             = memNonPtrType->getAs<clang::PointerType>()->getPointeeType();
+         if (recordType) {
+            // if (we_need_to_do_the_subst_because_the_class_is_a_template_instance_of_double32_t)
+            ptrQT = ROOT::TMetaUtils::ReSubstTemplateArg(ptrQT, recordType);
+         }
          ptrQT = cling::utils::Transform::GetPartiallyDesugaredType(astContext, ptrQT, fNormalizedCtxt->GetConfig(), false /* fully qualify */);
          if (ptrQT.isNull()) {
             std::string memberName;
@@ -2165,6 +2202,30 @@ void TCling::ClearStack()
    // Delete existing temporary values.
 
    // No-op for cling due to cling::Value.
+}
+
+//______________________________________________________________________________
+void TCling::Declare(const char* code)
+{
+   // Declare code to the interpreter, without any of the interpreter actions
+   // that could trigger a re-interpretation of the code. I.e. make cling
+   // behave like a compiler: no dynamic lookup, no input wrapping for
+   // subsequent execution, no automatic provision of declarations but just a
+   // plain #include.
+
+   int oldload = SetClassAutoloading(0);
+   int oldparse = SetClassAutoparsing(0);
+   bool oldDynLookup = fInterpreter->isDynamicLookupEnabled();
+   fInterpreter->enableDynamicLookup(false);
+   bool oldRawInput = fInterpreter->isRawInputEnabled();
+   fInterpreter->enableRawInput(true);
+
+   LoadText(code);
+
+   fInterpreter->enableRawInput(oldRawInput);
+   fInterpreter->enableDynamicLookup(oldDynLookup);
+   SetClassAutoloading(oldload);
+   SetClassAutoparsing(oldparse);
 }
 
 //______________________________________________________________________________
@@ -2403,7 +2464,8 @@ void TCling::RegisterLoadedSharedLibrary(const char* filename)
        || strstr(filename, "/usr/lib/liblangid")
        || strstr(filename, "/usr/lib/libCRFSuite")
        || strstr(filename, "/usr/lib/libpam")
-       || strstr(filename, "/usr/lib/libOpenScriptingUtil"))
+       || strstr(filename, "/usr/lib/libOpenScriptingUtil")
+       || strstr(filename, "/usr/lib/libextension"))
       return;
 #elif defined(__CYGWIN__)
    // Check that this is not a system library
@@ -2805,6 +2867,9 @@ void TCling::UpdateListOfTypes()
 void TCling::SetClassInfo(TClass* cl, Bool_t reload)
 {
    // Set pointer to the TClingClassInfo in TClass.
+   // If 'reload' is true, (attempt to) generate a new ClassInfo even if we
+   // already have one.
+
    R__LOCKGUARD2(gInterpreterMutex);
    if (cl->fClassInfo && !reload) {
       return;
@@ -2819,26 +2884,7 @@ void TCling::SetClassInfo(TClass* cl, Bool_t reload)
    std::string name(cl->GetName());
    TClingClassInfo* info = new TClingClassInfo(fInterpreter, name.c_str());
    if (!info->IsValid()) {
-      bool cint_class_exists = CheckClassInfo(name.c_str());
-      if (!cint_class_exists) {
-         // Try resolving all the typedefs (even Float_t and Long64_t).
-         name = TClassEdit::ResolveTypedef(name.c_str(), kTRUE);
-         if (name == cl->GetName()) {
-            // No typedefs found, all done.
-            return;
-         }
-         // Try the new name.
-         cint_class_exists = CheckClassInfo(name.c_str());
-         if (!cint_class_exists) {
-            // Nothing found, nothing to do.
-            return;
-         }
-      }
-      info = new TClingClassInfo(fInterpreter, name.c_str());
-      if (!info->IsValid()) {
-         // Failed, done.
-         return;
-      }
+      return;
    }
    cl->fClassInfo = (ClassInfo_t*)info; // Note: We are transfering ownership here.
    // In case a class contains an external enum, the enum will be seen as a
@@ -2889,7 +2935,7 @@ void TCling::SetClassInfo(TClass* cl, Bool_t reload)
 }
 
 //______________________________________________________________________________
-Bool_t TCling::CheckClassInfo(const char* name, Bool_t autoload /*= kTRUE*/, Bool_t isClassOrNamespaceOnly /* = kFALSE*/ )
+Bool_t TCling::CheckClassInfo(const char* name, Bool_t autoload, Bool_t isClassOrNamespaceOnly /* = kFALSE*/ )
 {
    // Checks if an entity with the specified name is defined in Cling.
    // Returns kFALSE if the entity is not defined.
@@ -3464,7 +3510,8 @@ TInterpreter::DeclId_t TCling::GetEnum(TClass *cl, const char *name) const
       // If it is a global enum.
       possibleEnum = cling::utils::Lookup::Named(&fInterpreter->getSema(), name);
    }
-   if (possibleEnum && isa<clang::EnumDecl>(possibleEnum)) {
+   if (possibleEnum && (possibleEnum != (clang::Decl*)-1)
+       && isa<clang::EnumDecl>(possibleEnum)) {
       return possibleEnum;
    }
    return 0;
@@ -3796,11 +3843,6 @@ void TCling::GetInterpreterTypeName(const char* name, std::string &output, Bool_
 
    R__LOCKGUARD(gInterpreterMutex);
 
-   // This first step is likely redundant if
-   // the next step never issue any warnings.
-   if (!CheckClassInfo(name)) {
-      return ;
-   }
    TClingClassInfo cl(fInterpreter, name);
    if (!cl.IsValid()) {
       return ;

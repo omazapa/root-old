@@ -22,6 +22,7 @@
 #include "TROOT.h"
 #include "TStreamerInfo.h"
 #include <iostream>
+#include <unordered_set>
 
 std::string gPCMFilename;
 std::vector<std::string> gClassesToStore;
@@ -64,13 +65,13 @@ void AddStreamerInfoToROOTFile(const char *normName)
 extern "C"
 void AddTypedefToROOTFile(const char *tdname)
 {
-   gTypedefsToStore.push_back(tdname);
+   gTypedefsToStore.emplace_back(tdname);
 }
 
 extern "C"
 void AddEnumToROOTFile(const char *enumname)
 {
-   gEnumsToStore.push_back(enumname);
+   gEnumsToStore.emplace_back(enumname);
 }
 
 extern "C"
@@ -79,15 +80,28 @@ void AddAncestorPCMROOTFile(const char *pcmName)
    gAncestorPCMNames.emplace_back(pcmName);
 }
 
+void ResetPCMContent()
+{
+   // Empty the PCM, because its information is in the PCH.
+   // We write an file with empty keys for symmetry reasons.
+   gClassesToStore.clear();
+   gTypedefsToStore.clear();
+   gEnumsToStore.clear();
+   gAncestorPCMNames.clear();
+}
+
 extern "C"
-bool CloseStreamerInfoROOTFile()
+bool CloseStreamerInfoROOTFile(bool writeEmptyRootPCM)
 {
    // Write all persistent TClasses.
+
+   // Reset the content of the pcm
+   if (writeEmptyRootPCM) ResetPCMContent();
 
    // Avoid plugins.
    TVirtualStreamerInfo::SetFactory(new TStreamerInfo());
 
-   TObjArray protoClasses;
+   TObjArray protoClasses(gClassesToStore.size());
    for (const auto & normName : gClassesToStore) {
       TClass *cl = TClass::GetClass(normName.c_str(), kTRUE /*load*/);
       if (!cl) {
@@ -112,7 +126,10 @@ bool CloseStreamerInfoROOTFile()
       protoClasses.AddLast(new TProtoClass(cl));
    }
 
-   TObjArray typedefs;
+
+   TObjArray typedefs(gTypedefsToStore.size());
+
+
    for (const auto & dtname : gTypedefsToStore) {
       TDataType *dt = (TDataType *)gROOT->GetListOfTypes()->FindObject(dtname.c_str());
       if (!dt) {
@@ -128,7 +145,7 @@ bool CloseStreamerInfoROOTFile()
    }
 
 
-   TObjArray enums;
+   TObjArray enums(gEnumsToStore.size());
    for (const auto & enumname : gEnumsToStore) {
       TEnum *en = nullptr;
       const size_t lastSepPos = enumname.find_last_of("::");
@@ -163,7 +180,7 @@ bool CloseStreamerInfoROOTFile()
    }
 
    // Don't use TFile::Open(); we don't need plugins.
-   TFile dictFile( (gPCMFilename + "?filetype=pcm").c_str(), "RECREATE");
+   TFile dictFile((gPCMFilename + "?filetype=pcm").c_str(), "RECREATE");
    if (dictFile.IsZombie())
       return false;
    // Instead of plugins:

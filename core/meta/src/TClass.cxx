@@ -1288,7 +1288,7 @@ void TClass::Init(const char *name, Version_t cversion,
             fHasRootPcmInfo = kTRUE;
          }
       }
-      if (!fHasRootPcmInfo && gInterpreter->CheckClassInfo(fName)) {
+      if (!fHasRootPcmInfo && gInterpreter->CheckClassInfo(fName, /* autoload = */ kTRUE)) {
          gInterpreter->SetClassInfo(this);   // sets fClassInfo pointer
          if (!fClassInfo) {
             if (IsZombie()) {
@@ -2844,6 +2844,9 @@ TClass *TClass::GetClass(const char *name, Bool_t load, Bool_t silent)
    }
 
    //last attempt. Look in CINT list of all (compiled+interpreted) classes
+   if (gDebug>0){
+      printf("TClass::GetClass: Header Parsing - The representation of %s was not found in the type system. A lookup in the interpreter is about to be tried: this can cause parsing. This can be avoided selecting %s in the linkdef/selection file.\n",normalizedName.c_str(), normalizedName.c_str());
+   }
    if (gInterpreter->CheckClassInfo(normalizedName.c_str(), kTRUE /* autoload */, kTRUE /*Only class, structs and ns*/)) {
       // Get the normalized name based on the decl (currently the only way
       // to get the part to add or drop the default arguments as requested by the user)
@@ -3349,7 +3352,10 @@ TList *TClass::GetListOfMethods(Bool_t load /* = kTRUE */)
    R__LOCKGUARD(gInterpreterMutex);
 
    if (!fMethod) fMethod = new TListOfFunctions(this);
-   if (load) fMethod->Load();
+   if (load) {
+      if (gDebug>0) Info("GetListOfMethods","Header Parsing - Asking for all the methods of class %s: this can involve parsing.",GetName());
+      fMethod->Load();
+   }
    return fMethod;
 }
 
@@ -3378,7 +3384,10 @@ const TList *TClass::GetListOfAllPublicMethods(Bool_t load /* = kTRUE */)
    R__LOCKGUARD(gInterpreterMutex);
 
    if (!fAllPubMethod) fAllPubMethod = new TViewPubFunctions(this);
-   if (load) fAllPubMethod->Load();
+   if (load) {
+      if (gDebug>0) Info("GetListOfAllPublicMethods","Header Parsing - Asking for all the methods of class %s: this can involve parsing.",GetName());
+      fAllPubMethod->Load();
+   }
    return fAllPubMethod;
 }
 
@@ -3430,10 +3439,10 @@ void TClass::GetMenuItems(TList *list)
 Bool_t TClass::HasDictionary()
 {
    // Check whether a class has a dictionary or not.
+   // This is equivalent to ask if a class is coming from a bootstrapping
+   // procedure initiated during the loading of a library.
 
-   if (gClassTable->GetDict(fName)) return true;
-
-   return false;
+   return IsLoaded();
 }
 
 //______________________________________________________________________________
@@ -4053,23 +4062,8 @@ TVirtualStreamerInfo* TClass::GetStreamerInfo(Int_t version /* = 0 */) const
 
    TVirtualStreamerInfo *guess = fLastReadInfo;
    if (guess && guess->GetClassVersion() == version) {
-      // NOTE: race condition on IsCompiled() ... either TestBit or fBits becomes
-      // atomic or we make sure that the following code is no longer necessary
-      // by making sure that the StreamerInfo assigned to fLastReadInfo is
-      // already compiled (see FindStreamerInfo for example of possible break of
-      // this contract).
-
-      // If it was assigned to fLastReadInfo, it was already used
-      // and thus already properly setup
-      if (!guess->IsCompiled()) {
-         // Streamer info has not been compiled, but exists.
-         // Therefore it was read in from a file and we have to do schema evolution?
-         // Or it didn't have a dictionary before, but does now?
-         R__LOCKGUARD(gInterpreterMutex);
-         // Re-test to make sure we did not get the 'wrong' result early because
-         // of the potential data races on fBits.
-         if (!guess->IsCompiled()) guess->BuildOld();
-      }
+      // If the StreamerInfo is assigned to the fLastReadInfo, we are
+      // guaranted it was built and compiled.
       return guess;
    }
 
@@ -4115,12 +4109,6 @@ TVirtualStreamerInfo* TClass::GetStreamerInfo(Int_t version /* = 0 */) const
          // If we do not have a StreamerInfo for this version and we do not
          // have dictionary information nor a proxy, there is nothing to build!
          //
-         // Warning:  Whether or not the build optimizes is controlled externally
-         //           to us by a global variable!  Don't call us unless you have
-         //           set that variable properly with TStreamer::Optimize()!
-         //
-         // FIXME: Why don't we call BuildOld() like we do below?
-         // Answer: We are new and so don't have to do schema evolution.
          sinfo->Build();
       }
    } else {
@@ -4135,7 +4123,8 @@ TVirtualStreamerInfo* TClass::GetStreamerInfo(Int_t version /* = 0 */) const
    if (version == fClassVersion) {
       fCurrentInfo = sinfo;
    }
-   fLastReadInfo = sinfo;
+   // If the compilation succeeded, remember this StreamerInfo.
+   if (sinfo->IsCompiled()) fLastReadInfo = sinfo;
    return sinfo;
 }
 
@@ -4280,6 +4269,11 @@ void TClass::IgnoreTObjectStreamer(Bool_t doIgnore)
    //     BigTrack::Class()->IgnoreTObjectStreamer();
    //  To be effective for object streamed member-wise or split in a TTree,
    //  this function must be called for the most derived class (i.e. BigTrack).
+
+   // We need to tak the lock since we are test and then setting fBits
+   // and TStreamerInfo::fBits (and the StreamerInfo state in general)
+   // which can also be modified by another thread.
+   R__LOCKGUARD2(gInterpreterMutex);
 
    if ( doIgnore &&  TestBit(kIgnoreTObjectStreamer)) return;
    if (!doIgnore && !TestBit(kIgnoreTObjectStreamer)) return;
@@ -6172,7 +6166,8 @@ TVirtualStreamerInfo *TClass::FindStreamerInfo(UInt_t checksum) const
          TVirtualStreamerInfo *info = (TVirtualStreamerInfo*)fStreamerInfo->UncheckedAt(i);
          if (info && info->GetCheckSum() == checksum) {
             // R__ASSERT(i==info->GetClassVersion() || (i==-1&&info->GetClassVersion()==1));
-            fLastReadInfo = info;
+            info->BuildOld();
+            if (info->IsCompiled()) fLastReadInfo = info;
             return info;
          }
       }

@@ -155,6 +155,7 @@ public: // Public Interface
    Bool_t  IsAutoLoadNamespaceCandidate(const clang::NamespaceDecl* nsDecl);
    void    ClearFileBusy();
    void    ClearStack(); // Delete existing temporary values
+   void    Declare(const char* code);
    void    EnableAutoLoading();
    void    EndOfLineAction();
    TClass *GetClass(const std::type_info& typeinfo, Bool_t load) const;
@@ -213,7 +214,7 @@ public: // Public Interface
    void    UpdateListOfGlobalFunctions();
    void    UpdateListOfTypes();
    void    SetClassInfo(TClass* cl, Bool_t reload = kFALSE);
-   Bool_t  CheckClassInfo(const char* name, Bool_t autoload = kTRUE, Bool_t isClassOrNamespaceOnly = kFALSE);
+   Bool_t  CheckClassInfo(const char* name, Bool_t autoload, Bool_t isClassOrNamespaceOnly = kFALSE);
    Bool_t  CheckClassTemplate(const char *name);
    Long_t  Calc(const char* line, EErrorCode* error = 0);
    void    CreateListOfBaseClasses(TClass* cl) const;
