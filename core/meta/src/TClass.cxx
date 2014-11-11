@@ -3650,29 +3650,42 @@ void TClass::ReplaceWith(TClass *newcl) const
 }
 
 //______________________________________________________________________________
-void TClass::ResetClassInfo(Long_t tagnum)
+void TClass::ResetClassInfo(Long_t /* tagnum */)
 {
    // Make sure that the current ClassInfo is up to date.
-   if (!fClassInfo || gCling->ClassInfo_Tagnum(fClassInfo) != tagnum) {
-      if (!fClassInfo)
-         fClassInfo = gInterpreter->ClassInfo_Factory();
-      gCling->ClassInfo_Init(fClassInfo,(Int_t)tagnum);
-      ResetCaches();
-   }
+
+   Warning("ResetClassInfo(Long_t tagnum)","Call to deprecated interface (does nothing)");
 }
 
 //______________________________________________________________________________
 void TClass::ResetClassInfo()
 {
    // Make sure that the current ClassInfo is up to date.
-   fClassInfo = 0;
-   gInterpreter->SetClassInfo(this, true);
-   //Could use TCling__UpdateClassInfoWithDecl, but the new decl is 0
+   R__LOCKGUARD2(gInterpreterMutex);
+
+   if (fClassInfo) {
+      TClass::RemoveClassDeclId(gInterpreter->GetDeclId(fClassInfo));
+      gInterpreter->ClassInfo_Delete(fClassInfo);
+      fClassInfo = 0;
+   }
+   // We can not check at this point whether after the unload there will
+   // still be interpreter information about this class (as v5 was doing),
+   // instead this function must only be called if the definition is (about)
+   // to be unloaded.
+
    ResetCaches();
-   if (fStreamerInfo->GetEntries() != 0) {
-      fState = kEmulated;
+
+   // We got here because the definition Decl is about to be unloaded.
+   if (fState != TClass::kHasTClassInit) {
+      if (fStreamerInfo->GetEntries() != 0) {
+         fState = TClass::kEmulated;
+      } else {
+         fState = TClass::kForwardDeclared;
+      }
    } else {
-      fState = kForwardDeclared;
+      // if the ClassInfo was loaded for a class with a TClass Init and it
+      // gets unloaded, should we guess it can be reloaded?
+      fCanLoadClassInfo = kTRUE;
    }
 }
 

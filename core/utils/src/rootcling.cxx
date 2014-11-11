@@ -2372,7 +2372,7 @@ bool HasPath(const std::string &name)
 //______________________________________________________________________________
 int CreateCapabilitiesFile(const std::string &capaFileName,
                            const std::string &dictFileName,
-                           const std::list<std::string> &classesNames)
+                           const std::list<std::string> &keysNames)
 {
 
    char const *model_c[] = {
@@ -2401,12 +2401,12 @@ int CreateCapabilitiesFile(const std::string &capaFileName,
 
    std::list<std::string> new_lines;
 
-   std::string classNameWithStd;
-   for (auto const className : classesNames){
-      classNameWithStd = TClassEdit::InsertStd(className.c_str());
-      new_lines.push_back(" \"" + capaPre + "/" + classNameWithStd + "\",\n");
-      if (className!=classNameWithStd) {
-         new_lines.push_back(" \"" + capaPre + "/" + className.c_str() + "\",\n");
+   std::string keyNameWithStd;
+   for (auto const keyName : keysNames){
+      keyNameWithStd = TClassEdit::InsertStd(keyName.c_str());
+      new_lines.push_back(" \"" + capaPre + "/" + keyNameWithStd + "\",\n");
+      if (keyName!=keyNameWithStd) {
+         new_lines.push_back(" \"" + capaPre + "/" + keyName.c_str() + "\",\n");
       }
    }
 
@@ -2424,8 +2424,8 @@ int CreateCapabilitiesFile(const std::string &capaFileName,
    ifile.close();
 
    // Now replace lines if dict already in the capabilities content if there
-   std::list<std::string>::iterator startMarkPos(std::find(lines.begin(), lines.end(), startmark));
-   std::list<std::string>::iterator endMarkPos(std::find(lines.begin(), lines.end(), endmark));
+   auto startMarkPos(std::find(lines.begin(), lines.end(), startmark));
+   auto endMarkPos(std::find(lines.begin(), lines.end(), endmark));
    if (startMarkPos != lines.end() && endMarkPos != lines.end()) {
       // increment since erase erases elements like [first,last)
       startMarkPos++;
@@ -2445,9 +2445,8 @@ int CreateCapabilitiesFile(const std::string &capaFileName,
       return 1;
    }
 
-   for (std::list<std::string>::iterator lineIt = lines.begin();
-         lineIt != lines.end(); ++lineIt) {
-      capaFile << *lineIt;
+   for (auto const & line : lines) {
+      capaFile << line;
    }
    return 0;
 }
@@ -2640,12 +2639,32 @@ void ExtractTypedefAutoloadKeys(std::list<std::string> &tdNames,
 }
 
 //______________________________________________________________________________
+int ExtractEnumAutoloadKeys(std::list<std::string> &enumNames,
+                            const std::vector<clang::EnumDecl *> &enumDecls,
+                            const cling::Interpreter &interp)
+{
+   if (!enumDecls.empty()) {
+      std::string autoLoadKey;
+      for (auto & en : enumDecls) {
+         autoLoadKey = "";
+         GetMostExternalEnclosingClassNameFromDecl(*en, autoLoadKey, interp);
+         // If there is an outer class, it is already considered
+         if (autoLoadKey.empty()) {
+            enumNames.push_back(en->getQualifiedNameAsString());
+         }
+      }
+   }
+   return 0;
+}
+
+//______________________________________________________________________________
 int CreateNewRootMapFile(const std::string &rootmapFileName,
                          const std::string &rootmapLibName,
                          const std::list<std::string> &classesDefsList,
                          const std::list<std::string> &classesNames,
                          const std::list<std::string> &nsNames,
                          const std::list<std::string> &tdNames,
+                         const std::list<std::string> &enNames,
                          const HeadersDeclsMap_t &headersClassesMap,
                          const std::unordered_set<std::string> headersToIgnore)
 {
@@ -2679,7 +2698,7 @@ int CreateNewRootMapFile(const std::string &rootmapFileName,
    }
 
    // Add the "section"
-   if (!nsNames.empty() || !classesNames.empty() || !tdNames.empty()) {
+   if (!nsNames.empty() || !classesNames.empty() || !tdNames.empty() || !enNames.empty()) {
       rootmapFile << "[" << rootmapLibName << " ]\n";
 
       // Loop on selected classes and insert them in the rootmap
@@ -2720,6 +2739,16 @@ int CreateNewRootMapFile(const std::string &rootmapFileName,
             if (classesKeys.insert(autoloadKey).second)
                rootmapFile << "typedef " << autoloadKey << std::endl;
       }
+
+      // And Enums. There is no incomplete type for an enum but we can nevertheless
+      // have the key for the cases where the root typesystem is interrogated.
+      if (!enNames.empty()){
+         rootmapFile << "# List of selected enums and outer classes\n";
+         for (const auto & autoloadKey : enNames)
+            if (classesKeys.insert(autoloadKey).second)
+               rootmapFile << "enum " << autoloadKey << std::endl;
+      }
+
    }
 
    return 0;
@@ -4391,12 +4420,18 @@ int RootCling(int argc,
             break;
          }
       }
+
+      if (writeEmptyRootPCM){
+         headersDeclsMap.clear();
+      }
+
+
       const std::string headersClassesMapString = GenerateStringFromHeadersForClasses(headersDeclsMap,
-            detectedUmbrella,
-            true);
+                                                                                      detectedUmbrella,
+                                                                                      true);
       const std::string fwdDeclsString =
 #ifndef ROOT_STAGE1_BUILD
-         GenerateFwdDeclString(scan, interp);
+         writeEmptyRootPCM ? "nullptr" : GenerateFwdDeclString(scan, interp);
 #else
          "\"\"";
 #endif
@@ -4448,10 +4483,15 @@ int RootCling(int argc,
    std::list<std::string> classesDefsList;
 
    retCode = ExtractSelectedClassesAndTemplateDefs(scan,
-             classesNames,
-             classesNamesForRootmap,
-             classesDefsList,
-             interp);
+                                                   classesNames,
+                                                   classesNamesForRootmap,
+                                                   classesDefsList,
+                                                   interp);
+   std::list<std::string> enumNames;
+   retCode += ExtractEnumAutoloadKeys(enumNames,
+                                      scan.fSelectedEnums,
+                                      interp);
+
    if (0 != retCode) return retCode;
 
    // Create the rootmapfile if needed
@@ -4491,6 +4531,7 @@ int RootCling(int argc,
                                              classesNamesForRootmap,
                                              nsNames,
                                              typedefsRootmapLines,
+                                             enumNames,
                                              headersClassesMap,
                                              headersToIgnore);
       } else {
@@ -4505,9 +4546,12 @@ int RootCling(int argc,
    // Create the capabilities file if needed
    if (capaNeeded) {
       tmpCatalog.addFileName(capaFileName);
+      // Lump together classes and enum names
+      std::list<std::string>& capaKeysNames=classesNames;
+      capaKeysNames.splice(capaKeysNames.end(),enumNames);
       int capaStatusCode = CreateCapabilitiesFile(capaFileName,
-                           dictpathname,
-                           classesNames);
+                                                  dictpathname,
+                                                  capaKeysNames);
       if (0 != capaStatusCode) return 1;
    }
 
