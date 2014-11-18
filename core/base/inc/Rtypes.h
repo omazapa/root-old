@@ -219,7 +219,7 @@ typedef std::atomic<TClass*> atomic_TClass_ptr;
 // Common part of ClassDef definition.
 // DeclFileLine() is not part of it since CINT uses that as trigger for
 // the class comment string.
-#define _ClassDef_(name,id) \
+#define _ClassDef_(name,id, virtual_keyword, overrd) \
 private: \
    static atomic_TClass_ptr fgIsA; \
 public: \
@@ -227,30 +227,13 @@ public: \
    static const char *Class_Name(); \
    static Version_t Class_Version() { return id; } \
    static TClass *Dictionary(); \
-   virtual TClass *IsA() const { return name::Class(); } \
-   virtual void ShowMembers(TMemberInspector&insp) const { ::ROOT::Class_ShowMembers(name::Class(), this, insp); } \
-   virtual void Streamer(TBuffer&); \
+   virtual_keyword TClass *IsA() const overrd { return name::Class(); } \
+   virtual_keyword void ShowMembers(TMemberInspector&insp) const overrd { ::ROOT::Class_ShowMembers(name::Class(), this, insp); } \
+   virtual_keyword void Streamer(TBuffer&) overrd; \
    void StreamerNVirtual(TBuffer&ClassDef_StreamerNVirtual_b) { name::Streamer(ClassDef_StreamerNVirtual_b); } \
    static const char *DeclFileName() { return __FILE__; } \
    static int ImplFileLine(); \
    static const char *ImplFileName();
-
-// Version without any virtual functions.
-#define _ClassDefNV_(name,id) \
-private: \
-static atomic_TClass_ptr fgIsA; \
-public: \
-static TClass *Class(); \
-static const char *Class_Name(); \
-static Version_t Class_Version() { return id; } \
-static TClass *Dictionary(); \
-TClass *IsA() const { return name::Class(); } \
-void ShowMembers(TMemberInspector&insp) const { ::ROOT::Class_ShowMembers(name::Class(), this, insp); } \
-void Streamer(TBuffer&); \
-void StreamerNVirtual(TBuffer &ClassDef_StreamerNVirtual_b) { name::Streamer(ClassDef_StreamerNVirtual_b); } \
-static const char *DeclFileName() { return __FILE__; } \
-static int ImplFileLine(); \
-static const char *ImplFileName();
 
 #define _ClassDefInterp_(name,id) \
 private: \
@@ -267,36 +250,22 @@ public: \
    static int ImplFileLine() { return 0; } \
    static const char *ImplFileName() { return __FILE__; }
 
-#if !defined(R__ACCESS_IN_SYMBOL) || defined(__CINT__)
-
 #define ClassDef(name,id) \
-   _ClassDef_(name,id) \
+   _ClassDef_(name,id,virtual,)   \
+   static int DeclFileLine() { return __LINE__; }
+
+#define ClassDefOverride(name,id) \
+   _ClassDef_(name,id,,override)   \
    static int DeclFileLine() { return __LINE__; }
 
 #define ClassDefNV(name,id) \
-   _ClassDefNV_(name,id) \
+   _ClassDef_(name,id,,) \
    static int DeclFileLine() { return __LINE__; }
-
-#else
-
-#define ClassDef(name,id) \
-   _ClassDef_(name,id) \
-   static int DeclFileLine() { return __LINE__; }
-
-#define ClassDefNV(name,id) \
-   _ClassDefNV_(name,id) \
-   static int DeclFileLine() { return __LINE__; }
-
-#endif
 
 #define R__UseDummy(name) \
    class _NAME2_(name,_c) { public: _NAME2_(name,_c)() { if (name) { } } }
 
 
-#if defined(__CINT__)
-#define ClassImpUnique(name,key)
-#define ClassImp(name)
-#else
 #define ClassImpUnique(name,key) \
    namespace ROOT { \
       TGenericClassInfo *GenerateInitInstance(const name*); \
@@ -305,14 +274,9 @@ public: \
       R__UseDummy(_R__UNIQUE_(_NAME2_(R__dummyint,key))); \
    }
 #define ClassImp(name) ClassImpUnique(name,default)
-#endif
 
 // Macro for Namespace
 
-#if defined(__CINT__)
-#define NamespaceImpUnique(name,key)
-#define NamespaceImp(name)
-#else
 #define NamespaceImpUnique(name,key) \
    namespace name { \
       namespace ROOT { \
@@ -323,7 +287,6 @@ public: \
       } \
    }
 #define NamespaceImp(name) NamespaceImpUnique(name,default)
-#endif
 
 //---- ClassDefT macros for templates with one template argument ---------------
 // ClassDefT  corresponds to ClassDef
@@ -333,39 +296,21 @@ public: \
 
 
 // This ClassDefT is stricly redundant and is kept only for
-// backward compatibility. Using #define ClassDef ClassDefT is confusing
-// the CINT parser.
-#if !defined(R__ACCESS_IN_SYMBOL) || defined(__CINT__)
+// backward compatibility.
 
 #define ClassDefT(name,id) \
-   _ClassDef_(name,id) \
+   _ClassDef_(name,id,virtual,) \
    static int DeclFileLine() { return __LINE__; }
 
 #define ClassDefTNV(name,id) \
-   _ClassDefNV_(name,id) \
+   _ClassDef_(name,id,virtual,) \
    static int DeclFileLine() { return __LINE__; }
 
-
-#else
-
-#define ClassDefT(name,id) \
-   _ClassDef_(name,id) \
-   static int DeclFileLine() { return __LINE__; }
-
-#define ClassDefTNV(name,id) \
-   _ClassDefNV_(name,id) \
-   static int DeclFileLine() { return __LINE__; }
-
-#endif
 
 #define ClassDefT2(name,Tmpl)
 
 
 
-#if defined(__CINT__)
-#define templateClassImpUnique(name,key)
-#define templateClassImp(name)
-#else
 #define templateClassImpUnique(name,key) \
    namespace ROOT { \
       static TNamed *_R__UNIQUE_(_NAME2_(R__dummyholder,key)) = \
@@ -373,7 +318,6 @@ public: \
       R__UseDummy(_R__UNIQUE_(_NAME2_(R__dummyholder,key))); \
    }
 #define templateClassImp(name) templateClassImpUnique(name,default)
-#endif
 
 #define ClassImpT(name,Tmpl) templateClassImp(name)
 
@@ -405,9 +349,6 @@ namespace ROOT { \
    R__UseDummy(_R__UNIQUE_(R__dummyVersionNumber)); \
 }
 
-#if defined(__CINT__)
-#define RootStreamer(name,STREAMER)
-#else
 #define RootStreamer(name,STREAMER)                                  \
 namespace ROOT {                                                     \
    TGenericClassInfo *GenerateInitInstance(const name*);             \
@@ -415,6 +356,5 @@ namespace ROOT {                                                     \
            GenerateInitInstance((name*)0x0)->SetStreamer(STREAMER);  \
    R__UseDummy(_R__UNIQUE_(R__dummyStreamer));                       \
 }
-#endif
 
 #endif

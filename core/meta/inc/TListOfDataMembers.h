@@ -53,6 +53,16 @@ private:
 public:
 
    TListOfDataMembers(TClass *cl = 0);
+   // construct from a generic collection of data members objects
+   template<class DataMemberList> 
+   TListOfDataMembers(DataMemberList & dmlist) : 
+      fClass(0),fIds(0),fUnloaded(0),
+      fIsLoaded(kTRUE), fLastLoadMarker(0)
+   { 
+      for (auto * dataMember : dmlist) 
+         Add(dataMember);      
+   }
+
    ~TListOfDataMembers();
 
    virtual void Clear(Option_t *option);
@@ -65,7 +75,6 @@ public:
    TDictionary *Get(DataMemberInfo_t *info);
 
    Bool_t     IsLoaded() const { return fIsLoaded; }
-   void       SetIsLoaded(Bool_t on = kTRUE)  { fIsLoaded = on; } 
    void       AddFirst(TObject *obj);
    void       AddFirst(TObject *obj, Option_t *opt);
    void       AddLast(TObject *obj);

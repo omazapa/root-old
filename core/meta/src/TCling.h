@@ -155,7 +155,7 @@ public: // Public Interface
    Bool_t  IsAutoLoadNamespaceCandidate(const clang::NamespaceDecl* nsDecl);
    void    ClearFileBusy();
    void    ClearStack(); // Delete existing temporary values
-   void    Declare(const char* code);
+   Bool_t  Declare(const char* code);
    void    EnableAutoLoading();
    void    EndOfLineAction();
    TClass *GetClass(const std::type_info& typeinfo, Bool_t load) const;
@@ -277,7 +277,7 @@ public: // Public Interface
    virtual const char* GetCurrentMacroName() const;
    virtual int    GetSecurityError() const;
    virtual int    LoadFile(const char* path) const;
-   virtual void   LoadText(const char* text) const;
+   virtual Bool_t LoadText(const char* text) const;
    virtual const char* MapCppName(const char*) const;
    virtual void   SetAlloclockfunc(void (*)()) const;
    virtual void   SetAllocunlockfunc(void (*)()) const;
@@ -341,7 +341,7 @@ public: // Public Interface
    virtual void   ClassInfo_Delete(ClassInfo_t* info, void* arena) const;
    virtual void   ClassInfo_DeleteArray(ClassInfo_t* info, void* arena, bool dtorOnly) const;
    virtual void   ClassInfo_Destruct(ClassInfo_t* info, void* arena) const;
-   virtual ClassInfo_t*  ClassInfo_Factory() const;
+   virtual ClassInfo_t*  ClassInfo_Factory(Bool_t all = kTRUE) const;
    virtual ClassInfo_t*  ClassInfo_Factory(ClassInfo_t* cl) const;
    virtual ClassInfo_t*  ClassInfo_Factory(const char* name) const;
    virtual Long_t   ClassInfo_GetBaseOffset(ClassInfo_t* fromDerived, ClassInfo_t* toBase, void * address, bool isDerivedObject) const;
