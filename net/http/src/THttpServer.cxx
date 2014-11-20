@@ -9,6 +9,7 @@
 #include "TROOT.h"
 #include "TClass.h"
 #include "RVersion.h"
+#include "RConfigure.h"
 
 #include "THttpEngine.h"
 #include "TRootSniffer.h"
@@ -17,6 +18,7 @@
 #include <string>
 #include <cstdlib>
 #include <stdlib.h>
+#include <string.h>
 
 #ifdef COMPILED_WITH_DABC
    extern "C" unsigned long crc32(unsigned long crc, const unsigned char* buf, unsigned int buflen);
@@ -108,6 +110,8 @@ void THttpCallArg::SetPathAndFileName(const char *fullpath)
 //______________________________________________________________________________
 void THttpCallArg::FillHttpHeader(TString &hdr, const char* header)
 {
+   // fill HTTP header
+
    if (header==0) header = "HTTP/1.1";
 
    if ((fContentType.Length() == 0) || Is404()) {
@@ -139,6 +143,65 @@ void THttpCallArg::FillHttpHeader(TString &hdr, const char* header)
    hdr.Append("\r\n");
 }
 
+//______________________________________________________________________________
+Bool_t THttpCallArg::CompressWithGzip()
+{
+   // compress reply data with gzip compression
+
+   char *objbuf = (char*) GetContent();
+   Long_t objlen = GetContentLength();
+
+   unsigned long objcrc = R__crc32(0, NULL, 0);
+   objcrc = R__crc32(objcrc, (const unsigned char*) objbuf, objlen);
+
+   // 10 bytes (ZIP header), compressed data, 8 bytes (CRC and original length)
+   Int_t buflen = 10 + objlen + 8;
+   if (buflen<512) buflen = 512;
+
+   void* buffer = malloc(buflen);
+
+   char *bufcur = (char*) buffer;
+
+   *bufcur++ = 0x1f;  // first byte of ZIP identifier
+   *bufcur++ = 0x8b;  // second byte of ZIP identifier
+   *bufcur++ = 0x08;  // compression method
+   *bufcur++ = 0x00;  // FLAG - empty, no any file names
+   *bufcur++ = 0;    // empty timestamp
+   *bufcur++ = 0;    //
+   *bufcur++ = 0;    //
+   *bufcur++ = 0;    //
+   *bufcur++ = 0;    // XFL (eXtra FLags)
+   *bufcur++ = 3;    // OS   3 means Unix
+   //strcpy(bufcur, "get.json");
+   //bufcur += strlen("get.json")+1;
+
+   char dummy[8];
+   memcpy(dummy, bufcur-6, 6);
+
+   // R__memcompress fills first 6 bytes with own header, therefore just overwrite them
+   unsigned long ziplen = R__memcompress(bufcur-6, objlen + 6, objbuf, objlen);
+
+   memcpy(bufcur-6, dummy, 6);
+
+   bufcur += (ziplen-6); // jump over compressed data (6 byte is extra ROOT header)
+
+   *bufcur++ = objcrc & 0xff;    // CRC32
+   *bufcur++ = (objcrc >> 8) & 0xff;
+   *bufcur++ = (objcrc >> 16) & 0xff;
+   *bufcur++ = (objcrc >> 24) & 0xff;
+
+   *bufcur++ = objlen & 0xff;  // original data length
+   *bufcur++ = (objlen >> 8) & 0xff;  // original data length
+   *bufcur++ = (objlen >> 16) & 0xff;  // original data length
+   *bufcur++ = (objlen >> 24) & 0xff;  // original data length
+
+   SetBinData(buffer, bufcur - (char*) buffer);
+
+   SetEncoding("gzip");
+
+   return kTRUE;
+
+}
 
 // ====================================================================
 
@@ -147,8 +210,7 @@ void THttpCallArg::FillHttpHeader(TString &hdr, const char* header)
 // THttpTimer                                                           //
 //                                                                      //
 // Specialized timer for THttpServer                                    //
-// Main aim - provide regular call of THttpServer::ProcessRequests()    //
-// method                                                               //
+// Provides regular call of THttpServer::ProcessRequests() method       //
 //                                                                      //
 //////////////////////////////////////////////////////////////////////////
 
@@ -183,7 +245,39 @@ public:
 //                                                                      //
 // THttpServer                                                          //
 //                                                                      //
-// Online server for arbitrary ROOT analysis                            //
+// Online http server for arbitrary ROOT application                    //
+//                                                                      //
+// Idea of THttpServer - provide remote http access to running          //
+// ROOT application and enable HTML/JavaScript user interface.          //
+// Any registered object can be requested and displayed in the browser. //
+// There are many benefits of such approach:                            //
+//     * standard http interface to ROOT application                    //
+//     * no any temporary ROOT files when access data                   //
+//     * user interface running in all browsers                         //
+//                                                                      //
+// Starting HTTP server                                                 //
+//                                                                      //
+// To start http server, at any time  create instance                   //
+// of the THttpServer class like:                                       //
+//    serv = new THttpServer("http:8080");                              //
+//                                                                      //
+// This will starts civetweb-based http server with http port 8080.     //
+// Than one should be able to open address "http://localhost:8080"      //
+// in any modern browser (IE, Firefox, Chrome) and browse objects,      //
+// created in application. By default, server can access files,         //
+// canvases and histograms via gROOT pointer. All such objects          //
+// can be displayed with JSROOT graphics.                               //
+//                                                                      //
+// At any time one could register other objects with the command:       //
+//                                                                      //
+// TGraph* gr = new TGraph(10);                                         //
+// gr->SetName("gr1");                                                  //
+// serv->Register("graphs/subfolder", gr);                              //
+// If objects content is changing in the application, one could         //
+// enable monitoring flag in the browser - than objects view            //
+// will be regularly updated.                                           //
+//                                                                      //
+// More information: http://root.cern.ch/drupal/content/users-guide     //
 //                                                                      //
 //////////////////////////////////////////////////////////////////////////
 
@@ -201,35 +295,42 @@ THttpServer::THttpServer(const char *engine) :
 {
    // constructor
 
-   // Checks where ROOT sources (via $ROOTSYS variable)
-   // Sources are required to locate files and scripts,
-   // which will be provided to the web clients by request
    // As argument, one specifies engine kind which should be
    // created like "http:8080". One could specify several engines
    // at once, separating them with ; like "http:8080;fastcgi:9000"
    // One also can configure readonly flag for sniffer like
    // "http:8080;readonly" or "http:8080;readwrite"
-
+   //
+   // Also searches for JavaScript ROOT sources, which are used in web clients
+   // Typically JSROOT sources located in $ROOTSYS/etc/http directory,
+   // but one could set JSROOTSYS variable to specify alternative location
 
    fMainThrdId = TThread::SelfId();
 
    // Info("THttpServer", "Create %p in thrd %ld", this, (long) fMainThrdId);
 
 #ifdef COMPILED_WITH_DABC
-
    const char *dabcsys = gSystem->Getenv("DABCSYS");
    if (dabcsys != 0)
       fJsRootSys = TString::Format("%s/plugins/root/js", dabcsys);
-
-#else
-   const char *rootsys = gSystem->Getenv("ROOTSYS");
-
-   if (rootsys != 0)
-      fJsRootSys = TString::Format("%s/etc/http", rootsys);
 #endif
 
-   const char* jsrootsys = getenv("JSROOTSYS");
-   if (jsrootsys!=0) fJsRootSys = jsrootsys;
+   const char *jsrootsys = gSystem->Getenv("JSROOTSYS");
+   if (jsrootsys != 0) fJsRootSys = jsrootsys;
+
+   if (fJsRootSys.Length() == 0) {
+#ifdef ROOTETCDIR
+      TString jsdir = TString::Format("%s/http", ROOTETCDIR);
+#else
+      TString jsdir("$(ROOTSYS)/etc/http");
+#endif
+      if (gSystem->ExpandPathName(jsdir)) {
+         Warning("THttpServer", "problems resolving '%s', use JSROOTSYS to specify $ROOTSYS/etc/http location", jsdir.Data());
+         fJsRootSys = ".";
+      } else {
+         fJsRootSys = jsdir;
+      }
+   }
 
    fDefaultPage = fJsRootSys + "/files/online.htm";
    fDrawPage = fJsRootSys + "/files/draw.htm";
@@ -237,7 +338,7 @@ THttpServer::THttpServer(const char *engine) :
    SetSniffer(new TRootSniffer("sniff"));
 
    // start timer
-   SetTimer(100, kTRUE);
+   SetTimer(20, kTRUE);
 
    if (strchr(engine,';')==0) {
       CreateEngine(engine);
@@ -282,14 +383,14 @@ void THttpServer::SetSniffer(TRootSniffer *sniff)
 //______________________________________________________________________________
 Bool_t THttpServer::CreateEngine(const char *engine)
 {
-   // factory method to create different http engine
+   // factory method to create different http engines
    // At the moment two engine kinds are supported:
    //  civetweb (default) and fastcgi
    // Examples:
-   //   "civetweb:8090" or "http:8090" or ":8090" - creates civetweb web server with http port 8090
+   //   "civetweb:8080" or "http:8080" or ":8080" - creates civetweb web server with http port 8080
    //   "fastcgi:9000" - creates fastcgi server with port 9000
-   //   "dabc:1237"   - create DABC server with port 1237 (only available with DABC installed)
-   //   "dabc:master_host:port" - attach to DABC master, running on master_host:port, (only available with DABC installed)
+   //   "dabc:1237"    - create DABC server with port 1237 (only available with DABC installed)
+   //   "dabc:master_host:port" - attach to DABC master, running on master_host:port (only available with DABC installed)
 
    if (engine == 0) return kFALSE;
 
@@ -307,7 +408,7 @@ Bool_t THttpServer::CreateEngine(const char *engine)
       clname = "TDabcEngine";
 
    // ensure that required engine class exists before we try to create it
-   TClass *engine_class = TClass::GetClass(clname.Data());
+   TClass *engine_class = gROOT->LoadClass(clname.Data());
    if (engine_class == 0) return kFALSE;
 
    THttpEngine *eng = (THttpEngine *) engine_class->New();
@@ -348,6 +449,48 @@ void THttpServer::SetTimer(Long_t milliSec, Bool_t mode)
 }
 
 //______________________________________________________________________________
+Bool_t THttpServer::VerifyFilePath(const char* fname)
+{
+   // checked that filename does not contains relative path below current directory
+   // Used to prevent access to files below jsrootsys directory
+
+   if ((fname==0) || (*fname==0)) return kFALSE;
+
+   Int_t level = 0;
+
+   while (*fname != 0) {
+
+      // find next slash or backslash
+      const char* next = strpbrk(fname, "/\\");
+      if (next==0) return kTRUE;
+
+      // most important - change to parent dir
+      if ((next == fname + 2) && (*fname == '.') && (*(fname+1) == '.')) {
+         fname += 3; level--;
+         if (level<0) return kFALSE;
+         continue;
+      }
+
+      // ignore current directory
+      if ((next == fname + 1) && (*fname == '.'))  {
+         fname += 2;
+         continue;
+      }
+
+      // ignore slash at the front
+      if (next==fname) {
+         fname ++;
+         continue;
+      }
+
+      fname = next+1;
+      level++;
+   }
+
+   return kTRUE;
+}
+
+//______________________________________________________________________________
 Bool_t THttpServer::IsFileRequested(const char *uri, TString &res) const
 {
    // verifies that request just file name
@@ -363,6 +506,11 @@ Bool_t THttpServer::IsFileRequested(const char *uri, TString &res) const
    Ssiz_t pos = fname.Index("jsrootsys/");
    if (pos != kNPOS) {
       fname.Remove(0, pos + 9);
+      // check that directory below jsrootsys will not be accessed
+      if (!VerifyFilePath(fname.Data())) {
+         // Error("IsFileRequested","Prevent access to filepath %s", fname.Data());
+         return kFALSE;
+      }
       res = fJsRootSys + fname;
       return kTRUE;
    }
@@ -445,19 +593,8 @@ void THttpServer::ProcessRequest(THttpCallArg *arg)
    // Info("ProcessRequest", "Path %s File %s", arg->fPathName.Data(), arg->fFileName.Data());
 
    if (arg->fFileName.IsNull() || (arg->fFileName == "index.htm")) {
-
-      Bool_t usedefaultpage = kTRUE;
-
-      if (!fSniffer->CanExploreItem(arg->fPathName.Data()) &&
-            fSniffer->CanDrawItem(arg->fPathName.Data())) usedefaultpage = kFALSE;
-
-      if (usedefaultpage)
-         arg->fContent = fDefaultPage;
-      else
-         arg->fContent = fDrawPage;
-
+      arg->fContent = fDefaultPage;
       arg->SetFile();
-
       return;
    }
 
@@ -483,10 +620,10 @@ void THttpServer::ProcessRequest(THttpCallArg *arg)
 
       arg->fContent.Form(
          "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-         "<dabc version=\"2\" xmlns:dabc=\"http://dabc.gsi.de/xhtml\" path=\"%s\">\n", arg->fPathName.Data());
+         "<root>\n");
 
       {
-         TRootSnifferStoreXml store(arg->fContent);
+         TRootSnifferStoreXml store(arg->fContent, arg->fQuery.Index("compact")!=kNPOS);
 
          const char *topname = fTopName.Data();
          if (arg->fTopName.Length() > 0) topname = arg->fTopName.Data();
@@ -494,7 +631,7 @@ void THttpServer::ProcessRequest(THttpCallArg *arg)
          fSniffer->ScanHierarchy(topname, arg->fPathName.Data(), &store);
       }
 
-      arg->fContent.Append("</dabc>\n");
+      arg->fContent.Append("</root>\n");
       arg->SetXml();
    } else
 
@@ -520,68 +657,13 @@ void THttpServer::ProcessRequest(THttpCallArg *arg)
 
    if (arg->Is404()) return;
 
-
-   if (iszip) {
-
-      char *objbuf = (char*) arg->GetContent();
-      Long_t objlen = arg->GetContentLength();
-
-      unsigned long objcrc = R__crc32(0, NULL, 0);
-      objcrc = R__crc32(objcrc, (const unsigned char*) objbuf, objlen);
-
-      // 10 bytes (ZIP header), compressed data, 8 bytes (CRC and original length)
-      Int_t buflen = 10 + objlen + 8;
-      if (buflen<512) buflen = 512;
-
-      void* buffer = malloc(buflen);
-
-      char *bufcur = (char*) buffer;
-
-      *bufcur++ = 0x1f;  // first byte of ZIP identifier
-      *bufcur++ = 0x8b;  // second byte of ZIP identifier
-      *bufcur++ = 0x08;  // compression method
-      *bufcur++ = 0x00;  // FLAG - empty, no any file names
-      *bufcur++ = 0;    // empty timestamp
-      *bufcur++ = 0;    //
-      *bufcur++ = 0;    //
-      *bufcur++ = 0;    //
-      *bufcur++ = 0;    // XFL (eXtra FLags)
-      *bufcur++ = 3;    // OS   3 means Unix
-      //strcpy(bufcur, "get.json");
-      //bufcur += strlen("get.json")+1;
-
-      char dummy[8];
-      memcpy(dummy, bufcur-6, 6);
-
-      // R__memcompress fills first 6 bytes with own header, therefore just overwrite them
-      unsigned long ziplen = R__memcompress(bufcur-6, objlen + 6, objbuf, objlen);
-
-      memcpy(bufcur-6, dummy, 6);
-
-      bufcur += (ziplen-6); // jump over compressed data (6 byte is extra ROOT header)
-
-      *bufcur++ = objcrc & 0xff;    // CRC32
-      *bufcur++ = (objcrc >> 8) & 0xff;
-      *bufcur++ = (objcrc >> 16) & 0xff;
-      *bufcur++ = (objcrc >> 24) & 0xff;
-
-      *bufcur++ = objlen & 0xff;  // original data length
-      *bufcur++ = (objlen >> 8) & 0xff;  // original data length
-      *bufcur++ = (objlen >> 16) & 0xff;  // original data length
-      *bufcur++ = (objlen >> 24) & 0xff;  // original data length
-
-      arg->SetBinData(buffer, bufcur - (char*) buffer);
-
-      arg->SetEncoding("gzip");
-   }
+   if (iszip) arg->CompressWithGzip();
 
    if (filename == "root.bin") {
       // only for binary data master version is important
       // it allows to detect if streamer info was modified
       const char* parname = fSniffer->IsStreamerInfoItem(arg->fPathName.Data()) ? "BVersion" : "MVersion";
       arg->SetExtraHeader(parname, Form("%u", (unsigned) fSniffer->GetStreamerInfoHash()));
-
-      printf("Set header parameter %s = %u\n", parname, (unsigned) fSniffer->GetStreamerInfoHash());
    }
 }
 
