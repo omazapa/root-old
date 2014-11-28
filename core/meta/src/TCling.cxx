@@ -69,6 +69,7 @@
 #include "TListOfFunctions.h"
 #include "TListOfFunctionTemplates.h"
 #include "TProtoClass.h"
+#include "TStreamerInfo.h" // This is here to avoid to use the plugin manager
 
 #include "TFile.h"
 
@@ -542,6 +543,12 @@ extern "C" int TCling__AutoParseCallback(const char* className)
 {
    return ((TCling*)gCling)->AutoParse(className);
 }
+
+extern "C" const char* TCling__GetClassSharedLibs(const char* className)
+{
+   return ((TCling*)gCling)->GetClassSharedLibs(className);
+}
+
 // // Returns 0 for failure 1 for success
 // extern "C" int TCling__IsAutoLoadNamespaceCandidate(const char* name)
 // {
@@ -1192,11 +1199,9 @@ bool TCling::LoadPCM(TString pcmFileName,
       return kFALSE;
 
    // Prevent the ROOT-PCMs hitting this during auto-load during
-   // JITting - which will cause recursive compilation. The PCMs that
-   // have their headers in the PCH have empty keys which don't trigger
-   // TVirtualStreamerInfo::Factory() - which means that the plugin gets
-   // called and JITted during some random library load instead.
-   TVirtualStreamerInfo::Factory();
+   // JITting - which will cause recursive compilation.
+   // Avoid to call the plugin manager at all.
+   TVirtualStreamerInfo::SetFactory(new TStreamerInfo());
 
    if (gROOT->IsRootFile(pcmFileName)) {
       Int_t oldDebug = gDebug;
