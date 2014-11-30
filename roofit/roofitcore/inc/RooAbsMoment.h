@@ -13,46 +13,40 @@
  * with or without modification, are permitted according to the terms        *
  * listed in LICENSE (http://roofit.sourceforge.net/license.txt)             *
  *****************************************************************************/
-#ifndef ROO_CHANGE_TRACKER
-#define ROO_CHANGE_TRACKER
+#ifndef ROO_ABS_MOMENT
+#define ROO_ABS_MOMENT
 
 #include "RooAbsReal.h"
-#include "RooListProxy.h"
-#include <vector>
+#include "RooRealProxy.h"
+#include "RooSetProxy.h"
+
 
 class RooRealVar;
 class RooArgList ;
 
-class RooChangeTracker : public RooAbsReal {
+class RooAbsMoment : public RooAbsReal {
 public:
 
-  RooChangeTracker() ;
-  RooChangeTracker(const char *name, const char *title, const RooArgSet& trackSet, Bool_t checkValues=kFALSE) ;
-  virtual ~RooChangeTracker() ;
+  RooAbsMoment() ;
+  RooAbsMoment(const char *name, const char *title, RooAbsReal& func, RooRealVar& x, Int_t order=1, Bool_t takeRoot=kFALSE) ;
+  RooAbsMoment(const RooAbsMoment& other, const char* name = 0);
+  virtual ~RooAbsMoment() ;
 
-  RooChangeTracker(const RooChangeTracker& other, const char* name = 0);
-  virtual TObject* clone(const char* newname) const { return new RooChangeTracker(*this, newname); }
-
-  Bool_t hasChanged(Bool_t clearState) ;
-
-  RooArgSet parameters() const ;
+  Int_t order() const { return _order ; }
+  Bool_t central() const { return _mean.absArg() ? kTRUE : kFALSE ; }
+  RooAbsReal* mean() { return (RooAbsReal*) _mean.absArg() ; }
 
 
 protected:
 
-  RooListProxy     _realSet ;        // List of reals to track 
-  RooListProxy     _catSet ;         // List of categories to check
-  std::vector<Double_t> _realRef ;   // Reference values for reals
-  std::vector<Int_t>    _catRef ;    // Reference valyes for categories
-  Bool_t       _checkVal ;           // Check contents as well if true
+  Int_t _order ;                         // Moment order
+  Int_t _takeRoot ;                      // Return n-order root of moment
+  RooSetProxy  _nset ;                   // Normalization set (optional)
+  RooRealProxy _func ;                   // Input function
+  RooRealProxy _x     ;                  // Observable
+  RooRealProxy _mean ;                   // Mean (if calculated for central moment)
 
-  mutable TIterator* _realSetIter ;     //! do not persist
-  mutable TIterator* _catSetIter ;     //! do not persist
-  Bool_t        _init ; //!
-
-  Double_t evaluate() const { return 1 ; }
-
-  ClassDef(RooChangeTracker,1) // Meta object that tracks changes in set of other arguments
+  ClassDef(RooAbsMoment,1) // Abstract representation of moment in a RooAbsReal in a given RooRealVar
 };
 
 #endif

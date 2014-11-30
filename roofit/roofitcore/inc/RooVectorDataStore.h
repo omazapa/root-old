@@ -98,10 +98,10 @@ public:
   
   // Constant term  optimizer interface
   virtual const RooAbsArg* cacheOwner() { return _cacheOwner ; }
-  virtual void cacheArgs(const RooAbsArg* owner, RooArgSet& varSet, const RooArgSet* nset=0) ;
+  virtual void cacheArgs(const RooAbsArg* owner, RooArgSet& varSet, const RooArgSet* nset=0, Bool_t skipZeroWeights=kTRUE) ;
   virtual void attachCache(const RooAbsArg* newOwner, const RooArgSet& cachedVars) ;
   virtual void resetCache() ;
-  virtual void recalculateCache(const RooArgSet* /*proj*/, Int_t firstEvent, Int_t lastEvent, Int_t stepSize) ;
+  virtual void recalculateCache(const RooArgSet* /*proj*/, Int_t firstEvent, Int_t lastEvent, Int_t stepSize, Bool_t skipZeroWeights) ;
 
   virtual void setArgStatus(const RooArgSet& set, Bool_t active) ;
 
@@ -712,6 +712,10 @@ public:
     return _realfStoreList.back() ;
   }
 
+  virtual Bool_t hasFilledCache() const { return _cache ? kTRUE : kFALSE ; }  
+
+  void forceCacheUpdate() ; 
+
  private:
   RooArgSet _varsww ;
   RooRealVar* _wgtVar ;     // Pointer to weight variable (if set)
@@ -744,6 +748,8 @@ public:
 
   RooVectorDataStore* _cache ; //! Optimization cache
   RooAbsArg* _cacheOwner ; //! Cache owner
+
+  Bool_t _forcedUpdate ; //! Request for forced cache update 
 
   ClassDef(RooVectorDataStore,2) // STL-vector-based Data Storage class
 };
