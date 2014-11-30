@@ -36,13 +36,13 @@ void Minimization()
  
  //passsing RosenBrockGrad function to R
  r["RosenBrockGrad"]=ROOT::R::TRFunction(RosenBrockGrad);
- 
  //the option "method" could be "Nelder-Mead", "BFGS", "CG", "L-BFGS-B", "SANN","Brent"
+ 
  //the option "control" lets you put some constraints like 
  //"maxit" The maximum number of iterations.
  //"abstol" The absolute convergence tolerance.
- //"reltol" Relative convergence tolerance.
  r.Parse("result <- optim( c(0.01,0.01), RosenBrock,method='BFGS',control = list(maxit = 1000000) )");
+ //"reltol" Relative convergence tolerance.
  
  //Getting results from R
  TVectorD  min=r.ParseEval("result$par");
@@ -57,12 +57,12 @@ void Minimization()
  r.Parse("optimHess(result$par, RosenBrock, RosenBrockGrad)");
  r.Parse("hresult <- optim(c(-1.2,1), RosenBrock, NULL, method = 'BFGS', hessian = TRUE)");
  //getting the min calculated with the gradient
- TVectorD  hmin=r.ParseEval("hresult$par");
-
+  TVectorD  hmin=r.ParseEval("hresult$par");
+ 
  //printing results
- std::cout<<"-----------------------------------------"<<std::endl;
- std::cout<<"Minimization with the Gradient"<<std::endl;
- std::cout<<"Minimum x="<<hmin[0]<<" y="<<hmin[1]<<std::endl;
- std::cout<<"Value at minimum ="<<RosenBrock(hmin)<<std::endl;
+  std::cout<<"-----------------------------------------"<<std::endl;
+  std::cout<<"Minimization with the Gradient"<<std::endl;
+  std::cout<<"Minimum x="<<hmin[0]<<" y="<<hmin[1]<<std::endl;
+  std::cout<<"Value at minimum ="<<RosenBrock(hmin)<<std::endl;
  
 }

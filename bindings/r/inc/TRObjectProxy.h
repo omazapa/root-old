@@ -67,12 +67,13 @@ namespace ROOT {
 	     
 	   if(fStatus)
 	   {
-	     data=::Rcpp::as<T>(x);
+	     T data=::Rcpp::as<T>(x);
+             return data;
 	   }else
 	   {
 	     Error("Cast Operator", "Can not make the requested data, returning an unknow value");
+             return T();
 	   }
-            return data;
          }
          ClassDef(TRObjectProxy, 0) //
       };
