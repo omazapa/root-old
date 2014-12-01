@@ -3893,7 +3893,7 @@ clang::Module* ROOT::TMetaUtils::declareModuleMap(clang::CompilerInstance* CI,
          std::cerr << "TMetaUtils::declareModuleMap: "
             "Cannot find header file " << *hdr
                    << " included in dictionary module "
-                   << moduleName.data()
+                   << moduleName.str()
                    << " in include search path!";
          hdrFileEntry = PP.getFileManager().getFile(*hdr, /*OpenFile=*/false,
                                                     /*CacheFailure=*/false);
@@ -4012,7 +4012,7 @@ llvm::StringRef ROOT::TMetaUtils::GetComment(const clang::Decl &decl, clang::Sou
    unsigned int skipChars = 2;
    if (commentStart[0] == '/' &&
        commentStart[1] == '/' &&
-       commentStart[2] == '/' &&
+       (commentStart[2] == '/' || commentStart[2] == '!') &&
        commentStart[3] == '<') {
       skipChars = 4;
    }

@@ -1,7 +1,8 @@
-// JSROOTCore.js
-//
-// core methods for JavaScript ROOT.
-//
+/// @file JSRootCore.js
+/// Core methods of JavaScript ROOT
+
+/// @namespace JSROOT
+/// Holder of all JSROOT functions and classes
 
 (function(){
 
@@ -13,18 +14,35 @@
 
    JSROOT = {};
 
-   JSROOT.version = "3.x 11.09.2014";
-   
-   JSROOT.source_dir = null;
-   
+   JSROOT.version = "3.1 dev 25/11/2014";
+
+   JSROOT.source_dir  = function(){
+      var scripts = document.getElementsByTagName('script');
+
+      for (var n in scripts) {
+         if (scripts[n]['type'] != 'text/javascript') continue;
+
+         var src = scripts[n]['src'];
+         if ((src == null) || (src.length == 0)) continue;
+
+         var pos = src.indexOf("scripts/JSRootCore.js");
+         if (pos<0) continue;
+
+         console.log("Set JSROOT.source_dir to " + src.substr(0, pos));
+         return src.substr(0, pos);
+      }
+      return "";
+   }();
+
+   // TODO: all jQuery-related functions should go into extra script
    JSROOT.clone = function(obj) {
       return jQuery.extend(true, {}, obj);
-   };
-   
+   }
+
    JSROOT.id_counter = 0;
-   
+
    JSROOT.function_list = []; // do we really need it here?
-   
+
    JSROOT.BIT = function(n) { return 1 << (n); }
 
    // TH1 status bits
@@ -56,124 +74,165 @@
          kDecimals      : JSROOT.BIT(11)
    };
 
-   // This is part of the JSON-R code, found on 
+   // This is part of the JSON-R code, found on
    // https://github.com/graniteds/jsonr
    // Only unref part was used, arrays are not accounted as objects
-   // Should be used to reintroduce objects references, produced by TBufferJSON 
+   // Should be used to reintroduce objects references, produced by TBufferJSON
 
-	JSROOT.JSONR_unref = function(value, dy)
-	{
-	   var c, i, k, ks;
-	   if (!dy) dy = [];
-	
-	   switch (typeof value) {
-	   case 'string':
-	       if ((value.length > 5) && (value.substr(0, 5) == "$ref:")) {
-	          c = parseInt(value.substr(5));
-	          if (!isNaN(c) && (c < dy.length)) {
-	             value = dy[c];
-	             // console.log("replace index " + c + "  name = " + value.fName);
-	          }
-	       }
-	       break;
-	
-	   case 'object':
-	      if (value !== null) {
-	         
-	         if (Object.prototype.toString.apply(value) === '[object Array]') {
-	            for (i = 0; i < value.length; i++) {
-	               value[i] = JSROOT.JSONR_unref(value[i], dy);
-	            }
-	         } else {
-	
-	            // account only objects in ref table
-	            if (dy.indexOf(value) === -1) {
-	               //if (dy.length<10) console.log("Add object " + value._typename + "  $ref:" + dy.length);
-	               dy.push(value);
-	            }
-	
-	            // add methods to all objects, where _typename is specified
-	            if (('_typename' in value) && (typeof JSROOT == "object"))
-	               JSROOT.addMethods(value);
-	
-	            ks = Object.keys(value);
-	            for (i = 0; i < ks.length; i++) {
-	               k = ks[i];
-	               //if (dy.length<10) console.log("Check field " + k);
-	               value[k] = JSROOT.JSONR_unref(value[k], dy);
-	            }
-	         }
-	      }
-	      break;
-	   }
-	
-	   return value;
-	}
-	
-	JSROOT.parse = function(arg) {
-	   if (arg==null) return null;
-	   var obj = JSON.parse(arg);
-	   if (obj!=null) obj = JSROOT.JSONR_unref(obj)
-	   return obj;
-	}
-	
-	JSROOT.NewHttpRequest = function(url, kind, callback) {
-      // kind can be "text", "xml", "bin" or "head"
+   JSROOT.JSONR_unref = function(value, dy)
+   {
+      var c, i, k, ks;
+      if (!dy) dy = [];
+
+      switch (typeof value) {
+      case 'string':
+          if ((value.length > 5) && (value.substr(0, 5) == "$ref:")) {
+             c = parseInt(value.substr(5));
+             if (!isNaN(c) && (c < dy.length)) {
+                value = dy[c];
+                // console.log("replace index " + c + "  name = " + value.fName);
+             }
+          }
+          break;
+
+      case 'object':
+         if (value !== null) {
+
+            if (Object.prototype.toString.apply(value) === '[object Array]') {
+               for (i = 0; i < value.length; i++) {
+                  value[i] = JSROOT.JSONR_unref(value[i], dy);
+               }
+            } else {
+
+               // account only objects in ref table
+               if (dy.indexOf(value) === -1) {
+                  //if (dy.length<10) console.log("Add object " + value._typename + "  $ref:" + dy.length);
+                  dy.push(value);
+               }
+
+               // add methods to all objects, where _typename is specified
+               if (('_typename' in value) && (typeof JSROOT == "object"))
+                  JSROOT.addMethods(value);
+
+               ks = Object.keys(value);
+               for (i = 0; i < ks.length; i++) {
+                  k = ks[i];
+                  //if (dy.length<10) console.log("Check field " + k);
+                  value[k] = JSROOT.JSONR_unref(value[k], dy);
+               }
+            }
+         }
+         break;
+      }
+
+      return value;
+   }
+
+   JSROOT.parse = function(arg) {
+      if ((arg==null) || (arg=="")) return null;
+      var obj = JSON.parse(arg);
+      if (obj!=null) obj = JSROOT.JSONR_unref(obj)
+      return obj;
+   }
+
+   JSROOT.GetUrlOption = function(opt, url, dflt) {
+      // analyzes document.URL and extracts options after '?' mark
+      // following options supported ?opt1&opt2=3
+      // In case of opt1 empty string will be returned, in case of opt2 '3'
+      // If option not found, null is returned (or provided default value)
+
+      if ((opt==null) || (typeof opt != 'string') || (opt.length==0)) return dflt;
+
+      if (!url) url = document.URL;
+
+      var pos = url.indexOf("?");
+      if (pos<0) return null;
+      url = url.slice(pos+1);
+
+      while (url.length>0) {
+
+         if (url==opt) return "";
+
+         pos = url.indexOf("&");
+         if (pos < 0) pos = url.length;
+
+         if (url.indexOf(opt) == 0) {
+            if (url.charAt(opt.length)=="&") return "";
+
+            // replace several symbols which are known to make a problem
+            if (url.charAt(opt.length)=="=")
+               return url.slice(opt.length+1, pos).replace(/%27/g, "'").replace(/%22/g, '"').replace(/%20/g, ' ').replace(/%3C/g, '<').replace(/%3E/g, '>');
+         }
+
+         url = url.slice(pos+1);
+      }
+      return dflt;
+   }
+
+   JSROOT.NewHttpRequest = function(url, kind, user_call_back) {
+      // Create asynchronous XMLHttpRequest object.
+      // One should call req.send() to submit request
+      // kind of the request can be:
+      //  "bin" - abstract binary data (default)
+      //  "text" - returns req.responseText
+      //  "object" - returns JSROOT.parse(req.responseText)
+      //  "xml" - returns res.responseXML
+      //  "head" - returns request itself, uses "HEAD" method
+      // Result will be returned to the callback functions
+      // If failed, request returns null
+
+      function callback(res) {
+         if (typeof user_call_back == 'function') user_call_back(res);
+      }
+
       var xhr = new XMLHttpRequest();
-      
+
 //      if (typeof ActiveXObject == "function") {
       if (window.ActiveXObject) {
          // console.log(" Create IE request");
-         
+
          xhr.onreadystatechange = function() {
             // console.log(" Ready IE request");
             if (xhr.readyState != 4) return;
-            
+
             if (xhr.status != 200 && xhr.status != 206) {
                // error
-               callback(null); return;
+               return callback(null);
             }
-            
-            if (kind == "xml") {
-               callback(xhr.responseXML); return;
-            } 
-            if (kind == "text") {
-               callback(xhr.responseText); return;
-            } 
-            if (kind == "head") {
-               callback(xhr); return;
-            } 
-            
+
+            if (kind == "xml") return callback(xhr.responseXML);
+
+            if (kind == "text") return callback(xhr.responseText);
+
+            if (kind == "object") return callback(JSROOT.parse(xhr.responseText));
+
+            if (kind == "head") return callback(xhr);
+
             var filecontent = new String("");
             var array = new VBArray(xhr.responseBody).toArray();
             for (var i = 0; i < array.length; i++) {
                filecontent = filecontent + String.fromCharCode(array[i]);
             }
-            
+
             callback(filecontent);
             filecontent = null;
          }
-         
+
          xhr.open(kind == 'head' ? 'HEAD' : 'GET', url, true);
-         
+
       } else {
-         
+
          xhr.onreadystatechange = function() {
             if (xhr.readyState != 4) return;
-            
+
             if (xhr.status != 0 && xhr.status != 200 && xhr.status != 206) {
-               callback(null); return;
+               return callback(null);
             }
-            if (kind == "xml") {
-               callback(xhr.responseXML); return;
-            }  
-            if (kind == "text") {
-               callback(xhr.responseText); return;
-            }  
-            if (kind == "head") {
-               callback(xhr); return;
-            }
-            
+            if (kind == "xml") return callback(xhr.responseXML);
+            if (kind == "text") return callback(xhr.responseText);
+            if (kind == "object") return callback(JSROOT.parse(xhr.responseText));
+            if (kind == "head") return callback(xhr);
+
             var HasArrayBuffer = ('ArrayBuffer' in window && 'Uint8Array' in window);
             var Buf, filecontent;
             if (HasArrayBuffer && 'mozResponse' in xhr) {
@@ -186,7 +245,7 @@
                Buf = xhr.responseText;
                HasArrayBuffer = false;
             }
-            
+
             if (HasArrayBuffer) {
                filecontent = new String("");
                var bLen = Buf.byteLength;
@@ -198,14 +257,14 @@
             } else {
                filecontent = Buf;
             }
-            
+
             callback(filecontent);
 
             filecontent = null;
          }
-         
+
          xhr.open(kind == 'head' ? 'HEAD' : 'GET', url, true);
-         
+
          if (kind == "bin") {
             var HasArrayBuffer = ('ArrayBuffer' in window && 'Uint8Array' in window);
             if (HasArrayBuffer && 'mozResponseType' in xhr) {
@@ -220,8 +279,8 @@
       }
       return xhr;
    }
-	
-   JSROOT.loadScript = function(urllist, callback) {
+
+   JSROOT.loadScript = function(urllist, callback, debugout) {
       // dynamic script loader using callback
       // (as loading scripts may be asynchronous)
       // one could specify list of scripts or style files, separated by semicolon ';'
@@ -230,20 +289,26 @@
       // by the position of JSRootCore.js file, which must be loaded by normal methods:
       // <script type="text/javascript" src="scripts/JSRootCore.js"></script>
 
-      
-      var completeLoad = function() {
-         if ((urllist!=null) && (urllist.length>0))
-            JSROOT.loadScript(urllist, callback);
+      function debug(str) {
+         if (debugout)
+            document.getElementById(debugout).innerHTML = str;
          else
-            if (typeof callback == 'function') callback();
+            console.log(str);
       }
-      
-      
-      if ((urllist==null) || (urllist.length==0)) {
-         completeLoad();
-         return;
+
+      function completeLoad() {
+         if ((urllist!=null) && (urllist.length>0))
+            return JSROOT.loadScript(urllist, callback, debugout);
+
+         if (debugout)
+            document.getElementById(debugout).innerHTML = "";
+
+         if (typeof callback == 'function') callback();
       }
-      
+
+      if ((urllist==null) || (urllist.length==0))
+         return completeLoad();
+
       var filename = urllist;
       var separ = filename.indexOf(";");
       if (separ>0) {
@@ -252,80 +317,64 @@
       } else {
          urllist = "";
       }
-      
+
       var isrootjs = false;
       if (filename.indexOf("$$$")==0) {
          isrootjs = true;
          filename = filename.slice(3);
       }
       var isstyle = filename.indexOf('.css') > 0;
-      
+
       if (isstyle) {
          var styles = document.getElementsByTagName('link');
          for (var n in styles) {
             if ((styles[n]['type'] != 'text/css') || (styles[n]['rel'] != 'stylesheet')) continue;
 
-            var href = styles[n]['href']; 
+            var href = styles[n]['href'];
             if ((href == null) || (href.length == 0)) continue;
 
             if (href.indexOf(filename)>=0) {
                console.log("style "+  filename + " already loaded");
-               completeLoad();
-               return;
+               return completeLoad();
             }
          }
-         
+
       } else {
          var scripts = document.getElementsByTagName('script');
 
          for (var n in scripts) {
             if (scripts[n]['type'] != 'text/javascript') continue;
 
-            var src = scripts[n]['src']; 
+            var src = scripts[n]['src'];
             if ((src == null) || (src.length == 0)) continue;
 
-            // try to detect place where source for our scripts should be situated
-            if (JSROOT.source_dir == null) {
-
-               var pos = src.indexOf("scripts/JSRootCore.js");
-               if (pos>=0) {
-                  JSROOT.source_dir = src.substr(0, pos);
-                  console.log("Set JSROOT.source_dir to " + JSROOT.source_dir);
-               }
-            }
-
             if (src.indexOf(filename)>=0) {
-               console.log("script "+  filename + " already loaded");
-               completeLoad();
-               return;
+               // debug("script "+  filename + " already loaded");
+               return completeLoad();
             }
          }
       }
 
-      if (isrootjs && (JSROOT.source_dir!=null)) filename = JSROOT.source_dir + filename;   
-      
+      if (isrootjs && (JSROOT.source_dir!=null)) filename = JSROOT.source_dir + filename;
+
       var element = null;
-      
+
+      debug("loading " + filename + " ...");
+
       if (isstyle) {
-         
-         console.log("loading style " + filename);
-         
          element = document.createElement("link");
          element.setAttribute("rel", "stylesheet");
          element.setAttribute("type", "text/css");
          element.setAttribute("href", filename);
       } else {
-         console.log("loading script " + filename);
-
          element = document.createElement("script");
          element.setAttribute('type', "text/javascript");
          element.setAttribute('src', filename);//+ "?r=" + rnd;
       }
-      
+
       if (element.readyState) { // Internet Explorer specific
          element.onreadystatechange = function() {
-            if (element.readyState == "loaded" ||
-                  element.readyState == "complete") {
+            if (element.readyState == "loaded" || element.readyState == "complete") {
                element.onreadystatechange = null;
                completeLoad();
             }
@@ -336,56 +385,78 @@
             completeLoad();
          }
       }
-    
+
       document.getElementsByTagName("head")[0].appendChild(element);
    }
 
-   JSROOT.AssertPrerequisites = function(kind, andThan) {
+   JSROOT.AssertPrerequisites = function(kind, andThan, debugout) {
       // one could specify kind of requirements
       // 'io' for I/O functionality (default)
-      // '2d' only for 2d graphic
+      // '2d' for 2d graphic
       // '3d' for 3d graphic
-      
-      if (typeof kind == 'function') { andThan = kind; kind = null; } 
+      // 'simple' for basic user interface
+      // 'user:' list of user-specific scripts at the end of kind string
 
-      // file names should be separated with ';' 
-      var allfiles = 
-         '$$$scripts/jquery.min.js;'+
-         '$$$style/jquery-ui.css;' +
-         '$$$scripts/jquery-ui.min.js;' +
-         '$$$scripts/d3.v3.min.js;' +
-         '$$$scripts/JSRootPainter.js;' +
-         '$$$style/JSRootPainter.css';
-      
-      var minimal = ((kind!=null) && (kind.indexOf('2d')>=0));
-      
-      if (!minimal || ((kind!=null) && (kind.indexOf('io')>=0)))
-         allfiles += ";$$$scripts/rawinflate.js;$$$scripts/JSRootIOEvolution.js"; 
-      
-      if ((kind!=null) && (kind.indexOf("3d")>=0))
-         allfiles += ";$$$scripts/jquery.mousewheel.js;$$$scripts/three.min.js;$$$scripts/helvetiker_regular.typeface.js;$$$scripts/helvetiker_bold.typeface.js";
-      
-      JSROOT.loadScript(allfiles, andThan); 
+      if (typeof kind == 'function') { andThan = kind; kind = null; }
+
+      if (typeof kind != 'string') kind = "2d";
+      if (kind.charAt(kind.length-1)!=";") kind+=";";
+
+      // file names should be separated with ';'
+      var allfiles = '$$$scripts/jquery.min.js';
+
+      if (kind.indexOf('io;')>=0)
+         allfiles += ";$$$scripts/rawinflate.js" +
+                     ";$$$scripts/JSRootIOEvolution.js";
+
+      if (kind.indexOf('2d;')>=0)
+         allfiles += ';$$$style/jquery-ui.css' +
+                     ';$$$scripts/jquery-ui.min.js' +
+                     ';$$$scripts/d3.v3.min.js' +
+                     ';$$$scripts/JSRootPainter.js' +
+                     ';$$$style/JSRootPainter.css';
+
+      if (kind.indexOf("3d;")>=0)
+         allfiles += ";$$$scripts/jquery.mousewheel.js" +
+                     ";$$$scripts/three.min.js" +
+                     ";$$$scripts/helvetiker_regular.typeface.js" +
+                     ";$$$scripts/helvetiker_bold.typeface.js" +
+                     ";$$$scripts/JSRoot3DPainter.js";
+
+      if (kind.indexOf("simple;")>=0)
+         allfiles += ';$$$scripts/JSRootInterface.js' +
+                     ';$$$style/JSRootInterface.css';
+
+      var pos = kind.indexOf("user:");
+      if (pos>0)
+         allfiles += ";" + kind.slice(pos+5);
+
+      JSROOT.loadScript(allfiles, andThan, debugout);
    }
-   
-   JSROOT.BuildSimpleGUI = function(requirements, andThen) {
-      if (typeof requirements == 'function') {
-         andThen = requirements; requirements = null;
-      } 
-      
-      JSROOT.AssertPrerequisites(requirements, function(){
-         JSROOT.loadScript('$$$scripts/JSRootInterface.js;$$$style/JSRootInterface.css', function() { 
-            
-            if (typeof BuildSimpleGUI != 'function') {
-               alert('BuildSimpleGUI function not found');
-               return;
-            }
-            
-            BuildSimpleGUI();
-            
-            if (typeof andThen == 'function') andThen();
-         });
-      });
+
+   JSROOT.BuildSimpleGUI = function(user_scripts, andThen) {
+      if (typeof user_scripts == 'function') {
+         andThen = user_scripts;
+         user_scripts = null;
+      }
+
+      var debugout = null;
+
+      var requirements = "2d;io;simple;";
+
+      if (document.getElementById('simpleGUI')) debugout = 'simpleGUI'; else
+      if (document.getElementById('onlineGUI')) { debugout = 'onlineGUI'; requirements = "2d;simple;"; }
+
+      if (user_scripts == null)
+         user_scripts = JSROOT.GetUrlOption("autoload");
+
+      if (user_scripts != null)
+         requirements += "user:" + user_scripts + ";";
+
+      JSROOT.AssertPrerequisites(requirements, function() {
+         if (typeof BuildSimpleGUI == 'function') BuildSimpleGUI();
+         if (typeof andThen == 'function') andThen();
+      }, debugout);
    }
 
    JSROOT.addFormula = function(obj) {
@@ -396,158 +467,150 @@
       var code = obj['fName'] + " = function(x) { return " + formula + " };";
       eval(code);
       var sig = obj['fName']+'(x)';
-      
+
       var pos = JSROOT.function_list.indexOf(sig);
       if (pos >= 0) {
          JSROOT.function_list.splice(pos, 1);
       }
       JSROOT.function_list.push(sig);
-   };
-
-   JSROOT.CreateTList = function() {
-      var list = {};
-      list['_typename'] = "TList";
-      list['name'] = "TList";
-      list['arr'] = new Array;
-      list['opt'] = new Array;
-      return list;
    }
 
-   JSROOT.CreateTAxis = function() {
-      var axis = {};
+   JSROOT.Create = function(typename, target) {
+      var obj = target;
+      if (obj == null)
+         obj = { _typename: typename };
 
-      axis['_typename'] = "TAxis";
-      axis['fBits'] = 0x3000008;
-      axis['fBits2'] = 0;
-      axis['fXmin'] = 0;
-      axis['fXmax'] = 0;
-      axis['fNbins'] = 0;
-      axis['fN'] = 0;
-      axis['fXbins'] = new Array;
-      axis['fFirst'] = 0;
-      axis['fLast'] = 0;
-      axis['fName'] = "";
-      axis['fTitle'] = "";
-      axis['fTimeDisplay'] = false;
-      axis['fTimeFormat'] = "";
-      axis['fNdivisions'] = 510;
-      axis['fAxisColor'] = 1;
-      axis['fLabelColor'] = 1;
-      axis['fLabelFont'] = 42;
-      axis['fLabelOffset']  = 0.05;
-      axis['fLabelSize']  = 0.035;
-      axis['fTickLength'] = 0.03;
-      axis['fTitleOffset'] = 1;
-      axis['fTitleSize']  = 0.035;
-      axis['fTitleColor'] = 1;
-      axis['fTitleFont'] = 42;
-      JSROOT.addMethods(axis);
-      return axis;
-   }
+      if (typename == 'TObject')
+         jQuery.extend(obj, { fUniqueID: 0, fBits: 0x3000008 });
+      else
+      if (typename == 'TNamed')
+         jQuery.extend(obj, { fUniqueID: 0, fBits: 0x3000008, fName: "", fTitle: "" });
+      else
+      if (typename == 'TList')
+         jQuery.extend(obj, { name: "TList", arr : [], opt : [] });
+      else
+      if (typename == 'TAttAxis') {
+         jQuery.extend(obj, { fNdivisions: 510, fAxisColor: 1,
+            fLabelColor: 1, fLabelFont: 42, fLabelOffset: 0.05, fLabelSize: 0.035, fTickLength: 0.03,
+            fTitleOffset: 1, fTitleSize: 0.035, fTitleColor: 1, fTitleFont : 42 });
+      } else
+      if (typename == 'TAxis') {
+         JSROOT.Create("TNamed", obj);
+         JSROOT.Create("TAttAxis", obj);
+         jQuery.extend(obj, { fNbins: 0, fXmin: 0, fXmax: 0, fXbins : [], fFirst: 0, fLast: 0,
+                              fBits2: 0, fTimeDisplay: false, fTimeFormat: "", fLabels: null });
+      } else
+      if (typename == 'TAttLine') {
+         jQuery.extend(obj, { fLineColor: 1, fLineStyle : 1, fLineWidth : 1 });
+      } else
+      if (typename == 'TAttFill') {
+         jQuery.extend(obj, { fFillColor: 0, fFillStyle : 0 } );
+      } else
+      if (typename == 'TAttMarker') {
+         jQuery.extend(obj, { fMarkerColor: 1, fMarkerStyle : 1, fMarkerSize : 1. });
+      } else
+      if (typename == 'TBox') {
+         JSROOT.Create("TObject", obj);
+         JSROOT.Create("TAttLine", obj);
+         JSROOT.Create("TAttFill", obj);
+         jQuery.extend(obj, { fX1: 0, fY1: 0, fX2: 1, fY2: 1 });
+      } else
+      if (typename == 'TPave') {
+         JSROOT.Create("TBox", obj);
+         jQuery.extend(obj, { fX1NDC : 0., fY1NDC: 0, fX2NDC: 1, fY2NDC: 1,
+                              fBorderSize: 0, fInit: 1, fShadowColor: 1,
+                              fCornerRadius: 0, fOption: "blNDC", fName: "title" });
+      } else
+      if (typename == 'TAttText') {
+         jQuery.extend(obj, { fTextAngle: 0, fTextSize: 0, fTextAlign: 22, fTextColor: 1, fTextFont: 42});
+      } else
+      if (typename == 'TPaveText') {
+         JSROOT.Create("TPave", obj);
+         JSROOT.Create("TAttText", obj);
+         jQuery.extend(obj, { fLabel: "", fLongest: 27, fMargin: 0.05, fLines: JSROOT.Create("TList") });
+      } else
+      if (typename == 'TPaveStats') {
+         JSROOT.Create("TPaveText", obj);
+         jQuery.extend(obj, { fOptFit: 0, fOptStat: 0, fFitFormat: "", fStatFormat: "", fParent: null });
+      } else
+      if (typename == 'TH1') {
+         JSROOT.Create("TNamed", obj);
+         JSROOT.Create("TAttLine", obj);
+         JSROOT.Create("TAttFill", obj);
+         JSROOT.Create("TAttMarker", obj);
 
-   JSROOT.CreateTH1 = function(nbinsx) {
-      var histo = {};
-      histo['_typename'] = "TH1I";
-      histo['fBits'] = 0x3000008;
-      histo['fName'] = "dummy_histo_" + this.id_counter++;
-      histo['fTitle'] = "dummytitle";
-      histo['fMinimum'] = -1111;
-      histo['fMaximum'] = -1111;
-      histo['fOption'] = "";
-      histo['fFillColor'] = 0;
-      histo['fLineColor'] = 0;
-      histo['fLineWidth'] = 1;
-      histo['fBinStatErrOpt'] = 0;
-      histo['fNcells'] = 0;
-      histo['fN'] = 0;
-      histo['fArray'] = new Array;
-      histo['fSumw2'] = new Array;
-      histo['fFunctions'] = JSROOT.CreateTList();
-
-      histo['fXaxis'] = JSROOT.CreateTAxis();
-      histo['fYaxis'] = JSROOT.CreateTAxis();
-
-      if (nbinsx!=null) {
-         histo['fNcells'] = nbinsx+2;
-         for (var i=0;i<histo['fNcells'];i++) histo['fArray'].push(0);
-         histo['fXaxis']['fNbins'] = nbinsx;
-         histo['fXaxis']['fXmin'] = 0;
-         histo['fXaxis']['fXmax'] = nbinsx;
+         jQuery.extend(obj, {
+            fNcells : 0,
+            fXaxis: JSROOT.Create("TAxis"),
+            fYaxis: JSROOT.Create("TAxis"),
+            fZaxis: JSROOT.Create("TAxis"),
+            fBarOffset : 0, fBarWidth : 1000, fEntries : 0.,
+            fTsumw : 0., fTsumw2 : 0., fTsumwx : 0., fTsumwx2 : 0.,
+            fMaximum : -1111., fMinimum : -1111, fNormFactor : 0., fContour : [],
+            fSumw2 : [], fOption : "",
+            fFunctions : JSROOT.Create("TList"),
+            fBufferSize : 0, fBuffer : [], fBinStatErrOpt : 0 });
+      } else
+      if (typename == 'TH1I' || typename == 'TH1F' || typename == 'TH1D' || typename == 'TH1S' || typename == 'TH1C') {
+         JSROOT.Create("TH1", obj);
+         jQuery.extend(obj, { fN : 0, fArray: [] });
+      } else
+      if (typename == 'TH2') {
+         JSROOT.Create("TH1", obj);
+         jQuery.extend(obj, { fScalefactor: 1., fTsumwy: 0.,  fTsumwy2: 0, fTsumwxy : 0});
+      } else
+      if (typename == 'TH2I' || typename == 'TH2F' || typename == 'TH2D' || typename == 'TH2S' || typename == 'TH2C') {
+         JSROOT.Create("TH2", obj);
+         jQuery.extend(obj, { fN : 0, fArray: [] });
+      } else
+      if (typename == 'TGraph') {
+         JSROOT.Create("TNamed", obj);
+         JSROOT.Create("TAttLine", obj);
+         JSROOT.Create("TAttFill", obj);
+         JSROOT.Create("TAttMarker", obj);
+         jQuery.extend(obj, { fFunctions: JSROOT.Create("TList"), fHistogram: JSROOT.CreateTH1(),
+                              fMaxSize: 0, fMaximum:0, fMinimum:0, fNpoints: 0, fX: [], fY: [] });
       }
 
-      JSROOT.addMethods(histo);
+      JSROOT.addMethods(obj, typename);
+      return obj;
+   }
 
+   // obsolete functions, can be removed by next JSROOT release
+   JSROOT.CreateTList = function() { return JSROOT.Create("TList"); }
+   JSROOT.CreateTAxis = function() { return JSROOT.Create("TAxis"); }
+
+   JSROOT.CreateTH1 = function(nbinsx) {
+      var histo = JSROOT.Create("TH1I");
+      jQuery.extend(histo, { fName: "dummy_histo_" + this.id_counter++, fTitle: "dummytitle" });
+
+      if (nbinsx!=null) {
+         histo['fN'] = histo['fNcells'] = nbinsx+2;
+         for (var i=0;i<histo['fNcells'];i++) histo['fArray'].push(0);
+         jQuery.extend(histo['fXaxis'], { fNbins: nbinsx, fXmin: 0,  fXmax: nbinsx });
+      }
       return histo;
    }
 
    JSROOT.CreateTH2 = function(nbinsx, nbinsy) {
-      var histo = {};
-      histo['_typename'] = "TH2I";
-      histo['fBits'] = 0x3000008;
-      histo['fName'] = "dummy_histo_" + this.id_counter++;
-      histo['fTitle'] = "dummytitle";
-      histo['fMinimum'] = -1111;
-      histo['fMaximum'] = -1111;
-      histo['fOption'] = "";
-      histo['fFillColor'] = 0;
-      histo['fLineColor'] = 0;
-      histo['fLineWidth'] = 1;
-      histo['fBinStatErrOpt'] = 0;
-      histo['fNcells'] = 0;
-      histo['fN'] = 0;
-      histo['fArray'] = new Array;
-      histo['fSumw2'] = new Array;
-      histo['fFunctions'] = JSROOT.CreateTList();
-      histo['fContour'] = new Array;
-
-      histo['fXaxis'] = JSROOT.CreateTAxis();
-      histo['fYaxis'] = JSROOT.CreateTAxis();
-      histo['fZaxis'] = JSROOT.CreateTAxis();
+      var histo = JSROOT.Create("TH2I");
+      jQuery.extend(histo, { fName: "dummy_histo_" + this.id_counter++, fTitle: "dummytitle" });
 
       if ((nbinsx!=null) && (nbinsy!=null)) {
-         histo['fNcells'] = (nbinsx+2) * (nbinsy+2);
+         histo['fN'] = histo['fNcells'] = (nbinsx+2) * (nbinsy+2);
          for (var i=0;i<histo['fNcells'];i++) histo['fArray'].push(0);
-         histo['fXaxis']['fNbins'] = nbinsx;
-         histo['fYaxis']['fNbins'] = nbinsy;
-
-         histo['fXaxis']['fXmin'] = 0;
-         histo['fXaxis']['fXmax'] = nbinsx;
-         histo['fYaxis']['fXmin'] = 0;
-         histo['fYaxis']['fXmax'] = nbinsy;
+         jQuery.extend(histo['fXaxis'], { fNbins: nbinsx, fXmin: 0, fXmax: nbinsx });
+         jQuery.extend(histo['fYaxis'], { fNbins: nbinsy, fXmin: 0, fXmax: nbinsy });
       }
-
-      JSROOT.addMethods(histo);
-
       return histo;
    }
 
    JSROOT.CreateTGraph = function(npoints) {
-      var graph = {};
-      graph['_typename'] = "TGraph";
-      graph['fBits'] = 0x3000408;
-      graph['fName'] = "dummy_graph_" + this.id_counter++;
-      graph['fTitle'] = "dummytitle";
-      graph['fMinimum'] = -1111;
-      graph['fMaximum'] = -1111;
-      graph['fOption'] = "";
-      graph['fFillColor'] = 0;
-      graph['fFillStyle'] = 1001;
-      graph['fLineColor'] = 2;
-      graph['fLineStyle'] = 1;
-      graph['fLineWidth'] = 2;
-      graph['fMarkerColor'] = 4;
-      graph['fMarkerStyle'] = 21;
-      graph['fMarkerSize'] = 1;
-      graph['fMaxSize'] = 0;
-      graph['fNpoints'] = 0;
-      graph['fX'] = new Array;
-      graph['fY'] = new Array;
-      graph['fFunctions'] = JSROOT.CreateTList();
-      graph['fHistogram'] = JSROOT.CreateTH1();
+      var graph = JSROOT.Create("TGraph");
+      jQuery.extend(graph, { fBits: 0x3000408, fName: "dummy_graph_" + this.id_counter++, fTitle: "dummytitle" });
 
       if (npoints>0) {
-         graph['fMaxSize'] = npoints;
-         graph['fNpoints'] = npoints;
+         graph['fMaxSize'] = graph['fNpoints'] = npoints;
          for (var i=0;i<npoints;i++) {
             graph['fX'].push(i);
             graph['fY'].push(i);
@@ -555,7 +618,6 @@
          JSROOT.AdjustTGraphRanges(graph);
       }
 
-      JSROOT.addMethods(graph);
       return graph;
    }
 
@@ -574,8 +636,6 @@
 
       if (miny==maxy) maxy = miny + 1;
 
-      // console.log("search minx = " + minx + " maxx = " + maxx);
-
       graph['fHistogram']['fXaxis']['fXmin'] = minx;
       graph['fHistogram']['fXaxis']['fXmax'] = maxx;
 
@@ -583,30 +643,33 @@
       graph['fHistogram']['fYaxis']['fXmax'] = maxy;
    }
 
-
-   JSROOT.addMethods = function(obj) {
+   JSROOT.addMethods = function(obj, obj_typename) {
       // check object type and add methods if needed
       if (('fBits' in obj) && !('TestBit' in obj)) {
          obj['TestBit'] = function (f) {
             return ((obj['fBits'] & f) != 0);
          };
       }
-      if (!('_typename' in obj)) return;
-      
+
+      if (!obj_typename) {
+         if (!('_typename' in obj)) return;
+         obj_typename = obj['_typename'];
+      }
+
       var EBinErrorOpt = {
           kNormal : 0,    // errors with Normal (Wald) approximation: errorUp=errorLow= sqrt(N)
           kPoisson : 1,   // errors from Poisson interval at 68.3% (1 sigma)
           kPoisson2 : 2   // errors from Poisson interval at 95% CL (~ 2 sigma)
        };
-      
+
       var EErrorType = {
           kERRORMEAN : 0,
           kERRORSPREAD : 1,
           kERRORSPREADI : 2,
           kERRORSPREADG : 3
        };
-      
-      if (obj['_typename'].indexOf("TAxis") == 0) {
+
+      if (obj_typename.indexOf("TAxis") == 0) {
          obj['getFirst'] = function() {
             if (!this.TestBit(JSROOT.EAxisBits.kAxisRange)) return 1;
             return this['fFirst'];
@@ -627,8 +690,29 @@
             }
          };
       }
-      if ((obj['_typename'].indexOf("TFormula") != -1) ||
-          (obj['_typename'].indexOf("TF1") == 0)) {
+
+      if (obj_typename == "TList") {
+         obj['Clear'] = function() {
+            this['arr'] = new Array;
+            this['opt'] = new Array;
+         }
+         obj['Add'] = function(obj,opt) {
+            this['arr'].push(obj);
+            this['opt'].push((typeof opt=='string') ? opt : "");
+         }
+      }
+
+      if ((obj_typename == "TPaveText") || (obj_typename == "TPaveStats")) {
+         obj['AddText'] = function(txt) {
+            this['fLines'].Add({'fTitle' : txt, "fTextColor" : 1 });
+         }
+         obj['Clear'] = function() {
+            this['fLines'].Clear();
+         }
+      }
+
+      if ((obj_typename.indexOf("TFormula") != -1) ||
+          (obj_typename.indexOf("TF1") == 0)) {
          obj['evalPar'] = function(x) {
             var i, _function = this['fTitle'];
             _function = _function.replace('TMath::Exp(', 'Math.exp(');
@@ -659,34 +743,43 @@
             return ret;
          };
       }
-      if (obj['_typename'].indexOf("TGraph") == 0) {
-         obj['computeRange'] = function() {
+      if ((obj_typename.indexOf("TGraph") == 0) || (obj_typename == "TCutG")) {
+         obj['ComputeRange'] = function() {
             // Compute the x/y range of the points in this graph
-            var i, xmin = 0, xmax = 0, ymin = 0, ymax = 0;
+            var res = { xmin: 0, xmax: 0, ymin: 0, ymax: 0 };
             if (this['fNpoints'] > 0) {
-               xmin = xmax = this['fX'][0];
-               ymin = ymax = this['fY'][0];
-               for (i=1; i<this['fNpoints']; i++) {
-                  if (this['fX'][i] < xmin) xmin = this['fX'][i];
-                  if (this['fX'][i] > xmax) xmax = this['fX'][i];
-                  if (this['fY'][i] < ymin) ymin = this['fY'][i];
-                  if (this['fY'][i] > ymax) ymax = this['fY'][i];
+               res.xmin = res.xmax = this['fX'][0];
+               res.ymin = res.ymax = this['fY'][0];
+               for (var i=1; i<this['fNpoints']; i++) {
+                  if (this['fX'][i] < res.xmin) res.xmin = this['fX'][i];
+                  if (this['fX'][i] > res.xmax) res.xmax = this['fX'][i];
+                  if (this['fY'][i] < res.ymin) res.ymin = this['fY'][i];
+                  if (this['fY'][i] > res.ymax) res.ymax = this['fY'][i];
                }
             }
-            return {
-               xmin: xmin,
-               xmax: xmax,
-               ymin: ymin,
-               ymax: ymax
-            };
+            return res;
+         };
+         // check if point inside figure specified by the TGrpah
+         obj['IsInside'] = function(xp,yp) {
+            var j = this['fNpoints'] - 1 ;
+            var x = this['fX'], y = this['fY'];
+            var oddNodes = false;
+
+            for (var i=0; i<this['fNpoints']; i++) {
+               if ((y[i]<yp && y[j]>=yp) || (y[j]<yp && y[i]>=yp)) {
+                  if (x[i]+(yp-y[i])/(y[j]-y[i])*(x[j]-x[i])<xp) {
+                     oddNodes = !oddNodes;
+                  }
+               }
+               j=i;
+            }
+
+            return oddNodes;
          };
       }
-      if (obj['_typename'].indexOf("TH1") == 0) obj['fDimension'] = 1;
-      if (obj['_typename'].indexOf("TH2") == 0) obj['fDimension'] = 2;
-      if (obj['_typename'].indexOf("TH3") == 0) obj['fDimension'] = 3;
-      if (obj['_typename'].indexOf("TH1") == 0 ||
-          obj['_typename'].indexOf("TH2") == 0 ||
-          obj['_typename'].indexOf("TH3") == 0) {
+      if (obj_typename.indexOf("TH1") == 0 ||
+          obj_typename.indexOf("TH2") == 0 ||
+          obj_typename.indexOf("TH3") == 0) {
          obj['getBinError'] = function(bin) {
             //   -*-*-*-*-*Return value of error associated to bin number bin*-*-*-*-*
             //    if the sum of squares of weights has been defined (via Sumw2),
@@ -814,7 +907,7 @@
                   for (binx=0;binx<=nbinsx+1;binx++) {
                      bin = binx +(nbinsx+2)*(biny + (nbinsy+2)*binz);
                      //special case where histograms have the kIsAverage bit set
-                     if (this.TestBit(JSROOT.TH1StatusBits.kIsAverage) 
+                     if (this.TestBit(JSROOT.TH1StatusBits.kIsAverage)
                          && h1.TestBit(JSROOT.TH1StatusBits.kIsAverage)) {
                         var y1 = h1.getBinContent(bin),
                             y2 = this.getBinContent(bin),
@@ -1124,7 +1217,8 @@
             }
          };
       }
-      if (obj['_typename'].indexOf("TH1") == 0) {
+      if (obj_typename.indexOf("TH1") == 0) {
+         obj['fDimension'] = 1;
          obj['getBinContent'] = function(bin) {
             if (bin < 0) bin = 0;
             if (bin >= this['fNcells']) bin = this['fNcells']-1;
@@ -1171,7 +1265,8 @@
             return stats;
          };
       }
-      if (obj['_typename'].indexOf("TH2") == 0) {
+      if (obj_typename.indexOf("TH2") == 0) {
+         obj['fDimension'] = 2;
          obj['getBin'] = function(x, y) {
             var nx = this['fXaxis']['fNbins']+2;
             return (x + nx * y);
@@ -1225,7 +1320,8 @@
             return stats;
          };
       }
-      if (obj['_typename'].indexOf("TH3") == 0) {
+      if (obj_typename.indexOf("TH3") == 0) {
+         obj['fDimension'] = 3;
          obj['getBin'] = function(x, y, z) {
             var nx = this['fXaxis']['fNbins']+2;
             if (x < 0) x = 0;
@@ -1301,7 +1397,7 @@
             return stats;
          };
       }
-      if (obj['_typename'].indexOf("THStack") == 0) {
+      if (obj_typename.indexOf("THStack") == 0) {
          obj['buildStack'] = function() {
             //  build sum of all histograms
             //  Build a separate list fStack containing the running sum of all histograms
@@ -1309,7 +1405,7 @@
             if (!'fHists' in this) return;
             var nhists = this['fHists'].arr.length;
             if (nhists <= 0) return;
-            this['fStack'] = JSROOT.CreateTList();
+            this['fStack'] = JSROOT.Create("TList");
             var h = JSROOT.clone(this['fHists'].arr[0]);
             this['fStack'].arr.push(h);
             for (var i=1;i<nhists;i++) {
@@ -1390,10 +1486,10 @@
             return themin;
          };
       }
-      if ((obj['_typename'].indexOf("TH1") == 0) ||
-          (obj['_typename'].indexOf("TH2") == 0) ||
-          (obj['_typename'].indexOf("TH3") == 0) ||
-          (obj['_typename'].indexOf("TProfile") == 0)) {
+      if ((obj_typename.indexOf("TH1") == 0) ||
+          (obj_typename.indexOf("TH2") == 0) ||
+          (obj_typename.indexOf("TH3") == 0) ||
+          (obj_typename.indexOf("TProfile") == 0)) {
          obj['getMean'] = function(axis) {
             if (axis < 1 || (axis > 3 && axis < 11) || axis > 13) return 0;
             var stats = this.getStats();
@@ -1412,7 +1508,7 @@
             return Math.sqrt(rms2);
          };
       }
-      if (obj['_typename'].indexOf("TProfile") == 0) {
+      if (obj_typename.indexOf("TProfile") == 0) {
          obj['getBinContent'] = function(bin) {
             if (bin < 0 || bin >= this['fNcells']) return 0;
             if (this['fBinEntries'][bin] < 1e-300) return 0;
@@ -1510,7 +1606,7 @@
       }
    };
 
-   
+
    // math methods for Javascript ROOT
 
    JSROOT.Math = {};
@@ -1696,7 +1792,7 @@
       var code = 1;
       var y = y0;
       var x, z, y2, x0, x1;
-      
+
       if ( y > (1.0 - 0.13533528323661269189) ) {
          y = 1.0 - y;
          code = 0;
@@ -1725,7 +1821,7 @@
       var x0, x1, x, yl, yh, y, d, lgm, dithresh;
       var i, dir;
       var kMACHEP = 1.11022302462515654042363166809e-16;
-      
+
       // check the domain
       if (a <= 0) {
          alert("igami : Wrong domain for parameter a (must be > 0)");
@@ -1869,7 +1965,7 @@
       var q6 = new Array(1.0         , 651.4101098,  56974.73333,    165917.4725,     -2815759.939);
       var a1 = new Array(0.04166666667,-0.01996527778, 0.02709538966);
       var a2 = new Array(-1.845568670,-4.284640743);
-      
+
       if (v < -5.5) {
          u   = Math.exp(v+1.0);
          if (u < 1e-10) return 0.0;
@@ -1912,7 +2008,7 @@
       if (!norm) return den;
       return den/sigma;
    };
-   
+
    JSROOT.Math.gaus = function(f, x, i) {
       return f['fParams'][i+0] * Math.exp(-0.5 * Math.pow((x-f['fParams'][i+1]) / f['fParams'][i+2], 2));
    };

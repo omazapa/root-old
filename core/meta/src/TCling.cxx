@@ -69,6 +69,7 @@
 #include "TListOfFunctions.h"
 #include "TListOfFunctionTemplates.h"
 #include "TProtoClass.h"
+#include "TStreamerInfo.h" // This is here to avoid to use the plugin manager
 
 #include "TFile.h"
 
@@ -542,6 +543,12 @@ extern "C" int TCling__AutoParseCallback(const char* className)
 {
    return ((TCling*)gCling)->AutoParse(className);
 }
+
+extern "C" const char* TCling__GetClassSharedLibs(const char* className)
+{
+   return ((TCling*)gCling)->GetClassSharedLibs(className);
+}
+
 // // Returns 0 for failure 1 for success
 // extern "C" int TCling__IsAutoLoadNamespaceCandidate(const char* name)
 // {
@@ -1192,11 +1199,9 @@ bool TCling::LoadPCM(TString pcmFileName,
       return kFALSE;
 
    // Prevent the ROOT-PCMs hitting this during auto-load during
-   // JITting - which will cause recursive compilation. The PCMs that
-   // have their headers in the PCH have empty keys which don't trigger
-   // TVirtualStreamerInfo::Factory() - which means that the plugin gets
-   // called and JITted during some random library load instead.
-   TVirtualStreamerInfo::Factory();
+   // JITting - which will cause recursive compilation.
+   // Avoid to call the plugin manager at all.
+   TVirtualStreamerInfo::SetFactory(new TStreamerInfo());
 
    if (gROOT->IsRootFile(pcmFileName)) {
       Int_t oldDebug = gDebug;
@@ -1276,14 +1281,15 @@ bool TCling::LoadPCM(TString pcmFileName,
       if (enums) {
          // Cache the pointers
          auto listOfGlobals = gROOT->GetListOfGlobals();
-         auto listOfEnums = gROOT->GetListOfEnums();
+         auto listOfEnums = dynamic_cast<THashList*>(gROOT->GetListOfEnums());
          // Loop on enums and then on enum constants
          for (auto selEnum: *enums){
             const char* enumScope = selEnum->GetTitle();
+            const char* enumName = selEnum->GetName();
             if (strcmp(enumScope,"") == 0){
                // This is a global enum and is added to the
                // list of enums and its constants to the list of globals
-               if (!listOfEnums->FindObject(selEnum)){
+               if (!listOfEnums->THashList::FindObject(enumName)){
                   listOfEnums->Add(selEnum);
                }
                for (auto enumConstant: *static_cast<TEnum*>(selEnum)->GetConstants()){
@@ -1299,7 +1305,10 @@ bool TCling::LoadPCM(TString pcmFileName,
                if (!nsTClassEntry){
                   nsTClassEntry = new TClass(enumScope,0,TClass::kNamespaceForMeta, true);
                }
-               nsTClassEntry->GetListOfEnums(false)->Add(selEnum);
+               auto listOfEnums = dynamic_cast<THashList*>(nsTClassEntry->GetListOfEnums(false));
+               if (listOfEnums && !listOfEnums->THashList::FindObject(enumName)){
+                  listOfEnums->Add(selEnum);
+               }
             }
          }
          enums->Clear();
@@ -1430,7 +1439,7 @@ void TCling::RegisterModule(const char* modulename,
       "#define __ROOTCLING__ 1\n"
       "#undef ClassDef\n"
       "#define ClassDef(name,id) \\\n"
-      "_ClassDef_(name,id) \\\n"
+      "_ClassDef_(name,id,virtual,) \\\n"
       "static int DeclFileLine() { return __LINE__; }\n";
    code += payloadCode;
 
@@ -1754,6 +1763,21 @@ Long_t TCling::ProcessLine(const char* line, EErrorCode* error/*=0*/)
    R__LOCKGUARD(fLockProcessLine ? gInterpreterMutex : 0);
    gROOT->SetLineIsProcessing();
 
+   struct InterpreterFlagsRAII_t {
+      cling::Interpreter* fInterpreter;
+      bool fWasDynamicLookupEnabled;
+
+      InterpreterFlagsRAII_t(cling::Interpreter* interp):
+         fInterpreter(interp),
+         fWasDynamicLookupEnabled(interp->isDynamicLookupEnabled())
+      {
+         fInterpreter->enableDynamicLookup(true);
+      }
+      ~InterpreterFlagsRAII_t() {
+         fInterpreter->enableDynamicLookup(fWasDynamicLookupEnabled);
+      }
+   } interpreterFlagsRAII(fInterpreter);
+
    // A non-zero returned value means the given line was
    // not a complete statement.
    int indent = 0;
@@ -1822,6 +1846,8 @@ Long_t TCling::ProcessLine(const char* line, EErrorCode* error/*=0*/)
             compRes = fMetaProcessor->readInputFromFile(fname.Data(), &result,
                                                         true /*ignoreOutmostBlock*/);
          } else {
+            // No DynLookup for .x, .L of named macros.
+            fInterpreter->enableDynamicLookup(false);
             indent = fMetaProcessor->process(mod_line, compRes, &result);
          }
          fCurExecutingMacros.pop_back();
@@ -2991,6 +3017,13 @@ Bool_t TCling::CheckClassInfo(const char* name, Bool_t autoload, Bool_t isClassO
       // Fundamental type, no a class.
       return kFALSE;
    }
+
+   // Migrated from within TClass::GetClass
+   // If we want to know if a class or a namespace with this name exists in the
+   // interpreter and this is an enum in the type system, before or after loading
+   // according to the autoload function argument, return false.
+   if (isClassOrNamespaceOnly &&
+       TEnum::GetEnum(name, autoload ? TEnum::kAutoload : TEnum::kNone)) return false;
 
    const char *classname = name;
 
@@ -4887,7 +4920,7 @@ static cling::Interpreter::CompilationResult ExecAutoParse(const char *what,
    std::string code = "#define __ROOTCLING__ 1\n"
       "#undef ClassDef\n"
       "#define ClassDef(name,id) \\\n"
-      "_ClassDef_(name,id) \\\n"
+      "_ClassDef_(name,id,virtual,) \\\n"
       "static int DeclFileLine() { return __LINE__; }\n";
    if (!header) {
       // This is the complete header file content and not the

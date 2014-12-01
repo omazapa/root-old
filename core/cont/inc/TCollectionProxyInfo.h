@@ -140,6 +140,13 @@ namespace ROOT {
          }
          static void* next(void * /* iter_loc */, const void * /* end_loc */) {
             // Should not be used.
+            // In the case of vector, so that the I/O can perform better,
+            // the begin_arena and the end_arena are *not* set to the
+            // address of any iterator rather they are set to the value of
+            // the beginning (and end) address of the vector's data.
+            // Hence this routine (which takes the value of fBegin) can
+            // *not* update where its points to (which in the case of vector
+            // would require update the value of fBegin).
             R__ASSERT(0 && "Intentionally not implemented, do not use.");
             return 0;
          }
