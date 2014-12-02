@@ -14,6 +14,12 @@ Changes in 3.1
 4. Provide possibility to load user scripts with JSROOT.BuildSimpleGUI 
    and JSROOT.AssertPrerequisites, also with main index.htm
 5. Support of TCutG drawing
+6. Implement hierarchy display (former dtree) with jQuery
+7. Fix several problems in drawing optimization
+8. Implement dragging objects from hierarchy browser into existing canvas 
+   to superimpose several objects 
+9. Implement col2 and col3 draw options, using html5 canvas
+10.Support 'p' and 'p0' draw options for TH1 class
 
 
 Development of version 3.0
