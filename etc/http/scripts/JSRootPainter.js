@@ -33,7 +33,7 @@
       ContextMenu : true,
       Zooming : true,
       MoveResize : true,   // enable move and resize of elements like statbox, title, pave, colz
-      DragAndDrop : false,
+      DragAndDrop : true,  // enables drag and drop functionality
       OptimizeDraw : 1, // drawing optimization: 0 - disabled, 1 - only for large (>5000 bins) histograms, 2 - always
       DefaultCol : 1,  // default col option 1-svg, 2-canvas
       AutoStat : true,
@@ -485,7 +485,7 @@
          g = hue2rgb(p, q, h);
          b = hue2rgb(p, q, h - 1 / 3);
       }
-      return 'rgb(' + Math.round(r * 255) + ', ' + Math.round(g * 255) + ', ' + Math.round(b * 255) + ')';
+      return 'rgb(' + Math.round(r * 255) + ',' + Math.round(g * 255) + ',' + Math.round(b * 255) + ')';
    }
 
    JSROOT.Painter.chooseTimeFormat = function(range, nticks) {
@@ -859,6 +859,18 @@
       $("#" + divid).children().eq(0).prop('painter', this);
    }
 
+   JSROOT.TBasePainter.prototype.SetItemName = function(name) {
+      if (name==null)
+         delete this['_hitemname'];
+      else
+         this['_hitemname'] = name;
+   }
+
+   JSROOT.TBasePainter.prototype.GetItemName = function(name) {
+      return ('_hitemname' in this) ? this['_hitemname'] : null;
+   }
+
+
    // ==============================================================================
 
    JSROOT.TObjectPainter = function(obj) {
@@ -1141,7 +1153,7 @@
       $("#" + this.divid).empty();
    }
 
-   JSROOT.TObjectPainter.prototype.RedrawPad = function(resize) {
+   JSROOT.TObjectPainter.prototype.RedrawPad = function() {
       // call Redraw methods for each painter in the frame
       // if selobj specified, painter with selected object will be redrawn
 
@@ -1149,7 +1161,7 @@
 
       var pad_painter = pad ? pad['pad_painter'] : null;
 
-      if (pad_painter) pad_painter.Redraw(true);
+      if (pad_painter) pad_painter.Redraw();
    }
 
    JSROOT.TObjectPainter.prototype.RemoveDrag = function(id) {
@@ -2638,23 +2650,47 @@
 
    JSROOT.TPadPainter.prototype = Object.create(JSROOT.TObjectPainter.prototype);
 
-   JSROOT.TPadPainter.prototype.CreateCanvasSvg = function(only_resize) {
+   JSROOT.TPadPainter.prototype.CreateCanvasSvg = function(check_resize) {
 
-      var render_to  = $("#" + this.divid);
+      var render_to = $("#" + this.divid);
 
-      var w = render_to.width(), h = render_to.height();
+      var w = render_to.width(), h = render_to.height(), factor = null;
 
       var svg = null;
 
-      if (only_resize) {
+      if (check_resize > 0) {
          svg = this.svg_canvas(true);
-         if ((svg.property('last_width') == w) && (svg.property('last_height') == h)) return false;
+
+         var oldw = svg.property('last_width');
+         var oldh = svg.property('last_height');
+
+         if (check_resize == 1) {
+            if ((svg.attr('width')==w) && (svg.attr('height')==h)) return false;
+            if ((oldw == w) && (oldh == h)) return false;
+         }
+
+         factor = svg.property('height_factor');
+
+         if (factor!=null) {
+            // if canvas was resize when created, resize height also now
+            h = Math.round(w * factor);
+            render_to.height(h);
+         }
+
+         if ((check_resize==1) && (oldw>0) && (oldh>0))
+            if ((w/oldw>0.5) && (w/oldw<2) && (h/oldh>0.5) && (h/oldh<2)) {
+              // change view port without changing view box
+              // let SVG scale drawing itself
+              svg.attr("width", w).attr("height", h);
+              return false;
+            }
+
       } else {
 
          if (h < 10) {
             // set aspect ratio for the place, where object will be drawn
 
-            var factor = 0.66;
+            factor = 0.66;
 
             // for TCanvas reconstruct ratio between width and height
             if ((this.pad!=null) && ('fCw' in this.pad) && ('fCh' in this.pad) && (this.pad['fCw'] > 0)) {
@@ -2663,7 +2699,7 @@
                   factor = 0.66;
             }
 
-            h = w * factor;
+            h = Math.round(w * factor);
 
             render_to.height(h);
          }
@@ -2690,10 +2726,10 @@
           svg.append("svg:g").attr("class","stat_layer");
       }
 
-
-      svg.attr("width", w)
-         .attr("height", h)
+      svg.attr("width", w).attr("height", h)
          .attr("viewBox", "0 0 " + w + " " + h)
+         .attr("preserveAspectRatio", "none")  // we do not keep relative ratio
+         .property('height_factor', factor)
          .property('last_width', w)
          .property('last_height', h);
 
@@ -2767,22 +2803,27 @@
       }
    }
 
-   JSROOT.TPadPainter.prototype.Redraw = function(resize) {
-      if (resize && !this.iscan) this.CreatePadSvg(true);
+   JSROOT.TPadPainter.prototype.Redraw = function() {
+      if (this.iscan)
+         this.CreateCanvasSvg(2);
+      else
+         this.CreatePadSvg(true);
 
       // at the moment canvas painter donot redraw its subitems
       for (var i in this.painters)
-         this.painters[i].Redraw(resize);
+         this.painters[i].Redraw();
    }
-
 
    JSROOT.TPadPainter.prototype.CheckCanvasResize = function() {
       if (!this.iscan) return;
 
-      var changed = this.CreateCanvasSvg(true);
-      if (changed) this.Redraw(true);
-   }
+      var changed = this.CreateCanvasSvg(1);
 
+      // at the moment canvas painter donot redraw its subitems
+      if (changed)
+         for (var i in this.painters)
+            this.painters[i].Redraw();
+   }
 
    JSROOT.TPadPainter.prototype.UpdateObject = function(obj) {
 
@@ -2811,7 +2852,7 @@
    JSROOT.Painter.drawCanvas = function(divid, can) {
       var painter = new JSROOT.TPadPainter(can, true);
       painter.SetDivId(divid, -1); // just assign id
-      painter.CreateCanvasSvg();
+      painter.CreateCanvasSvg(0);
       painter.SetDivId(divid);  // now add to painters list
 
       if (can==null) {
@@ -6602,59 +6643,25 @@
 
    JSROOT.Painter.drawStreamerInfo = function(divid, obj) {
       $("#" + divid).css({ overflow : 'auto' });
-      var painter = new JSROOT.HierarchyPainter('sinfo', divid, true);
+      var painter = new JSROOT.HierarchyPainter('sinfo', divid);
       painter.ShowStreamerInfo(obj);
       return painter;
    }
 
    // =========== painter of hierarchical structures =================================
 
-   JSROOT.HList = [];
-
-   JSROOT.DelHList = function(_name) {
-      for ( var i in JSROOT.HList)
-         if (JSROOT.HList[i].name == _name) {
-            var old = JSROOT.HList[i];
-            JSROOT.HList.splice(i, 1);
-            delete old;
-            return true;
-         }
-   }
-
-   JSROOT.AddHList = function(_name, _h) {
-      JSROOT.DelHList(_name);
-      JSROOT.HList.push({
-         name : _name,
-         h : _h
-      });
-   }
-
-   JSROOT.H = function(name) {
-      for ( var i in JSROOT.HList)
-         if (JSROOT.HList[i].name == name)
-            return JSROOT.HList[i].h;
-      return null;
-   }
-
-   JSROOT.HierarchyPainter = function(name, frameid, local) {
+   JSROOT.HierarchyPainter = function(name, frameid) {
       JSROOT.TBasePainter.call(this);
       this.name = name;
       this.frameid = frameid;
       this.h = null; // hierarchy
-      this.local = local;
-      if (!this.local) JSROOT.AddHList(name, this);
    }
 
    JSROOT.HierarchyPainter.prototype = Object.create(JSROOT.TBasePainter.prototype);
 
    JSROOT.HierarchyPainter.prototype.Cleanup = function() {
-      if (!this.local) JSROOT.DelHList(this.name);
-   }
-
-   JSROOT.HierarchyPainter.prototype.GlobalName = function(suffix) {
-      var res = "JSROOT.H(\'" + this.name + "\')";
-      if (suffix != null) res += suffix;
-      return res;
+      // clear drawing and browser
+      this.clear(true);
    }
 
    JSROOT.HierarchyPainter.prototype.ListHierarchy = function(folder, lst) {
@@ -6961,16 +6968,16 @@
       if ('_online' in this.h)
          this['html'] += "| <a href='#reload'>reload</a>";
       else
-         this['html'] += "<a/>"
+         this['html'] += "<a/>";
 
       if ('disp_kind' in this)
          this['html'] += "| <a href='#clear'>clear</a>";
       else
-         this['html'] += "<a/>"
+         this['html'] += "<a/>";
 
       this['html'] += "</p>";
 
-      this['html'] += '<div class="h_tree">'
+      this['html'] += '<div class="h_tree">';
       this.addItemHtml(this.h, null);
       this['html'] += '</div>';
 
@@ -6985,7 +6992,7 @@
             items.draggable({ revert: "invalid", appendTo: "body", helper: "clone" });
 
          if (JSROOT.gStyle.ContextMenu)
-            items.on('contextmenu', function(e) { h.tree_contextmenu($(this), e); })
+            items.on('contextmenu', function(e) { h.tree_contextmenu($(this), e); });
       }
 
       elem.find(".plus_minus").click(function() { h.tree_click($(this),true); });
@@ -6993,7 +7000,7 @@
       elem.find("a").first().click(function() { h.toggle(true); return false; })
                     .next().click(function() { h.toggle(false); return false; })
                     .next().click(function() { h.reload(); return false; })
-                    .next().click(function() { h.clear(); return false; });
+                    .next().click(function() { h.clear(false); return false; });
    }
 
    JSROOT.HierarchyPainter.prototype.isLastSibling = function(hitem) {
@@ -7282,7 +7289,7 @@
             painter = h.draw(divid, obj, drawopt);
          } else
          mdi.ForEachPainter(function(p, frame) {
-            if (p['_hitemname'] != itemname) return;
+            if (p.GetItemName() != itemname) return;
             painter = p;
             mdi.ActivateFrame(frame);
             painter.RedrawObject(obj);
@@ -7307,7 +7314,7 @@
                         if (dropname == itemname) return false;
 
                         var ditem = h.Find(dropname);
-                        if (ditem==null) return false;
+                        if ((ditem==null) || (!('_kind' in ditem))) return false;
 
                         return ditem._kind.indexOf("ROOT.")==0;
                      },
@@ -7319,7 +7326,7 @@
             }
          }
 
-         if (painter) painter['_hitemname'] = itemname; // mark painter as created from hierarchy
+         if (painter) painter.SetItemName(itemname); // mark painter as created from hierarchy
 
          do_call_back(painter);
       });
@@ -7332,7 +7339,7 @@
       h.get(itemname, function(item, obj) {
          if (obj==null) return;
          var painter = h.draw(divid, obj, "same");
-         if (painter) painter['_hitemname'] = itemname;
+         if (painter) painter.SetItemName(itemname);
       });
 
       return true;
@@ -7349,7 +7356,7 @@
 
       // first collect items
       mdi.ForEachPainter(function(p) {
-         if (('_hitemname' in p) && (allitems.indexOf(p['_hitemname'])<0)) allitems.push(p['_hitemname']);
+         if ((p.GetItemName()!=null) && (allitems.indexOf(p.GetItemName())<0)) allitems.push(p.GetItemName());
       }, true); // only visible panels are considered
 
       // than call display with update
@@ -7474,11 +7481,9 @@
    }
 
    JSROOT.HierarchyPainter.prototype.OpenOnline = function(server_address, user_callback) {
-      if (!server_address) server_address = "";
-
       var painter = this;
 
-      var req = JSROOT.NewHttpRequest(server_address + "h.json?compact=3", 'object', function(result) {
+      var AdoptHierarchy = function(result) {
          painter.h = result;
          if (painter.h == null) return;
 
@@ -7522,7 +7527,18 @@
             if (typeof user_callback == 'function')
                user_callback(painter);
          });
-      });
+      }
+
+      if (!server_address) server_address = "";
+
+      if (typeof server_address == 'object') {
+         var h = server_address;
+         server_address = "";
+         AdoptHierarchy(h);
+         return;
+      }
+
+      var req = JSROOT.NewHttpRequest(server_address + "h.json?compact=3", 'object', AdoptHierarchy);
 
       req.send(null);
    }
@@ -7653,8 +7669,8 @@
 
          if (this['disp'] != null)
             this['disp'].ForEachPainter(function(painter) {
-               if ('_hitemname' in painter)
-                  items.push(painter['_hitemname']);
+               if (painter.GetItemName()!=null)
+                  items.push(painter.GetItemName());
             });
 
          if (items.length == 1) {
@@ -7691,9 +7707,15 @@
       this['disp_frameid'] = frameid;
    }
 
-   JSROOT.HierarchyPainter.prototype.clear = function() {
+   JSROOT.HierarchyPainter.prototype.clear = function(withbrowser) {
       if ('disp' in this)
          this['disp'].Reset();
+
+      if (withbrowser) {
+         delete this['disp'];
+         $("#" + this.frameid).empty();
+         delete this.h;
+      }
    }
 
    JSROOT.HierarchyPainter.prototype.CreateDisplay = function(force) {
@@ -7782,14 +7804,14 @@
 
    JSROOT.MDIDisplay.prototype.CheckResize = function() {
       this.ForEachPainter(function(painter) {
-         if (('_hitemname' in painter) && (typeof painter['CheckResize'] == 'function'))
+         if ((painter.GetItemName()!=null) && (typeof painter['CheckResize'] == 'function'))
              painter.CheckResize();
       });
    }
 
    JSROOT.MDIDisplay.prototype.Reset = function() {
       this.ForEachPainter(function(painter) {
-         if (('_hitemname' in painter) && (typeof painter['Clenaup'] == 'function'))
+         if ((painter.GetItemName()!=null) && (typeof painter['Clenaup'] == 'function'))
             painter.Clenaup();
       });
 
@@ -7820,17 +7842,6 @@
    }
 
    // ==================================================
-
-   JSROOT.CloseCollapsible = function(e, el) {
-      var sel = $(el)[0].textContent;
-      if (typeof (sel) == 'undefined')
-         return;
-      sel.replace(' x', '');
-      sel.replace(';', '');
-      sel.replace(' ', '');
-      $(el).next().andSelf().remove();
-      e.stopPropagation();
-   };
 
    JSROOT.CollapsibleDisplay = function(frameid) {
       JSROOT.MDIDisplay.call(this, frameid);
@@ -7869,7 +7880,7 @@
       var topid = this.frameid + '_collapsible';
 
       if (document.getElementById(topid) == null)
-         $("#right-div").append('<div id="'+ topid  + '" class="ui-accordion ui-accordion-icons ui-widget ui-helper-reset" style="overflow:auto; overflow-y:scroll; height:100%"></div>');
+         $("#right-div").append('<div id="'+ topid  + '" class="ui-accordion ui-accordion-icons ui-widget ui-helper-reset" style="overflow:auto; overflow-y:scroll; height:100%; padding-left: 2px; padding-right: 2px"></div>');
 
       var hid = topid + "_sub" + this.cnt++;
       var uid = hid + "h";
@@ -7882,8 +7893,9 @@
             .addClass("ui-accordion-header ui-helper-reset ui-state-default ui-corner-top ui-corner-bottom")
             .hover(function() { $(this).toggleClass("ui-state-hover"); })
             .prepend('<span class="ui-icon ui-icon-triangle-1-e"></span>')
-            .append('<button type="button" class="closeButton" title="close canvas" onclick="JSROOT.CloseCollapsible(event, \'#'
-                        + uid + '\')"><img class="img_remove" src="" alt=""/></button>')
+            .append('<button type="button" class="closeButton" title="close canvas" '+
+                    'onclick="javascript: $(this).parent().next().andSelf().remove();">'+
+                    '<img class="img_remove" src="" alt=""/></button>')
             .click( function() {
                      $(this).toggleClass("ui-accordion-header-active ui-state-active ui-state-default ui-corner-bottom")
                            .find("> .ui-icon").toggleClass("ui-icon-triangle-1-e ui-icon-triangle-1-s")
@@ -7955,7 +7967,9 @@
       if (document.getElementById(topid) == null) {
          $("#" + this.frameid).append('<div id="' + topid + '">' + ' <ul>' + li + ' </ul>' + cont + '</div>');
 
-         var tabs = $("#" + topid).tabs({ heightStyle : "fill" });
+         var tabs = $("#" + topid)
+                       .css('overflow','hidden')
+                       .tabs({ heightStyle : "fill" });
 
          tabs.delegate("span.ui-icon-close", "click", function() {
             var panelId = $(this).closest("li").remove().attr("aria-controls");
@@ -8054,10 +8068,11 @@
 
             var main = $("#" + this.frameid);
 
-            var h = Math.floor(main.height() / this.sizey);
-            var w = Math.floor(main.width() / this.sizex);
+            var h = Math.floor(main.height() / this.sizey) - 1;
+            var w = Math.floor(main.width() / this.sizex) - 1;
 
-            var content = "<table id='" + topid + "' style='width:100%; height:100%; table-layout:fixed'>";
+            var content = "<div style='width:100%; height:100%; margin:0; padding:0; border:0; overflow:hidden'>";
+               content += "<table id='" + topid + "' style='width:100%; height:100%; table-layout:fixed; border-collapse: collapse;'>";
             var cnt = 0;
             for (var i = 0; i < this.sizey; i++) {
                content += "<tr>";
@@ -8065,7 +8080,7 @@
                   content += "<td><div id='" + topid + "_" + cnt++ + "'></div></td>";
                content += "</tr>";
             }
-            content += "</table>";
+            content += "</table></div>";
 
             main.empty();
             main.append(content);
@@ -8095,20 +8110,42 @@
 
       var main = $("#" + this.frameid);
 
-      var h = Math.floor(main.height() / this.sizey);
-      var w = Math.floor(main.width() / this.sizex);
-
-      // console.log("big width = " + main.width() + " height = " + main.height());
-
-      // set height for all table cells, it is not done automatically by browser
-      // for (var cnt=0;cnt<this.sizex*this.sizey;cnt++)
-      // $("#" + this.frameid + "_grid_"+cnt).height(h);
-
-      // $("[id^=" + this.frameid + "_grid_]").height(h).width(w);
+      var h = Math.floor(main.height() / this.sizey) - 1;
+      var w = Math.floor(main.width() / this.sizex) - 1;
 
       main.find("[id^=" + this.frameid + "_grid_]").height(h).width(w);
 
       JSROOT.MDIDisplay.prototype.CheckResize.call(this);
+   }
+
+   // =========================================================================
+
+   JSROOT.ConfigureVSeparator = function(handle, leftdiv, separdiv, rightdiv) {
+      if (!leftdiv) leftdiv = "left-div";
+      if (!separdiv) separdiv = "separator-div";
+      if (!rightdiv) rightdiv = "right-div";
+
+      function adjustSize(left, firsttime) {
+         var diff = $("#"+leftdiv).outerWidth() - $("#"+leftdiv).width();
+         $("#"+separdiv).css('left', left.toString() + "px");
+         $("#"+leftdiv).width(left-diff-1);
+         $("#"+rightdiv).css('left',(left+4).toString() + "px");
+         if (firsttime || (handle==null)) return;
+
+         if (typeof handle == 'function') handle(); else
+         if ((typeof handle == 'object') && (typeof handle['CheckResize'] == 'function')) handle.CheckResize();
+      }
+
+      $("#"+separdiv).draggable({
+         axis: "x" , zIndex: 100, cursor: "ew-resize",
+         helper : function() { return $("#"+separdiv).clone().css('background-color','grey'); },
+         stop: function(event,ui) { adjustSize(ui.position.left, false); }
+      });
+
+      var w0 = Math.round($(window).width() * 0.2);
+      if (w0<300) w0 = Math.min(300, Math.round($(window).width() * 0.5));
+
+      adjustSize(w0, true);
    }
 
    JSROOT.RegisterForResize = function(handle, delay) {
@@ -8134,12 +8171,11 @@
          }
          myCounter = -1;
 
+         if (handle==null) return;
+
          document.body.style.cursor = 'wait';
-
-         if (typeof handle == 'function') handle();
-         else if ((typeof handle == 'object') && (typeof handle['CheckResize'] == 'function'))
-            handle.CheckResize();
-
+         if (typeof handle == 'function') handle(); else
+         if ((typeof handle == 'object') && (typeof handle['CheckResize'] == 'function')) handle.CheckResize();
          document.body.style.cursor = 'auto';
       }
 
