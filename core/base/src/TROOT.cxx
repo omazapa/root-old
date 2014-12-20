@@ -1122,6 +1122,8 @@ TClass *TROOT::FindSTLClass(const char *name, Bool_t load, Bool_t silent) const
    //   which can provoke the parsing of the header files (and/or the loading
    //   of clang pcms information).
 
+   R__LOCKGUARD(gInterpreterMutex);
+
    // Remove std::, allocator, typedef, add Long64_t, etc. in just one call.
    std::string normalized;
    TClassEdit::GetNormalizedName(normalized, name);
@@ -1473,9 +1475,9 @@ void TROOT::Idle(UInt_t idleTimeInSec, const char *command)
       TApplication::CreateApplication();
 
    if (idleTimeInSec <= 0)
-      fApplication->RemoveIdleTimer();
+      (*fApplication).RemoveIdleTimer();
    else
-      fApplication->SetIdleTimer(idleTimeInSec, command);
+      (*fApplication).SetIdleTimer(idleTimeInSec, command);
 }
 
 //______________________________________________________________________________
@@ -1957,7 +1959,7 @@ Long_t TROOT::ProcessLine(const char *line, Int_t *error)
    if (!fApplication)
       TApplication::CreateApplication();
 
-   return fApplication->ProcessLine(sline, kFALSE, error);
+   return (*fApplication).ProcessLine(sline, kFALSE, error);
 }
 
 //______________________________________________________________________________
@@ -1977,7 +1979,7 @@ Long_t TROOT::ProcessLineSync(const char *line, Int_t *error)
    if (!fApplication)
       TApplication::CreateApplication();
 
-   return fApplication->ProcessLine(sline, kTRUE, error);
+   return (*fApplication).ProcessLine(sline, kTRUE, error);
 }
 
 //______________________________________________________________________________

@@ -176,8 +176,8 @@ extern "C" {
 char *dlerror() {
    static char Msg[1000];
    FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, GetLastError(),
-	             MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), Msg,
-				 sizeof(Msg), NULL);
+                 MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), Msg,
+                 sizeof(Msg), NULL);
    return Msg;
 }
 #endif
@@ -1290,6 +1290,7 @@ bool TCling::LoadPCM(TString pcmFileName,
                // This is a global enum and is added to the
                // list of enums and its constants to the list of globals
                if (!listOfEnums->THashList::FindObject(enumName)){
+                  ((TEnum*) selEnum)->SetClass(nullptr);
                   listOfEnums->Add(selEnum);
                }
                for (auto enumConstant: *static_cast<TEnum*>(selEnum)->GetConstants()){
@@ -1307,6 +1308,7 @@ bool TCling::LoadPCM(TString pcmFileName,
                }
                auto listOfEnums = dynamic_cast<THashList*>(nsTClassEntry->GetListOfEnums(false));
                if (listOfEnums && !listOfEnums->THashList::FindObject(enumName)){
+                  ((TEnum*) selEnum)->SetClass(nsTClassEntry);
                   listOfEnums->Add(selEnum);
                }
             }
@@ -3652,7 +3654,7 @@ TInterpreter::DeclId_t TCling::GetDataMemberWithValue(const void *ptrvalue) cons
    llvm::ExecutionEngine* EE = fInterpreter->getExecutionEngine();
 
    llvm::Module::global_iterator iter = module->global_begin();
-	llvm::Module::global_iterator end = module->global_end ();
+   llvm::Module::global_iterator end = module->global_end ();
    while (iter != end) {
       if ( (*iter).getType()->getElementType()->isPointerTy() ) {
          void **ptr = (void**)EE->getPointerToGlobalIfAvailable( iter );
