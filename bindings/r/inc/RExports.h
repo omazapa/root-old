@@ -69,6 +69,9 @@ namespace ROOT {
    }
 }
 
+//class require for TMethod,TClass...
+class MethodInfo_t;
+
 namespace Rcpp {
 
 //TString
@@ -89,6 +92,8 @@ namespace Rcpp {
 
    template<> SEXP wrap(const ROOT::R::TRObjectProxy &o);
    template<> ROOT::R::TRObjectProxy as(SEXP) ;
+
+   template<class T> SEXP wrap(const MethodInfo_t* i){return wrap(0);}
 
    template<class T, size_t i> std::array<T, i> as(SEXP &obj)
    {
@@ -126,6 +131,7 @@ namespace ROOT {
          class_(const char *name_, const char *doc = 0): Rcpp::class_<T>(name_, doc) {}
       };
 
+      
       //________________________________________________________________________________________________________
       template<class T> void function(const char *name_, T fun, const char *docstring = 0)
       {
