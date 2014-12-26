@@ -49,7 +49,7 @@ public:
     TRClass():TClass() {};
     TRClass(TString name, Bool_t silent = kFALSE);
     TRClass(TString name, Version_t cversion, Bool_t silent = kFALSE);
-    TRClass(TString name, Version_t cversion, TRClass::EState theState, Bool_t silent = kFALSE);
+    TRClass(TString name, Version_t cversion, TRClass::EState theState, Bool_t silent = kFALSE);    
 };
 }
 }

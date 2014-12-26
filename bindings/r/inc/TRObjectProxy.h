@@ -34,6 +34,7 @@ namespace ROOT {
          TRObjectProxy(): TObject() {};
          TRObjectProxy(SEXP xx);
          TRObjectProxy(SEXP xx, Bool_t status);
+         TRObjectProxy(const TRObjectProxy &obj);
 	 
 	 void SetStatus(Bool_t status){ fStatus = status;}
          
@@ -62,13 +63,10 @@ namespace ROOT {
             return ::Rcpp::as<T>(obj);
          }
 
-         template <class T> operator T() {
-	   T data;
-	     
+         template <class T> operator T() {	     
 	   if(fStatus)
 	   {
-	     T data=::Rcpp::as<T>(x);
-             return data;
+	     return ::Rcpp::as<T>(x);
 	   }else
 	   {
 	     Error("Cast Operator", "Can not make the requested data, returning an unknow value");
@@ -77,7 +75,6 @@ namespace ROOT {
          }
          ClassDef(TRObjectProxy, 0) //
       };
-
    }
 }
 

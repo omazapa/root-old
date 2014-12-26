@@ -44,7 +44,8 @@ set(R_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRInterface.h
               ${CMAKE_SOURCE_DIR}/bindings/r/inc/compilerdata.h
               ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRSystem.h              
               )
-set(RCORE_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRClass.h              
+set(RCORE_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRClass.h
+                  ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRMethodCall.h
 )              
 
 set(RHIST_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRF1.h              

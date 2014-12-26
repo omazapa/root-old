@@ -47,3 +47,11 @@ void TRObjectProxy::operator=(SEXP xx)
 
 //______________________________________________________________________________
 TRObjectProxy::TRObjectProxy(SEXP xx, Bool_t status): x(xx), fStatus(status) { }
+
+
+//______________________________________________________________________________
+TRObjectProxy::TRObjectProxy(const TRObjectProxy &obj)
+{
+    x=obj.x;
+    fStatus=obj.fStatus;
+}
