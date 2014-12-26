@@ -8,6 +8,11 @@
 #include<TRMethodCall.h>
 #include<TROOT.h>
 #include<TRInterface.h>
+
+#ifndef ROOT_R_TRObject
+#include<TRObject.h>
+#endif
+
 //______________________________________________________________________________
 /* Begin_Html
 
@@ -56,6 +61,40 @@ SEXP TRMethodCall::Execute(TString obj_name)
  }
 
 //______________________________________________________________________________
+SEXP TRMethodCall::Execute(TRObject &obj)
+{    
+    if(this->ReturnType()==kLong){
+        Long_t result;
+        TMethodCall::Execute(&obj,result);
+        return Rcpp::wrap(result);        
+    } 
+
+    if(this->ReturnType()==kDouble){
+        Double_t result;
+        TMethodCall::Execute(&obj,result);
+        return Rcpp::wrap(result);        
+    } 
+    
+    if(this->ReturnType()==kString){
+        char *result=new char[4096];
+        TMethodCall::Execute(&obj,&result);
+        return Rcpp::wrap(TString(result));        
+    }
+    
+    if(this->ReturnType()==kOther){
+        TMethodCall::Execute(&obj);
+        return Rcpp::wrap(R_NilValue);       
+    }
+    
+    if(this->ReturnType()==kNone){
+        TMethodCall::Execute(&obj);
+        return Rcpp::wrap(R_NilValue);       
+    }
+    return Rcpp::wrap(R_NilValue);
+ }
+
+
+//______________________________________________________________________________
 TRMethodCall::EReturnType	TRMethodCall::ReturnType()
 {
     return (TRMethodCall::EReturnType)TMethodCall::ReturnType();
@@ -78,10 +117,10 @@ ROOTR_EXPOSED_CLASS_INTERNAL(TRMethodCall)
 
 ROOTR_MODULE(ROOTR_TRMethodCall)
 {
-
     ROOT::R::class_<ROOT::R::TRMethodCall>("TRMethodCall", "Method or function calling interface.")
     .constructor<TString, TString, TString >()
     .method("Execute",(SEXP (ROOT::R::TRMethodCall::*)(TString))(&ROOT::R::TRMethodCall::Execute))
+    .method("Execute",(SEXP (ROOT::R::TRMethodCall::*)(ROOT::R::TRObject&))(&ROOT::R::TRMethodCall::Execute))
     .method("ReturnType",&ROOT::R::TRMethodCall::ReturnType);
 
     Rcpp::enum_<ROOT::R::TRMethodCall::EReturnType, TRMethodCall>("EReturnType")
@@ -93,6 +132,7 @@ ROOTR_MODULE(ROOTR_TRMethodCall)
 
 }
 
+//______________________________________________________________________________
 void ROOT::R::TRMethodCall::Load()
 {
 ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();

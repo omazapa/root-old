@@ -1,5 +1,5 @@
 // @(#)root/r:$Id$
-// Author: Omar Zapata   25/12/2014
+// Author: Omar Zapata   26/12/2014
 
 
 /*************************************************************************
@@ -9,28 +9,20 @@
  * For the licensing terms see $ROOTSYS/LICENSE.                         *
  * For the list of contributors see $ROOTSYS/README/CREDITS.             *
  *************************************************************************/
-#ifndef ROOT_R_TRMethodCall
-#define ROOT_R_TRMethodCall
+#ifndef ROOT_R_TRObject
+#define ROOT_R_TRObject
 
-#ifndef ROOT_TMethodCall
-#include<TMethodCall.h>
+#ifndef ROOT_TObject
+#include<TObject.h>
 #endif
 
 #ifndef ROOT_R_RExports
 #include<RExports.h>
 #endif
 
-#ifndef ROOT_R_TRClass
-#include<TRClass.h>
-#endif
-
-#ifndef ROOT_R_TRObjectProxy
-#include<TRObjectProxy.h>
-#endif
-
 //________________________________________________________________________________________________________
 /**
-   This is TMethodCall's wrapper class for R
+   This is TObject's wrapper class for R
 
 
    @ingroup R
@@ -38,20 +30,21 @@
 
 namespace ROOT {
    namespace R {
-       class TRObject;
-      class TRMethodCall: public TMethodCall {
+      class TRObject: public TObject {
       public:
-        enum EReturnType { kLong, kDouble, kString, kOther, kNone };
-      public:
-         TRMethodCall(TString cl, TString method, TString params);         
-         TRMethodCall(const TMethodCall &m): TMethodCall(m) {}
-         
-         SEXP Execute(TString obj_name);
-         SEXP Execute(TRObject &obj);
-         TRMethodCall::EReturnType	ReturnType();
+         TRObject():TObject(){};
+         TRObject(const TObject &obj):TObject(obj){};
+         TString ClassName(){return TObject::ClassName();}
+
          static void Load();
+         
+       ClassDef(TRObject, 0)   
       };
    }
 }
-
+ROOTR_EXPOSED_CLASS_INTERNAL(TRObject)
+namespace Rcpp {
+   template<> SEXP wrap(const TObject &obj);
+   template<> TObject as(SEXP obj);
+}
 #endif
