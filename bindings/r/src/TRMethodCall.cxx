@@ -61,7 +61,41 @@ SEXP TRMethodCall::Execute(TString obj_name)
  }
 
 //______________________________________________________________________________
-SEXP TRMethodCall::Execute(TRObject &obj)
+SEXP TRMethodCall::Execute(TRRef &obj)
+{    
+    if(this->ReturnType()==kLong){
+        Long_t result;
+        TMethodCall::Execute(&obj,result);
+        return Rcpp::wrap(result);        
+    } 
+
+    if(this->ReturnType()==kDouble){
+        Double_t result;
+        TMethodCall::Execute(&obj,result);
+        return Rcpp::wrap(result);        
+    } 
+    
+    if(this->ReturnType()==kString){
+        char *result=new char[4096];
+        TMethodCall::Execute(&obj,&result);
+        return Rcpp::wrap(TString(result));        
+    }
+    
+    if(this->ReturnType()==kOther){
+        TMethodCall::Execute(&obj.GetObject());
+        return Rcpp::wrap(R_NilValue);       
+    }
+    
+    if(this->ReturnType()==kNone){
+        TMethodCall::Execute(&obj.GetObject());
+        return Rcpp::wrap(R_NilValue);       
+    }
+    return Rcpp::wrap(R_NilValue);
+ }
+
+
+//______________________________________________________________________________
+SEXP TRMethodCall::Execute(TObject &obj)
 {    
     if(this->ReturnType()==kLong){
         Long_t result;
@@ -93,7 +127,6 @@ SEXP TRMethodCall::Execute(TRObject &obj)
     return Rcpp::wrap(R_NilValue);
  }
 
-
 //______________________________________________________________________________
 TRMethodCall::EReturnType	TRMethodCall::ReturnType()
 {
@@ -119,8 +152,9 @@ ROOTR_MODULE(ROOTR_TRMethodCall)
 {
     ROOT::R::class_<ROOT::R::TRMethodCall>("TRMethodCall", "Method or function calling interface.")
     .constructor<TString, TString, TString >()
+    .method("Execute",(SEXP (ROOT::R::TRMethodCall::*)(TObject&))(&ROOT::R::TRMethodCall::Execute))
+    .method("Execute",(SEXP (ROOT::R::TRMethodCall::*)(ROOT::R::TRRef&))(&ROOT::R::TRMethodCall::Execute))
     .method("Execute",(SEXP (ROOT::R::TRMethodCall::*)(TString))(&ROOT::R::TRMethodCall::Execute))
-    .method("Execute",(SEXP (ROOT::R::TRMethodCall::*)(ROOT::R::TRObject&))(&ROOT::R::TRMethodCall::Execute))
     .method("ReturnType",&ROOT::R::TRMethodCall::ReturnType);
 
     Rcpp::enum_<ROOT::R::TRMethodCall::EReturnType, TRMethodCall>("EReturnType")

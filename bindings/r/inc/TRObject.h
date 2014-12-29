@@ -20,6 +20,10 @@
 #include<RExports.h>
 #endif
 
+#ifndef ROOT_TRef
+#include<TRef.h>
+#endif
+
 //________________________________________________________________________________________________________
 /**
    This is TObject's wrapper class for R
@@ -40,11 +44,19 @@ namespace ROOT {
          
        ClassDef(TRObject, 0)   
       };
+      class TRRef:public TRef
+      {
+    public:
+        TRRef(TObject *obj):TRef(obj){}
+        TRRef(TObject &obj):TRef(&obj){}
+        TObject& GetObject(){return *TRef::GetObject();}
+      };        
+
    }
 }
 ROOTR_EXPOSED_CLASS_INTERNAL(TRObject)
-namespace Rcpp {
-   template<> SEXP wrap(const TObject &obj);
-   template<> TObject as(SEXP obj);
-}
+ROOTR_EXPOSED_CLASS(TObject)
+        
+ROOTR_EXPOSED_CLASS_INTERNAL(TRRef)
+        
 #endif

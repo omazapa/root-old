@@ -28,6 +28,9 @@ RDH          := $(MODDIRI)/RExports.h \
                 $(MODDIRI)/TRObjectProxy.h \
                 $(MODDIRI)/TRFunction.h \
                 $(MODDIRI)/TRInternalFunction.h \
+                $(MODDIRI)/TRObject.h \
+                $(MODDIRI)/TRClass.h \
+                $(MODDIRI)/TRMethodCall.h \
                 $(MODDIRI)/compilerdata.h 
 
 RDHMOD       := $(MODDIRI)/TRCanvas.h \

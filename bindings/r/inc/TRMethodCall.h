@@ -39,6 +39,7 @@
 namespace ROOT {
    namespace R {
        class TRObject;
+       class TRRef;
       class TRMethodCall: public TMethodCall {
       public:
         enum EReturnType { kLong, kDouble, kString, kOther, kNone };
@@ -47,7 +48,8 @@ namespace ROOT {
          TRMethodCall(const TMethodCall &m): TMethodCall(m) {}
          
          SEXP Execute(TString obj_name);
-         SEXP Execute(TRObject &obj);
+         SEXP Execute(TRRef &obj);
+         SEXP Execute(TObject &obj);
          TRMethodCall::EReturnType	ReturnType();
          static void Load();
       };
