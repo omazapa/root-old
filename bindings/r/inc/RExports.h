@@ -151,4 +151,5 @@ namespace ROOT {
 
 //modified macro for ROOTR global Module Object Symbol Reference ROOT::R::ModuleSymRef
 #define LOAD_ROOTR_MODULE(NAME) Rf_eval( Rf_lang2( ( ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef ), _rcpp_module_boot_##NAME() ), R_GlobalEnv )
+
 #endif

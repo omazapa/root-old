@@ -75,6 +75,28 @@ LoadModule <- function(name){
       assign("TFile", TFile, envir = .GlobalEnv)
   }
   
+  if(name=="BASE")
+  {
+      LIB=paste('BASE',ROOTLIBEXT,sep='')
+      LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
+      ROOTRBASELIB      <- dyn.load(LIBPATH) 
+      ROOTR_TRObject    <- Module("ROOTR_TRObject", PACKAGE=ROOTRBASELIB,mustStart=TRUE)
+      TRObject    <- ROOTR_TRObject$TRObject
+      assign("TRObject", TRObject, envir = .GlobalEnv)
+
+      ROOTR_TRMethod    <- Module("ROOTR_TRMethod", PACKAGE=ROOTRBASELIB,mustStart=TRUE)
+      TRMethod    <- ROOTR_TRObject$TRMethod
+      assign("TRMethod", TRMethod, envir = .GlobalEnv)
+      
+      ROOTR_TRList    <- Module("ROOTR_TRList", PACKAGE=ROOTRBASELIB,mustStart=TRUE)
+      TRList    <- ROOTR_TRList$TRList
+      assign("TRList", TRList, envir = .GlobalEnv)
+
+      ROOTR_TRClass    <- Module("ROOTR_TRClass", PACKAGE=ROOTRBASELIB,mustStart=TRUE)
+      TRClass    <- ROOTR_TRClass$TRClass
+      assign("TRClass", TRClass, envir = .GlobalEnv)
+  }
+  
  }
  assign("LoadModule", LoadModule, envir = .GlobalEnv)
 

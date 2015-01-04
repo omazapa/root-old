@@ -46,6 +46,7 @@ set(R_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRInterface.h
               )
 set(RHIST_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRF1.h              
                   ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRGraph.h              
+                  ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRBaseClasses.h              
 )              
 
 set(ROI_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRFile.h

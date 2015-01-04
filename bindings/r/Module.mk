@@ -35,6 +35,7 @@ RDHMOD       := $(MODDIRI)/TRCanvas.h \
                 $(MODDIRI)/TRRint.h \
                 $(MODDIRI)/TRFile.h \
                 $(MODDIRI)/TRGraph.h \
+                $(MODDIRI)/TRBaseClasses.h \
                 $(MODDIRI)/TRSystem.h
 
                 
