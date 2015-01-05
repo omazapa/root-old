@@ -1,17 +1,4 @@
-// @(#)root/r:$Id$
-// Author: Omar Zapata   26/05/2014
-
-
-/*************************************************************************
- * Copyright (C)  2014, Omar Andres Zapata Mesa                          *
- * All rights reserved.                                                  *
- *                                                                       *
- * For the licensing terms see $ROOTSYS/LICENSE.                         *
- * For the list of contributors see $ROOTSYS/README/CREDITS.             *
- *************************************************************************/
-#ifndef ROOT_R_TRF1
-#define ROOT_R_TRF1
-
+#include<TRInterface.h>
 #ifndef ROOT_TF1
 #include<TF1.h>
 #endif
@@ -29,35 +16,42 @@
 */
 
 
-namespace ROOT {
-   namespace R {
-      class TRObject: public TObject {
-      public:
-         TRObject():TObject(){};
-         TRObject(const TObject &obj):TObject(obj){};
-         TRObject(const TRObject &obj):TObject(obj){};
-         TString ClassName(){return TObject::ClassName();}
-         TString GetName(){return TObject::GetName();}
-         
-      };
-   }
-}
-ROOTR_EXPOSED_CLASS_INTERNAL(TRObject)
+//namespace ROOT {
+//   namespace R {
+//      class TRObject: public TObject {
+//      public:
+//         TRObject():TObject(){};
+//         TRObject(const TObject &obj):TObject(obj){};
+//         TRObject(const TRObject &obj):TObject(obj){};
+//         TString ClassName(){return TObject::ClassName();}
+//         TString GetName(){return TObject::GetName();}
+//         
+//      };
+//   }
+//}
+//ROOTR_EXPOSED_CLASS_INTERNAL(TRObject)
+
+ROOTR_EXPOSED_CLASS(TObject)
 
 ROOTR_MODULE(ROOTR_TRObject)
 {
-
-   ROOT::R::class_<ROOT::R::TRObject>("TRObject", "Mother of all ROOT objects.")
-   .constructor()
-   .method("ClassName",&ROOT::R::TRObject::ClassName)
-   .method("GetName",&ROOT::R::TRObject::GetName);
+//   ROOT::R::class_<ROOT::R::TRObject>("TRObject", "Mother of all ROOT objects.")
+//   .constructor()
+//   .method("ClassName",&ROOT::R::TRObject::ClassName)
+//   .method("GetName",&ROOT::R::TRObject::GetName);
+   
+   ROOT::R::class_<TObject>("TObject", "Mother of all ROOT objects.")
+   .constructor();
+//   .method("ClassName",&ROOT::R::TObject::ClassName)
+//   .method("GetName",&ROOT::R::TRObject::GetName);
 }
 
 namespace ROOT
 {
     namespace R
     {
-          typedef Rcpp::XPtr<TRObject> TRObjectPtr;
+//          typedef Rcpp::XPtr<TRObject> TRObjectPtr;
+          typedef Rcpp::XPtr<TObject> TObjectPtr;
     }
 }
 
@@ -67,7 +61,7 @@ namespace ROOT {
       public:
          TRF1():TF1(){}
          TRF1(const TF1 &f1): TF1(f1) {}
-         TRF1(TRObjectPtr &obj): TF1((const TF1 &)obj) {}
+         TRF1(TObjectPtr obj): TF1((const TF1 &)*obj) {}
          TRF1(TString name, TString formula, Double_t xmin = 0, Double_t xmax = 1):TF1(name.Data(), formula.Data(), xmin, xmax){}
          std::vector<Double_t> Eval(std::vector<Double_t> x);
          void Draw(){TF1::Draw();}
@@ -109,7 +103,7 @@ ROOTR_MODULE(ROOTR_TRF1)
 
    ROOT::R::class_<ROOT::R::TRF1>("TRF1", "1-Dim ROOT's function class")
    .constructor<TString , TString , Double_t, Double_t>()
-   .constructor<ROOT::R::TRObjectPtr&>()
+   .constructor<ROOT::R::TObjectPtr>()
    .method("Eval", (std::vector<Double_t> (ROOT::R::TRF1::*)(std::vector<Double_t>))&ROOT::R::TRF1::Eval)
    .method("Eval", (Double_t (ROOT::R::TRF1::*)(Double_t))&ROOT::R::TRF1::Eval)
    .method("Draw", (void (ROOT::R::TRF1::*)())(&ROOT::R::TRF1::Draw))
@@ -120,4 +114,23 @@ ROOTR_MODULE(ROOTR_TRF1)
    .method("Write", (Int_t(ROOT::R::TRF1::*)(TString))(&ROOT::R::TRF1::Write))
    ;
 }
-#endif
+
+
+void Cast()
+{
+    ROOT::R::TRInterface &r=ROOT::R::TRInterface::Instance();
+    
+    r["ROOTR_TRObject"]<<LOAD_ROOTR_MODULE(ROOTR_TRObject);
+    r["ROOTR_TRF1"]<<LOAD_ROOTR_MODULE(ROOTR_TRF1);
+    r<<"TRObject <- ROOTR_TRObject$TRObject";
+    r<<"TObject <- ROOTR_TRObject$TObject";
+    r<<"TRF1 <- ROOTR_TRF1$TRF1";
+    
+    TF1 *f=new TF1("f","sin(x)");
+    r["f"]<<ROOT::R::TObjectPtr(f);
+    r<<"print(f)";
+    r<<"fun <- new(TRF1,f)";
+    r<<"print(fun)";
+    r<<"fun$Draw()";
+ 
+}

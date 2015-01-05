@@ -98,7 +98,9 @@ LoadModule <- function(name){
   }
   
  }
- assign("LoadModule", LoadModule, envir = .GlobalEnv)
+assign("LoadModule", LoadModule, envir = .GlobalEnv)
+
+
 
 
 
@@ -113,9 +115,18 @@ assign("gApplication", gApplication, envir = .GlobalEnv)
 gSystem      <- new(TSystem)
 assign("gSystem", gSystem, envir = .GlobalEnv)
 
+#system to cast TObject into other ROOT classes
+Cast <- function(class,obj)
+{
+  as(obj,class)
+}
+
+assign("Cast", Cast, envir = .GlobalEnv)
+
+
+
 #starting Gui eventloop
 gSystem$ProcessEventsLoop()
-
 #creating  registers to clean memory when R ends the session 
 reg.finalizer(.GlobalEnv, function(e){gApplication$Terminate(0)},TRUE) 
 }

@@ -32,6 +32,10 @@
 #include<TRCanvas.h>
 #endif
 
+#ifndef ROOT_R_BaseClasses
+#include<TRBaseClasses.h>
+#endif
+
 //________________________________________________________________________________________________________
 /**
    This is TFile class for R
@@ -82,8 +86,9 @@ ROOTR_MODULE(ROOTR_TRFile)
    .method("Flush", (void (ROOT::R::TRFile::*)())&ROOT::R::TRFile::Flush)
    .method("Close", (void (ROOT::R::TRFile::*)(TString))&ROOT::R::TRFile::Close)
    .method("Close", (void (ROOT::R::TRFile::*)())&ROOT::R::TRFile::Close)
-   .method("Get", &ROOT::R::TRFile::Get<ROOT::R::TRF1>)
-   .method("Get", &ROOT::R::TRFile::Get<ROOT::R::TRGraph>)
+   .method("Get", &ROOT::R::TRFile::Get<ROOT::R::TRObject>)
+//   .method("Get", &ROOT::R::TRFile::Get<ROOT::R::TRF1>)
+//   .method("Get", &ROOT::R::TRFile::Get<ROOT::R::TRGraph>)
 //    .method("Get", &ROOT::R::TRFile::Get<ROOT::R::TRCanvas>)//TRCanvas no supported at the moment
    ;
 }
