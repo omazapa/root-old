@@ -87,6 +87,11 @@ namespace ROOT {
                return *this;
             }
 
+//            template <class T> Binding &operator <<(T *var) {
+//               fInterface->AssignPtr<T>(var, fName);
+//               return *this;
+//            }
+            
             template <class T> operator T() {
                return fInterface->ParseEval(fName);
             }
@@ -116,6 +121,15 @@ namespace ROOT {
             // the TString's name is the name of the variable in the R enviroment.
             fR->assign<T>(var, name.Data());
          }
+         
+         //______________________________________________________________________________
+         template<typename T >void AssignPtr(const T *var, const TString &name) {
+            // This method lets you pass variables from ROOT to R.
+            // The template T should be a supported ROOT datatype and
+            // the TString's name is the name of the variable in the R enviroment.
+            fR->assign<Rcpp::XPtr<const T> >(Rcpp::XPtr<const T>(var), name.Data());
+         }
+         
          void Assign(const TRFunction &fun, const TString &name);
 
          void Interactive();

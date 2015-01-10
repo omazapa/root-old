@@ -34,7 +34,7 @@ namespace ROOT {
       public:
          TRF1():TF1(){}
          TRF1(const TF1 &f1): TF1(f1) {}
-         TRF1(TString name, TString formula, Double_t xmin = 0, Double_t xmax = 1):TF1(name.Data(), formula.Data(), xmin, xmax){}
+         TRF1(TString name, const char* formula, Double_t xmin = 0, Double_t xmax = 1):TF1(name.Data(), formula, xmin, xmax){}
          std::vector<Double_t> Eval(std::vector<Double_t> x);
          void Draw(){TF1::Draw();}
          void Draw(TString opt){TF1::Draw(opt.Data());}
@@ -74,7 +74,7 @@ ROOTR_MODULE(ROOTR_TRF1)
 {
 
    ROOT::R::class_<ROOT::R::TRF1>("TRF1", "1-Dim ROOT's function class")
-   .constructor<TString , TString , Double_t, Double_t>()
+   .constructor<TString , const char* , Double_t, Double_t>()
    .method("Eval", (std::vector<Double_t> (ROOT::R::TRF1::*)(std::vector<Double_t>))&ROOT::R::TRF1::Eval)
    .method("Eval", (Double_t (ROOT::R::TRF1::*)(Double_t))&ROOT::R::TRF1::Eval)
    .method("Draw", (void (ROOT::R::TRF1::*)())(&ROOT::R::TRF1::Draw))

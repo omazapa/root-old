@@ -62,6 +62,7 @@
 
 
 #include<RcppCommon.h>
+#include<Rcpp/XPtr.h>
 namespace ROOT {
    namespace R {
       class TRFunction;
@@ -70,7 +71,7 @@ namespace ROOT {
 }
 
 namespace Rcpp {
-
+    
 //TString
    template<> inline SEXP wrap(const TString &s)
    {
@@ -96,6 +97,14 @@ namespace Rcpp {
       std::array<T, i> a;
       std::copy(v.begin(), v.end(), a.begin());
       return a;
+   }
+   template<> inline Double_t* as(SEXP f)
+   {
+      return Rcpp::as<XPtr<Double_t> >(f);
+   }
+   template<> inline Int_t* as(SEXP f)
+   {
+      return Rcpp::as<XPtr<Int_t> >(f);
    }
 
    namespace traits {
@@ -151,4 +160,5 @@ namespace ROOT {
 
 //modified macro for ROOTR global Module Object Symbol Reference ROOT::R::ModuleSymRef
 #define LOAD_ROOTR_MODULE(NAME) Rf_eval( Rf_lang2( ( ROOT::R::ModuleSymRef == NULL ? ROOT::R::ModuleSymRef = Rf_install("Module") : ROOT::R::ModuleSymRef ), _rcpp_module_boot_##NAME() ), R_GlobalEnv )
+
 #endif
