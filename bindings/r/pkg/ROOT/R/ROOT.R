@@ -52,14 +52,14 @@ LoadModule <- function(name){
       LIB=paste('Rint',ROOTLIBEXT,sep='')
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRRINTLIB      <- dyn.load(LIBPATH) 
-      ROOTR_TRRint      <- Module("ROOTR_TRRint", PACKAGE=ROOTRRINTLIB,mustStart=TRUE)
-      TRint    <- ROOTR_TRRint$TRRint
+      Rint      <- Module("Rint", PACKAGE=ROOTRRINTLIB,mustStart=TRUE)
+      TRint    <- Rint$TRint
       assign("TRint", TRint, envir = .GlobalEnv)
   }
 
   if(name=="Gpad")
   {
-      LIB=paste('Graf',ROOTLIBEXT,sep='')
+      LIB=paste('Gpad',ROOTLIBEXT,sep='')
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRGRAFLIB      <- dyn.load(LIBPATH) 
       Gpad    <- Module("Gpad", PACKAGE=ROOTRGRAFLIB,mustStart=TRUE)
@@ -95,12 +95,12 @@ gSystem      <- new(TSystem)
 assign("gSystem", gSystem, envir = .GlobalEnv)
 
 #system to cast TObject into other ROOT classes
-Cast <- function(class,obj)
+CastObject <- function(class,obj)
 {
-  as(obj,class)
+    new(class,obj)
 }
 
-assign("Cast", Cast, envir = .GlobalEnv)
+assign("CastObject", CastObject, envir = .GlobalEnv)
 
 
 

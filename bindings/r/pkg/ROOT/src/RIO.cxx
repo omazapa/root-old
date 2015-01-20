@@ -20,5 +20,5 @@ ROOTR_MODULE(RIO)
    .method("Flush", (void (ROOT::R::TRFile::*)())&ROOT::R::TRFile::Flush)
    .method("Close", (void (ROOT::R::TRFile::*)(TString))&ROOT::R::TRFile::Close)
    .method("Close", (void (ROOT::R::TRFile::*)())&ROOT::R::TRFile::Close)
-   .method("Get", &ROOT::R::TRFile::Get<ROOT::R::TRObjectPtr>);
+   .method("Get", (ROOT::R::TRObjectPtr (ROOT::R::TRFile::*)(TString))&ROOT::R::TRFile::Get);
 }

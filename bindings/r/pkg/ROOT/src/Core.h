@@ -51,7 +51,6 @@ namespace ROOT {
          TString GetName(){return TObject::GetName();}
          
       };
-      typedef Rcpp::XPtr<TRObject> TRObjectPtr;
 
 //________________________________________________________________________________________________________
 /**
@@ -86,6 +85,7 @@ namespace ROOT {
 //            
 //          }
       
+typedef Rcpp::XPtr<ROOT::R::TRObject> TRObjectPtr;      
    }
 }
 

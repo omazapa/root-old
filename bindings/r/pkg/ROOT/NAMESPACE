@@ -1,5 +1,5 @@
 exportPattern("^[[:alpha:]]+")
 import( Rcpp )
-export(LoadModule)
+export(LoadModule,CastObject)
 export(gApplication,gSystem)
 export(ROOTLIBPATH,ROOTPKGPATH,ROOTLIBEXT)

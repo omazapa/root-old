@@ -42,8 +42,8 @@ namespace ROOT {
          TRFile(TString fname, TString option, TString ftitle):TFile(fname.Data(),option.Data()){}
 	 TRFile(TString fname, TString option, TString ftitle, Int_t compress );
 	 
-         template<class T> T Get(TString object) {
-            return *(T *)TFile::Get(object);
+         TRObjectPtr Get(TString object) {
+            return TRObjectPtr(TFile::Get(object.Data()));
          }
          inline void Close() {
             TFile::Close(0);

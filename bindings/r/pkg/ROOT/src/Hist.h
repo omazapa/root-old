@@ -43,7 +43,7 @@ namespace ROOT {
       public:
          TRF1():TF1(){}
          TRF1(const TF1 &f1): TF1(f1) {}
-         TRF1(TRObjectPtr &obj): TF1((const TF1 &)obj) {}
+         TRF1(TRObjectPtr obj): TF1((const TF1 &)*obj) {}
          TRF1(TString name, TString formula, Double_t xmin = 0, Double_t xmax = 1):TF1(name.Data(), formula.Data(), xmin, xmax){}
          std::vector<Double_t> Eval(std::vector<Double_t> x);
          void Draw(){TF1::Draw();}

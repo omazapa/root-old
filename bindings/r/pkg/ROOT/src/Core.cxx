@@ -37,6 +37,14 @@ Int_t ROOT::R::TRSystem::Load(TString module)
    return gSystem->Load(module.Data());
 }
 
+
+//namespace Rcpp {
+//   template<> TObject* as(SEXP f)
+//   {
+//    return Rcpp::as<XPtr<TObject> >(f);
+//   }
+//}
+
 ROOTR_MODULE(Core)
 {
 

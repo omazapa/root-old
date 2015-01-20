@@ -16,32 +16,32 @@
 */
 
 
-//namespace ROOT {
-//   namespace R {
-//      class TRObject: public TObject {
-//      public:
-//         TRObject():TObject(){};
-//         TRObject(const TObject &obj):TObject(obj){};
-//         TRObject(const TRObject &obj):TObject(obj){};
-//         TString ClassName(){return TObject::ClassName();}
-//         TString GetName(){return TObject::GetName();}
-//         
-//      };
-//   }
-//}
-//ROOTR_EXPOSED_CLASS_INTERNAL(TRObject)
+namespace ROOT {
+   namespace R {
+      class TRObject: public TObject {
+      public:
+         TRObject():TObject(){};
+         TRObject(const TObject &obj):TObject(obj){};
+         TRObject(const TRObject &obj):TObject(obj){};
+         TString ClassName(){return TObject::ClassName();}
+         TString GetName(){return TObject::GetName();}
+         
+      };
+   }
+}
+ROOTR_EXPOSED_CLASS_INTERNAL(TRObject)
 
-ROOTR_EXPOSED_CLASS(TObject)
+//ROOTR_EXPOSED_CLASS(TObject)
 
 ROOTR_MODULE(ROOTR_TRObject)
 {
-//   ROOT::R::class_<ROOT::R::TRObject>("TRObject", "Mother of all ROOT objects.")
-//   .constructor()
+   ROOT::R::class_<ROOT::R::TRObject>("TObject", "Mother of all ROOT objects.")
+   .constructor();
 //   .method("ClassName",&ROOT::R::TRObject::ClassName)
 //   .method("GetName",&ROOT::R::TRObject::GetName);
    
-   ROOT::R::class_<TObject>("TObject", "Mother of all ROOT objects.")
-   .constructor();
+//   ROOT::R::class_<TObject>("TObject", "Mother of all ROOT objects.")
+//   .constructor();
 //   .method("ClassName",&ROOT::R::TObject::ClassName)
 //   .method("GetName",&ROOT::R::TRObject::GetName);
 }
@@ -51,7 +51,7 @@ namespace ROOT
     namespace R
     {
 //          typedef Rcpp::XPtr<TRObject> TRObjectPtr;
-          typedef Rcpp::XPtr<TObject> TObjectPtr;
+          typedef Rcpp::XPtr<TRObject> TObjectPtr;
     }
 }
 
@@ -127,7 +127,7 @@ void Cast()
     r<<"TRF1 <- ROOTR_TRF1$TRF1";
     
     TF1 *f=new TF1("f","sin(x)");
-    r["f"]<<ROOT::R::TObjectPtr(f);
+    r["f"]<<ROOT::R::TObjectPtr((ROOT::R::TRObject*)f);
     r<<"print(f)";
     r<<"fun <- new(TRF1,f)";
     r<<"print(fun)";

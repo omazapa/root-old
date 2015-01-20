@@ -1,6 +1,6 @@
 require(ROOT)
 ROOT::LoadModule('Hist')
-ROOT::LoadModule('Graf')
+ROOT::LoadModule('Gpad')
 
 c1    <- new(TCanvas,'c1','dilog',1)
 dilog <- new(TF1,'dilog','TMath::DiLog(x)',0,0)

@@ -34,7 +34,7 @@ ROOTR_MODULE(Hist)
 
    ROOT::R::class_<ROOT::R::TRF1>("TF1", "1-Dim ROOT's function class")
    .constructor<TString , TString , Double_t, Double_t>()
-//   .constructor<ROOT::R::TRObjectPtr&>()
+   .constructor<ROOT::R::TRObjectPtr>()
    .method("Eval", (std::vector<Double_t> (ROOT::R::TRF1::*)(std::vector<Double_t>))&ROOT::R::TRF1::Eval)
    .method("Eval", (Double_t (ROOT::R::TRF1::*)(Double_t))&ROOT::R::TRF1::Eval)
    .method("Draw", (void (ROOT::R::TRF1::*)())(&ROOT::R::TRF1::Draw))
