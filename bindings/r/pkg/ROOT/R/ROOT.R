@@ -28,10 +28,9 @@ LoadModule <- function(name){
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRHISTLIB          <- dyn.load(LIBPATH) 
       #calling classes from library
-      ROOTR_TF1        <- Module("ROOTR_TRF1", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
-      ROOTR_TGraph     <- Module("ROOTR_TRGraph", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
-      TF1      <- ROOTR_TF1$TRF1
-      TGraph   <- ROOTR_TGraph$TRGraph
+      Hist        <- Module("Hist", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
+      TF1      <- Hist$TF1
+      TGraph   <- Hist$TGraph
 
       assign("TF1", TF1, envir = .GlobalEnv)
       assign("TGraph", TGraph, envir = .GlobalEnv)
@@ -41,9 +40,12 @@ LoadModule <- function(name){
       LIB=paste('Core',ROOTLIBEXT,sep='')
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRCORELIB      <- dyn.load(LIBPATH) 
-      ROOTR_TRSystem    <- Module("ROOTR_TRSystem", PACKAGE=ROOTRCORELIB,mustStart=TRUE)
-      TSystem  <- ROOTR_TRSystem$TRSystem
+      Core     <- Module("Core", PACKAGE=ROOTRCORELIB,mustStart=TRUE)
+      TSystem  <- Core$TSystem
       assign("TSystem", TSystem, envir = .GlobalEnv)
+      TObject    <- Core$TObject
+      assign("TObject", TObject, envir = .GlobalEnv)
+
   }
   if(name=="Rint")
   {
@@ -55,13 +57,13 @@ LoadModule <- function(name){
       assign("TRint", TRint, envir = .GlobalEnv)
   }
 
-  if(name=="Graf")
+  if(name=="Gpad")
   {
       LIB=paste('Graf',ROOTLIBEXT,sep='')
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRGRAFLIB      <- dyn.load(LIBPATH) 
-      ROOTR_TRCanvas    <- Module("ROOTR_TRCanvas", PACKAGE=ROOTRGRAFLIB,mustStart=TRUE)
-      TCanvas    <- ROOTR_TRCanvas$TRCanvas
+      Gpad    <- Module("Gpad", PACKAGE=ROOTRGRAFLIB,mustStart=TRUE)
+      TCanvas    <- Gpad$TCanvas
       assign("TCanvas", TCanvas, envir = .GlobalEnv)
   }
   
@@ -70,33 +72,10 @@ LoadModule <- function(name){
       LIB=paste('RIO',ROOTLIBEXT,sep='')
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRRIOLIB      <- dyn.load(LIBPATH) 
-      ROOTR_TRFile    <- Module("ROOTR_TRFile", PACKAGE=ROOTRRIOLIB,mustStart=TRUE)
-      TFile    <- ROOTR_TRFile$TRFile
+      RIO    <- Module("RIO", PACKAGE=ROOTRRIOLIB,mustStart=TRUE)
+      TFile    <- RIO$TFile
       assign("TFile", TFile, envir = .GlobalEnv)
-  }
-  
-  if(name=="BASE")
-  {
-      LIB=paste('BASE',ROOTLIBEXT,sep='')
-      LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
-      ROOTRBASELIB      <- dyn.load(LIBPATH) 
-      ROOTR_TRObject    <- Module("ROOTR_TRObject", PACKAGE=ROOTRBASELIB,mustStart=TRUE)
-      TRObject    <- ROOTR_TRObject$TRObject
-      assign("TRObject", TRObject, envir = .GlobalEnv)
-
-      ROOTR_TRMethod    <- Module("ROOTR_TRMethod", PACKAGE=ROOTRBASELIB,mustStart=TRUE)
-      TRMethod    <- ROOTR_TRObject$TRMethod
-      assign("TRMethod", TRMethod, envir = .GlobalEnv)
-      
-      ROOTR_TRList    <- Module("ROOTR_TRList", PACKAGE=ROOTRBASELIB,mustStart=TRUE)
-      TRList    <- ROOTR_TRList$TRList
-      assign("TRList", TRList, envir = .GlobalEnv)
-
-      ROOTR_TRClass    <- Module("ROOTR_TRClass", PACKAGE=ROOTRBASELIB,mustStart=TRUE)
-      TRClass    <- ROOTR_TRClass$TRClass
-      assign("TRClass", TRClass, envir = .GlobalEnv)
-  }
-  
+  }  
  }
 assign("LoadModule", LoadModule, envir = .GlobalEnv)
 

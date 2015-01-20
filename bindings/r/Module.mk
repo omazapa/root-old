@@ -12,7 +12,7 @@ MODDIRI      := $(MODDIR)/inc
 RDIR  := $(MODDIR)
 RDIRS := $(RDIR)/src
 RDIRI := $(RDIR)/inc
-RDIRP := $(RDIR)/pkg
+RDIRP := $(RDIR)/pkg/ROOT/src
 
 ##### libRInterface #####
 RL           := $(MODDIRI)/LinkDef.h
@@ -30,14 +30,10 @@ RDH          := $(MODDIRI)/RExports.h \
                 $(MODDIRI)/TRInternalFunction.h \
                 $(MODDIRI)/compilerdata.h 
 
-RDHMOD       := $(MODDIRI)/TRCanvas.h \
-                $(MODDIRI)/TRF1.h \
-                $(MODDIRI)/TRRint.h \
-                $(MODDIRI)/TRFile.h \
-                $(MODDIRI)/TRGraph.h \
-                $(MODDIRI)/TRBaseClasses.h \
-                $(MODDIRI)/TRSystem.h
-
+RDHMOD       := $(RDIRP)/Core.h \
+                $(RDIRP)/Hist.h \
+                $(RDIRP)/IO.h \
+                $(RDIRP)/Gpad.h 
                 
 RDHEXTRA     := $(MODDIRI)/TRInternalFunction__ctors.h
 
