@@ -202,7 +202,14 @@ TStreamerElement::TStreamerElement(const char *name, const char *title, Int_t of
    fNewType     = fType;
    fArrayDim    = 0;
    fArrayLength = 0;
-   fTypeName    = TClassEdit::ResolveTypedef(typeName);
+   if (typeName && !strcmp(typeName, "BASE")) {
+      // TStreamerBase case; fTypeName should stay "BASE".
+      fTypeName = typeName;
+   } else {
+      //must protect call into the interpreter
+      R__LOCKGUARD2(gInterpreterMutex);
+      fTypeName    = TClassEdit::ResolveTypedef(typeName);
+   }
    fStreamer    = 0;
    fClassObject = (TClass*)(-1);
    fNewClass    = 0;

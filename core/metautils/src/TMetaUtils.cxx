@@ -3946,6 +3946,10 @@ llvm::StringRef ROOT::TMetaUtils::GetComment(const clang::Decl &decl, clang::Sou
 
    // If the location is a macro get the expansion location.
    sourceLocation = sourceManager.getExpansionRange(sourceLocation).second;
+   if (sourceManager.isLoadedSourceLocation(sourceLocation)) {
+      // Do not touch disk for nodes coming from the PCH.
+      return "";
+   }
 
    bool invalid;
    const char *commentStart = sourceManager.getCharacterData(sourceLocation, &invalid);
@@ -4009,11 +4013,20 @@ llvm::StringRef ROOT::TMetaUtils::GetComment(const clang::Decl &decl, clang::Sou
    }
 
    // Treat by default c++ comments (+2) but also Doxygen comments (+4)
+   //   Int_t fPx; ///< Some doxygen comment for persistent data.
+   //   Int_t fPy; //!< Some doxygen comment for persistent data.
+   //   Int_t fPz; /*!< Some doxygen comment for persistent data. */
+   //   Int_t fPa; /**< Some doxygen comment for persistent data. */
    unsigned int skipChars = 2;
    if (commentStart[0] == '/' &&
        commentStart[1] == '/' &&
        (commentStart[2] == '/' || commentStart[2] == '!') &&
        commentStart[3] == '<') {
+      skipChars = 4;
+   } else if (commentStart[0] == '/' &&
+              commentStart[1] == '*' &&
+              (commentStart[2] == '*' || commentStart[2] == '!') &&
+              commentStart[3] == '<') {
       skipChars = 4;
    }
 
@@ -4772,6 +4785,27 @@ const std::string& ROOT::TMetaUtils::GetPathSeparator()
 #endif
    return gPathSeparator;
 }
+
+//______________________________________________________________________________
+bool ROOT::TMetaUtils::EndsWith(const std::string &theString, const std::string &theSubstring)
+{
+   if (theString.size() < theSubstring.size()) return false;
+   const unsigned int theSubstringSize = theSubstring.size();
+   return 0 == theString.compare(theString.size() - theSubstringSize,
+                                 theSubstringSize,
+                                 theSubstring);
+}
+
+//______________________________________________________________________________
+bool ROOT::TMetaUtils::BeginsWith(const std::string &theString, const std::string &theSubstring)
+{
+   if (theString.size() < theSubstring.size()) return false;
+   const unsigned int theSubstringSize = theSubstring.size();
+   return 0 == theString.compare(0,
+                                 theSubstringSize,
+                                 theSubstring);
+}
+
 
 //______________________________________________________________________________
 const std::string ROOT::TMetaUtils::AST2SourceTools::Decls2FwdDecls(const std::vector<const clang::Decl *> &decls,

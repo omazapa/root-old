@@ -137,7 +137,6 @@ set(extra_veto
   tree/tree2a.C
   tree/tree4.C
   roostats/rs401d_FeldmanCousins.C  # Takes too much time
-  roostats/rs_bernsteinCorrection.C      # having a problem in fitting t..b.i.
   roofit/rf104_classfactory.C
   histfactory/ModifyInterpolation.C
   tree/copytree2.C
@@ -198,11 +197,14 @@ set(io-readCode-depends tutorial-io-importCode)
 set(fit-fit1-depends tutorial-hist-fillrandom)
 set(foam-foam_demopers-depends tutorial-foam-foam_demo)
 set(tree-staff-depends  tutorial-tree-cernbuild)
+set(tree-cernstaff-depends  tutorial-tree-cernbuild)
+set(hist-hbars-depends  tutorial-tree-cernbuild)
 set(benchmarks-depends tutorial-hsimple
                        tutorial-fit-fit1
                        tutorial-hist-h1draw
                        tutorial-geom-na49view
                        tutorial-tree-ntuple1)
+set(io-mergeSelective-depends tutorial-benchmarks)
 
 #--many roostats tutorials depending on having creating the file first with histfactory
 foreach(tname  ModelInspector OneSidedFrequentistUpperLimitWithBands StandardBayesianMCMCDemo StandardBayesianNumericalDemo
@@ -258,11 +260,22 @@ if(ROOT_python_FOUND)
 
   #---Python tutorials dependencies--------------------------------------
   set(pyroot-ntuple1-depends tutorial-pyroot-hsimple)
-  set(pyroot-benchmarks-depends tutorial-pyroot-hsimple tutorial-pyroot-fillrandom)
+  set(pyroot-h1draw-depends tutorial-pyroot-hsimple)
+  set(pyroot-benchmarks-depends tutorial-pyroot-hsimple
+                                tutorial-pyroot-fit1
+                                tutorial-pyroot-na49view
+                                tutorial-pyroot-h1draw
+                                tutorial-pyroot-ntuple1)
   set(pyroot-fit1-depends tutorial-pyroot-fillrandom)
-  set(pyroot-na49view-depends tutorial-geom-geometry)
+  set(pyroot-na49view-depends tutorial-pyroot-geometry)
 
   foreach(t ${pytutorials})
+    list(FIND returncode_1 ${t} index)
+    if(index EQUAL -1)
+       set(rc 0)
+    else()
+       set(rc 1)
+    endif()
     string(REPLACE ".py" "" tname ${t})
     string(REPLACE "/" "-" tname ${tname})
     ROOT_ADD_TEST(tutorial-${tname}

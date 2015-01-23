@@ -35,6 +35,7 @@
 #include "clang/Parse/Parser.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Frontend/CompilerInstance.h"
+#include "clang/Sema/Sema.h"
 #include "clang/Serialization/ASTWriter.h"
 
 #include "llvm/IR/LLVMContext.h"
@@ -125,7 +126,7 @@ namespace {
   const clang::Token& Tok = *MI->tokens_begin();
   if (!Tok.isLiteral())
     return;
-  if (!Tok.getLength())
+  if (!Tok.getLength() || !Tok.getLiteralData())
     return;
 
   std::string cxxabivStr;
@@ -133,13 +134,10 @@ namespace {
      llvm::raw_string_ostream cxxabivStrStrm(cxxabivStr);
      cxxabivStrStrm << CLING_CXXABIV;
   }
-  bool Invalid = false;
-  std::string tokStr = PP.getSpelling(Tok, &Invalid);
-  if (Invalid)
-    return;
+  llvm::StringRef tokStr(Tok.getLiteralData(), Tok.getLength());
 
   warnAtReturn.shouldWarn = false;
-  if (tokStr != cxxabivStr) {
+  if (!tokStr.equals(cxxabivStr)) {
     llvm::errs()
       << "Warning in cling::IncrementalParser::CheckABICompatibility():\n  "
         "C++ ABI mismatch, compiled with "
@@ -754,6 +752,8 @@ namespace cling {
 
     PP.EnterSourceFile(FID, /*DirLookup*/0, NewLoc);
     m_Consumer->getTransaction()->setBufferFID(FID);
+
+    Sema::SavePendingInstantiationsRAII SavedPendingInstantiations(S);
 
     Parser::DeclGroupPtrTy ADecl;
 

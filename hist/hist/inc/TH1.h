@@ -153,6 +153,7 @@ protected:
    virtual Double_t DoIntegral(Int_t ix1, Int_t ix2, Int_t iy1, Int_t iy2, Int_t iz1, Int_t iz2, Double_t & err,
                                Option_t * opt, Bool_t doerr = kFALSE) const;
 
+   virtual void     DoFillN(Int_t ntimes, const Double_t *x, const Double_t *w, Int_t stride=1);
 
    static bool CheckAxisLimits(const TAxis* a1, const TAxis* a2);
    static bool CheckBinLimits(const TAxis* a1, const TAxis* a2);
@@ -199,6 +200,7 @@ public:
    virtual Double_t Chisquare(TF1 * f1, Option_t *option = "") const;
    virtual void     ClearUnderflowAndOverflow();
    virtual Double_t ComputeIntegral(Bool_t onlyPositive = false);
+   TObject*         Clone(const char* newname=0) const;
    virtual void     Copy(TObject &hnew) const;
    virtual void     DirectoryAutoAdd(TDirectory *);
    virtual Int_t    DistancetoPrimitive(Int_t px, Int_t py);

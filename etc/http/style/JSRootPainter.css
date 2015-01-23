@@ -6,32 +6,38 @@
 | Copyright (c) 2002-2003 Geir Landrö               |
 |--------------------------------------------------*/
 
-.dtree {
-   font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
-   font-size: 11px;
-   color: #666;
+/* h_item is clickable text in hierarchy */
+
+.h_tree {
+   display: block;
    white-space: nowrap;
 }
-.dtree img {
+
+.h_tree img {
    border: 0px;
    vertical-align: middle;
 }
-.dtree a {
-   color: #333;
+
+
+.h_tree a {
+   font-family: Verdana, Geneva, Arial, Helvetica, sans-serif;
+   font-size: 11px;
+   white-space: nowrap;
    text-decoration: none;
    vertical-align: top; 
-}
-.dtree a.dTreeItem {
-   cursor: pointer;
    white-space: nowrap;
    padding: 1px 2px 1px 2px;
 }
-.dtree a.dTreeItem:hover {
-   color: #333;
+
+.h_item {
+   cursor: pointer;
+}
+
+.h_item:hover {
    text-decoration: underline;
 }
 
-.dtree .dTreeSub {
+.h_childs {
    overflow: hidden;
    display: block;
 }
@@ -272,31 +278,5 @@ svg:not(:root) { overflow: hidden; }
   box-shadow: 2px 2px 2px #AAA;
   z-index:11;
   overflow: visible;
+  font-size: 11px;
 }
-.ctxline
-{
-  display:block;
-  margin:0px;
-  padding:2px 2px 2px 8px;
-  border:1px solid #F8F8F8;
-  border-radius:3px;
-  font-size:13px;
-  font-family:Arial, Helvetica, sans-serif;
-  overflow:visible;
-}
-.ctxline:hover
-{
-  border:1px solid #BBB;
-  background-color: #F0F0F0;
-  background-image: -moz-linear-gradient(top, #ffffff, #e6e6e6);
-  background-image: -ms-linear-gradient(top, #ffffff, #e6e6e6);
-  background-image: -webkit-gradient(linear, 0 0, 0 100%,
-    from(#ffffff), to(#e6e6e6));
-  background-image: -webkit-linear-gradient(top, #ffffff, #e6e6e6);
-  background-image: -o-linear-gradient(top, #ffffff, #e6e6e6);
-  background-image: linear-gradient(top, #ffffff, #e6e6e6);
-  background-repeat: repeat-x;
-  filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ffffff',
-    endColorstr='#e6e6e6', GradientType=0);
-}
-

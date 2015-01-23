@@ -188,9 +188,9 @@ private:
    ClassStreamerFunc_t fStreamerFunc;   //Wrapper around this class custom Streamer member function.
    Int_t               fSizeof;         //Sizeof the class.
 
-           Int_t      fCanSplit;        //!Indicates whether this class can be split or not.
-   mutable Long_t     fProperty;        //!Property
-   mutable Long_t     fClassProperty;   //!C++ Property of the class (is abstract, has virtual table, etc.)
+           Int_t      fCanSplit;          //!Indicates whether this class can be split or not.
+   mutable std::atomic<Long_t> fProperty; //!Property
+   mutable Long_t     fClassProperty;     //!C++ Property of the class (is abstract, has virtual table, etc.)
 
            Bool_t     fHasRootPcmInfo : 1;      //!Whether info was loaded from a root pcm.
    mutable Bool_t     fCanLoadClassInfo : 1;    //!Indicates whether the ClassInfo is supposed to be available.
@@ -272,8 +272,8 @@ private:
    static THashTable* fgClassTypedefHash;
 
 private:
-   TClass(const TClass& tc);
-   TClass& operator=(const TClass&);
+   TClass(const TClass& tc) = delete;
+   TClass& operator=(const TClass&) = delete;
 
 protected:
    TVirtualStreamerInfo     *FindStreamerInfo(TObjArray* arr, UInt_t checksum) const;
@@ -329,6 +329,8 @@ public:
    Bool_t             HasInterpreterInfoInMemory() const { return 0 != fClassInfo; }
    Bool_t             HasInterpreterInfo() const { return fCanLoadClassInfo || fClassInfo; }
    UInt_t             GetCheckSum(ECheckSum code = kCurrentCheckSum) const;
+   UInt_t             GetCheckSum(Bool_t &isvalid) const;
+   UInt_t             GetCheckSum(ECheckSum code, Bool_t &isvalid) const;
    TVirtualCollectionProxy *GetCollectionProxy() const;
    TVirtualIsAProxy  *GetIsAProxy() const;
    TMethod           *GetClassMethod(const char *name, const char *params, Bool_t objectIsConst = kFALSE);
@@ -342,7 +344,7 @@ public:
    ROOT::DelFunc_t    GetDelete() const;
    ROOT::DesFunc_t    GetDestructor() const;
    ROOT::DelArrFunc_t GetDeleteArray() const;
-   ClassInfo_t       *GetClassInfo() const { if (fCanLoadClassInfo) LoadClassInfo(); return fClassInfo; }
+   ClassInfo_t       *GetClassInfo() const { if (fCanLoadClassInfo && !TestBit(kLoading)) LoadClassInfo(); return fClassInfo; }
    const char        *GetContextMenuTitle() const { return fContextMenuTitle; }
    TVirtualStreamerInfo     *GetCurrentStreamerInfo() {
       if (fCurrentInfo.load()) return fCurrentInfo;

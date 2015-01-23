@@ -1416,80 +1416,6 @@ void TClass::Init(const char *name, Version_t cversion,
 }
 
 //______________________________________________________________________________
-TClass::TClass(const TClass& cl) :
-  TDictionary(cl),
-  fPersistentRef(0),
-  fStreamerInfo(cl.fStreamerInfo),
-  fConversionStreamerInfo(0),
-  fRealData(cl.fRealData),
-  fBase(cl.fBase),
-  fData(cl.fData),
-  fEnums(cl.fEnums),
-  fFuncTemplate(cl.fFuncTemplate),
-  fMethod(cl.fMethod),
-  fAllPubData(cl.fAllPubData),
-  fAllPubMethod(cl.fAllPubMethod),
-  fClassMenuList(0),
-  fDeclFileName(cl.fDeclFileName),
-  fImplFileName(cl.fImplFileName),
-  fDeclFileLine(cl.fDeclFileLine),
-  fImplFileLine(cl.fImplFileLine),
-  fInstanceCount(cl.fInstanceCount),
-  fOnHeap(cl.fOnHeap),
-  fCheckSum(cl.fCheckSum),
-  fCollectionProxy(cl.fCollectionProxy),
-  fClassVersion(cl.fClassVersion),
-  fClassInfo(cl.fClassInfo),
-  fContextMenuTitle(cl.fContextMenuTitle),
-  fTypeInfo(cl.fTypeInfo),
-  fShowMembers(cl.fShowMembers),
-  fStreamer(cl.fStreamer),
-  fSharedLibs(cl.fSharedLibs),
-  fIsA(cl.fIsA),
-  fGlobalIsA(cl.fGlobalIsA),
-  fIsAMethod(0),
-  fMerge(cl.fMerge),
-  fResetAfterMerge(cl.fResetAfterMerge),
-  fNew(cl.fNew),
-  fNewArray(cl.fNewArray),
-  fDelete(cl.fDelete),
-  fDeleteArray(cl.fDeleteArray),
-  fDestructor(cl.fDestructor),
-  fDirAutoAdd(cl.fDirAutoAdd),
-  fStreamerFunc(cl.fStreamerFunc),
-  fSizeof(cl.fSizeof),
-  fCanSplit(cl.fCanSplit),
-  fProperty(cl.fProperty),
-  fClassProperty(cl.fClassProperty),
-  fCanLoadClassInfo(cl.fCanLoadClassInfo),
-  fIsOffsetStreamerSet(cl.fIsOffsetStreamerSet),
-  fVersionUsed(kFALSE),
-  fOffsetStreamer(cl.fOffsetStreamer),
-  fStreamerType(cl.fStreamerType),
-  fState(cl.fState),
-  fCurrentInfo(0),
-  fLastReadInfo(0),
-  fRefProxy(cl.fRefProxy),
-  fSchemaRules(cl.fSchemaRules),
-  fStreamerImpl(0)
-{
-   //copy constructor
-
-   R__ASSERT(0 /* TClass Object are not copyable */ );
-}
-
-//______________________________________________________________________________
-TClass& TClass::operator=(const TClass& cl)
-{
-   //assignement operator
-   if(this!=&cl) {
-      R__ASSERT(0 /* TClass Object are not copyable */ );
-   }
-   return *this;
-}
-
-
-//______________________________________________________________________________
 TClass::~TClass()
 {
    // TClass dtor. Deletes all list that might have been created.
@@ -2021,7 +1947,7 @@ void TClass::CalculateStreamerOffset() const
 
       TMmallocDescTemp setreset;
       fIsOffsetStreamerSet = kTRUE;
-      fOffsetStreamer = const_cast<TClass*>(this)->GetBaseClassOffset(TObject::Class());
+      fOffsetStreamer = const_cast<TClass*>(this)->GetBaseClassOffsetRecurse(TObject::Class());
       if (fStreamerType == kTObject) {
          fStreamerImpl = &TClass::StreamerTObjectInitialized;
       }
@@ -4489,6 +4415,8 @@ void *TClass::New(ENewType defConstructor, Bool_t quiet) const
       // Register the object for special handling in the destructor.
       if (p) {
          RegisterAddressInRepository("New",p,this);
+      } else {
+         Error("New", "Failed to construct class '%s' using streamer info", GetName());
       }
    } else {
       Fatal("New", "This cannot happen!");
@@ -5104,6 +5032,8 @@ TClass *TClass::LoadClass(const char *requestedname, Bool_t silent)
    // This function does not (and should not) attempt to check in the
    // list of loaded classes or in the typedef.
 
+   R__LOCKGUARD(gInterpreterMutex);
+
    TClass *result = LoadClassDefault(requestedname, silent);
 
    if (result) return result;
@@ -5178,10 +5108,14 @@ void TClass::LoadClassInfo() const
 
    gInterpreter->AutoParse(GetName());
    if (!fClassInfo) gInterpreter->SetClassInfo(const_cast<TClass*>(this));   // sets fClassInfo pointer
-   if (!fClassInfo) {
-      ::Error("TClass::LoadClassInfo", "no interpreter information for class %s is available eventhough it has a TClass initialization routine.", fName.Data());
+   if (!gInterpreter->IsAutoParsingSuspended()) {
+      if (!fClassInfo) {
+	 ::Error("TClass::LoadClassInfo",
+		 "no interpreter information for class %s is available eventhough it has a TClass initialization routine.",
+		 fName.Data());
+      }
+      fCanLoadClassInfo = kFALSE;
    }
-   fCanLoadClassInfo = kFALSE;
 }
 
 //______________________________________________________________________________
@@ -5379,7 +5313,7 @@ Long_t TClass::Property() const
       kl->SetBit(kIsTObject);
 
       // Is it DIRECT inheritance from TObject?
-      Int_t delta = kl->GetBaseClassOffset(TObject::Class());
+      Int_t delta = kl->GetBaseClassOffsetRecurse(TObject::Class());
       if (delta==0) kl->SetBit(kStartWithTObject);
 
       kl->fStreamerType  = kTObject;
@@ -5387,9 +5321,6 @@ Long_t TClass::Property() const
    }
 
    if (HasInterpreterInfo()) {
-
-      kl->fProperty = gCling->ClassInfo_Property(GetClassInfo());
-      kl->fClassProperty = gCling->ClassInfo_ClassProperty(GetClassInfo());
 
       // This code used to use ClassInfo_Has|IsValidMethod but since v6
       // they return true if the routine is defined in the class or any of
@@ -5417,6 +5348,10 @@ Long_t TClass::Property() const
          kl->fStreamerType  = kExternal;
          kl->fStreamerImpl  = &TClass::StreamerExternal;
       }
+      //must set this last since other threads may read fProperty
+      // and think all test bits have been properly set
+      kl->fProperty = gCling->ClassInfo_Property(fClassInfo);
+      kl->fClassProperty = gCling->ClassInfo_ClassProperty(GetClassInfo());
 
    } else {
 
@@ -5546,11 +5481,14 @@ void TClass::SetUnloaded()
    delete fIsA; fIsA = 0;
    // Disable the autoloader while calling SetClassInfo, to prevent
    // the library from being reloaded!
-   int autoload_old = gCling->SetClassAutoloading(0);
-   int autoparse_old = gCling->SetClassAutoparsing(0);
-   gInterpreter->SetClassInfo(this,kTRUE);
-   gCling->SetClassAutoparsing(autoparse_old);
-   gCling->SetClassAutoloading(autoload_old);
+   {
+      int autoload_old = gCling->SetClassAutoloading(0);
+      TInterpreter::SuspendAutoParsing autoParseRaii(gCling);
+
+      gInterpreter->SetClassInfo(this,kTRUE);
+
+      gCling->SetClassAutoloading(autoload_old);
+   }
    fDeclFileName = 0;
    fDeclFileLine = 0;
    fImplFileName = 0;
@@ -5717,14 +5655,35 @@ Bool_t TClass::MatchLegacyCheckSum(UInt_t checksum) const
 //______________________________________________________________________________
 UInt_t TClass::GetCheckSum(ECheckSum code) const
 {
+   // Call GetCheckSum with validity check.
+
+   bool isvalid;
+   return GetCheckSum(code,isvalid);
+}
+
+//______________________________________________________________________________
+UInt_t TClass::GetCheckSum(Bool_t &isvalid) const
+{
+   // Return GetCheckSum(kCurrentCheckSum,isvalid);
+
+   return GetCheckSum(kCurrentCheckSum,isvalid);
+}
+
+//______________________________________________________________________________
+UInt_t TClass::GetCheckSum(ECheckSum code, Bool_t &isvalid) const
+{
    // Compute and/or return the class check sum.
+   //
+   // isvalid is set to false, if the function is unable to calculate the
+   // checksum.
+   //
    // The class ckecksum is used by the automatic schema evolution algorithm
    // to uniquely identify a class version.
    // The check sum is built from the names/types of base classes and
    // data members.
    // Original algorithm from Victor Perevovchikov (perev@bnl.gov).
    //
-   // The valid range of code is determined by ECheckSum
+   // The valid range of code is determined by ECheckSum.
    //
    // kNoEnum:  data members of type enum are not counted in the checksum
    // kNoRange: return the checksum of data members and base classes, not including the ranges and array size found in comments.
@@ -5738,6 +5697,8 @@ UInt_t TClass::GetCheckSum(ECheckSum code) const
    // from TClass::GetListOfBases and TClass::GetListOfDataMembers.
 
    R__LOCKGUARD(gInterpreterMutex);
+
+   isvalid = kTRUE;
 
    if (fCheckSum && code == kCurrentCheckSum) return fCheckSum;
 
@@ -5768,10 +5729,12 @@ UInt_t TClass::GetCheckSum(ECheckSum code) const
          il = name.Length();
          for (int i=0; i<il; i++) id = id*3+name[i];
          if (code > kNoBaseCheckSum && !isSTL) {
-            if (tbc->GetClassPointer() == 0)
+            if (tbc->GetClassPointer() == 0) {
                Error("GetCheckSum","Calculating the checksum for (%s) requires the base class (%s) meta information to be available!",
                      GetName(),tbc->GetName());
-            else
+               isvalid = kFALSE;
+               return 0;
+            } else
                id = id*3 + tbc->GetClassPointer()->GetCheckSum();
          }
       }/*EndBaseLoop*/

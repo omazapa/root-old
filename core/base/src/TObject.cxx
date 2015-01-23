@@ -199,8 +199,12 @@ TObject *TObject::Clone(const char *) const
    // This usually means that the object will be appended to the current
    // ROOT directory.
 
-   if (gDirectory) return gDirectory->CloneObject(this);
-   else            return 0;
+   if (gDirectory) {
+     return gDirectory->CloneObject(this);
+   } else {
+     Fatal("Clone","No gDirectory set");
+     return 0;
+   }
 }
 
 //______________________________________________________________________________
@@ -535,7 +539,7 @@ void TObject::ls(Option_t *option) const
    TROOT::IndentLevel();
    std::cout <<"OBJ: " << IsA()->GetName() << "\t" << GetName() << "\t" << GetTitle() << " : ";
    std::cout << Int_t(TestBit(kCanDelete));
-   if (strstr(option,"noaddr")==0) {
+   if (option && strstr(option,"noaddr")==0) {
       std::cout <<" at: "<< this ;
    }
    std::cout << std::endl;

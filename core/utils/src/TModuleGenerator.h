@@ -43,6 +43,7 @@ namespace ROOT {
       };
 
       TModuleGenerator(clang::CompilerInstance *CI,
+                       bool inlineHeader,
                        const std::string &shLibFileName);
       ~TModuleGenerator();
 
@@ -80,7 +81,6 @@ namespace ROOT {
       std::ostream &WritePPIncludes(std::ostream &out) const;
 
       void WriteRegistrationSource(std::ostream &out,
-                                   bool inlineHeader,
                                    const std::string &fwdDeclnArgsToKeepString,
                                    const std::string &headersClassesMapString,
                                    const std::string &fwdDeclsString) const;
@@ -114,6 +114,8 @@ namespace ROOT {
          return WriteStringVec(fCompU, out);
       }
 
+      bool FindHeader(const std::string& hdrName, std::string& hdrFullPath) const;
+
       typedef std::vector<std::pair<std::string, std::string> > StringPairVec_t;
 
       ESourceFileKind GetSourceFileKind(const char *filename) const;
@@ -124,6 +126,7 @@ namespace ROOT {
 
       clang::CompilerInstance *fCI;
       bool fIsPCH;
+      bool fInlineInputHeaders;
 
       std::string fDictionaryName; // Name of the dictionary, e.g. "Base"
       std::string fModuleFileName; // PCM file name

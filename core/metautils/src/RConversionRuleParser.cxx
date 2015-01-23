@@ -5,6 +5,7 @@
 #include "TSchemaRuleProcessor.h"
 
 #include <iostream>
+#include <algorithm>
 #include <string>
 #include <utility>
 #include <map>
@@ -69,7 +70,7 @@ namespace ROOT
    {
       // Parse the schema rule as specified in the LinkDef file
 
-      std::string::size_type l;
+      std::string::size_type l=0;
       command = TSchemaRuleProcessor::Trim( command );
 
       //-----------------------------------------------------------------------
@@ -206,6 +207,22 @@ namespace ROOT
       if ( result.find("version") == result.end() && result.find("checksum") == result.end() ) {
          result["version"] = "[1-]";
       }
+
+      //------------------------------------------------------------------------
+      // "include" tag. Replace ";" with "," for backwards compatibility with
+      // ROOT5
+      //------------------------------------------------------------------------
+      auto const includeKeyName = "include";
+      auto includeTag = result.find(includeKeyName);
+      if (includeTag != result.end()){
+         auto & includeTagValue = includeTag->second;
+         std::replace_if (includeTagValue.begin(),
+                          includeTagValue.end(),
+                          [](char c){ return c == ';';},
+                          ',');
+         result[includeKeyName] = includeTagValue;
+      }
+
       return ValidateRule( result, error_string);
    }
 
