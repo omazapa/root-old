@@ -43,7 +43,7 @@ namespace ROOT {
 	 TRFile(TString fname, TString option, TString ftitle, Int_t compress );
 	 
          TRObjectPtr Get(TString object) {
-            return TRObjectPtr(TFile::Get(object.Data()));
+            return TRObjectPtr((ROOT::R::TRObject*)TFile::Get(object.Data()));
          }
          inline void Close() {
             TFile::Close(0);
