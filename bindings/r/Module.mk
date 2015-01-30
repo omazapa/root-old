@@ -32,7 +32,8 @@ RDH          := $(MODDIRI)/RExports.h \
 
 RDHMOD       := $(RDIRP)/Core.h \
                 $(RDIRP)/Hist.h \
-                $(RDIRP)/IO.h \
+                $(RDIRP)/Rint.h \
+                $(RDIRP)/RIO.h \
                 $(RDIRP)/Gpad.h 
                 
 RDHEXTRA     := $(MODDIRI)/TRInternalFunction__ctors.h
