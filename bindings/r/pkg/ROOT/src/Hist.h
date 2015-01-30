@@ -24,9 +24,48 @@
 #include<TF1.h>
 #endif
 
+#ifndef ROOT_TH1F
+#include<TH1F.h>
+#endif
+
 #ifndef ROOT_TGraph
 #include<TGraph.h>
 #endif
+
+//________________________________________________________________________________________________________
+/**
+   This is TH1F's wrapper class for R
+
+
+   @ingroup R
+*/
+
+namespace ROOT {
+   namespace R {
+      class TRH1F: public TH1F {
+      public:
+         TRH1F():TH1F(){}
+         TRH1F(const TH1F &f1): TH1F(f1) {}
+         TRH1F(TRObjectPtr obj): TH1F((const TH1F &)*obj) {}
+         TRH1F(TString name, TString tittle, Int_t nbinsx, Double_t xlow, Double_t xup):TH1F(name.Data(), tittle.Data(), nbinsx,xlow,xup){}
+         void FillRandom(TString fname, Int_t ntimes = 5000){TH1F::FillRandom(fname.Data(),ntimes);}
+         void Draw(){TH1F::Draw();}
+         void Draw(TString opt){TH1F::Draw(opt.Data());}
+         inline Int_t Write(const TString name) {
+            return TH1F::Write(name.Data());
+         }
+         inline Int_t Write(const TString name, Int_t option,Int_t bufsize) {
+            return TH1F::Write(name.Data(),option,bufsize);
+         }
+      };
+   }
+}
+ROOTR_EXPOSED_CLASS_INTERNAL(TRH1F)
+
+namespace Rcpp {
+   template<> SEXP wrap(const TH1F &f);
+   template<> TH1F as(SEXP f);
+}
 
 
 //________________________________________________________________________________________________________

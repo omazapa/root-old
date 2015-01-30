@@ -29,9 +29,11 @@ LoadModule <- function(name){
       ROOTRHISTLIB          <- dyn.load(LIBPATH) 
       #calling classes from library
       Hist        <- Module("Hist", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
+      TH1F     <- Hist$TH1F
       TF1      <- Hist$TF1
       TGraph   <- Hist$TGraph
 
+      assign("TH1F", TH1F, envir = .GlobalEnv)
       assign("TF1", TF1, envir = .GlobalEnv)
       assign("TGraph", TGraph, envir = .GlobalEnv)
   }
