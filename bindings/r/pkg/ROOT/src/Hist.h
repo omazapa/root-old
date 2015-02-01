@@ -48,7 +48,7 @@ namespace ROOT {
          TRH1F(const TH1F &f1): TH1F(f1) {}
          TRH1F(TRObjectPtr obj): TH1F((const TH1F &)*obj) {}
          TRH1F(TString name, TString tittle, Int_t nbinsx, Double_t xlow, Double_t xup):TH1F(name.Data(), tittle.Data(), nbinsx,xlow,xup){}
-         void FillRandom(TString fname, Int_t ntimes = 5000){TH1F::FillRandom(fname.Data(),ntimes);}
+         void FillRandom(TString fname, Int_t ntimes){TH1F::FillRandom(fname.Data(),ntimes);}
          void Draw(){TH1F::Draw();}
          void Draw(TString opt){TH1F::Draw(opt.Data());}
          inline Int_t Write(const TString name) {
