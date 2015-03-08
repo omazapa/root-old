@@ -42,19 +42,18 @@ set(R_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRInterface.h
               ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRInternalFunction__ctors.h
               ${CMAKE_SOURCE_DIR}/bindings/r/inc/RExports.h
               ${CMAKE_SOURCE_DIR}/bindings/r/inc/compilerdata.h
-              ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRSystem.h              
               )
-set(RHIST_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRF1.h              
-                  ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRGraph.h              
+set(RHIST_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/pkg/ROOT/src/TRF1.h              
+                  ${CMAKE_SOURCE_DIR}/bindings/r/pkg/ROOT/src/TRGraph.h              
 )              
 
-set(ROI_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRFile.h
+set(ROI_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/pkg/ROOT/src/TRFile.h
 )              
 
-set(RGPAD_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRCanvas.h
+set(RGPAD_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/pkg/ROOT/src/TRCanvas.h
 )
 
-set(RRINT_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/inc/TRRint.h )
+set(RRINT_HEADERS ${CMAKE_SOURCE_DIR}/bindings/r/pkg/ROOT/src/TRRint.h )
 
 
 SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)

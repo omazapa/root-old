@@ -28,11 +28,12 @@ LoadModule <- function(name){
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRHISTLIB          <- dyn.load(LIBPATH) 
       #calling classes from library
-      ROOTR_TF1        <- Module("ROOTR_TRF1", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
-      ROOTR_TGraph     <- Module("ROOTR_TRGraph", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
-      TF1      <- ROOTR_TF1$TRF1
-      TGraph   <- ROOTR_TGraph$TRGraph
+      Hist        <- Module("Hist", PACKAGE=ROOTRHISTLIB,mustStart=TRUE)
+      TH1F     <- Hist$TH1F
+      TF1      <- Hist$TF1
+      TGraph   <- Hist$TGraph
 
+      assign("TH1F", TH1F, envir = .GlobalEnv)
       assign("TF1", TF1, envir = .GlobalEnv)
       assign("TGraph", TGraph, envir = .GlobalEnv)
   }
@@ -41,27 +42,30 @@ LoadModule <- function(name){
       LIB=paste('Core',ROOTLIBEXT,sep='')
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRCORELIB      <- dyn.load(LIBPATH) 
-      ROOTR_TRSystem    <- Module("ROOTR_TRSystem", PACKAGE=ROOTRCORELIB,mustStart=TRUE)
-      TSystem  <- ROOTR_TRSystem$TRSystem
+      Core     <- Module("Core", PACKAGE=ROOTRCORELIB,mustStart=TRUE)
+      TSystem  <- Core$TSystem
       assign("TSystem", TSystem, envir = .GlobalEnv)
+      TObject    <- Core$TObject
+      assign("TObject", TObject, envir = .GlobalEnv)
+
   }
   if(name=="Rint")
   {
       LIB=paste('Rint',ROOTLIBEXT,sep='')
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRRINTLIB      <- dyn.load(LIBPATH) 
-      ROOTR_TRRint      <- Module("ROOTR_TRRint", PACKAGE=ROOTRRINTLIB,mustStart=TRUE)
-      TRint    <- ROOTR_TRRint$TRRint
+      Rint      <- Module("Rint", PACKAGE=ROOTRRINTLIB,mustStart=TRUE)
+      TRint    <- Rint$TRint
       assign("TRint", TRint, envir = .GlobalEnv)
   }
 
-  if(name=="Graf")
+  if(name=="Gpad")
   {
-      LIB=paste('Graf',ROOTLIBEXT,sep='')
+      LIB=paste('Gpad',ROOTLIBEXT,sep='')
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRGRAFLIB      <- dyn.load(LIBPATH) 
-      ROOTR_TRCanvas    <- Module("ROOTR_TRCanvas", PACKAGE=ROOTRGRAFLIB,mustStart=TRUE)
-      TCanvas    <- ROOTR_TRCanvas$TRCanvas
+      Gpad    <- Module("Gpad", PACKAGE=ROOTRGRAFLIB,mustStart=TRUE)
+      TCanvas    <- Gpad$TCanvas
       assign("TCanvas", TCanvas, envir = .GlobalEnv)
   }
   
@@ -70,13 +74,14 @@ LoadModule <- function(name){
       LIB=paste('RIO',ROOTLIBEXT,sep='')
       LIBPATH=paste(ROOTLIBPATH,LIB,sep='/')
       ROOTRRIOLIB      <- dyn.load(LIBPATH) 
-      ROOTR_TRFile    <- Module("ROOTR_TRFile", PACKAGE=ROOTRRIOLIB,mustStart=TRUE)
-      TFile    <- ROOTR_TRFile$TRFile
+      RIO    <- Module("RIO", PACKAGE=ROOTRRIOLIB,mustStart=TRUE)
+      TFile    <- RIO$TFile
       assign("TFile", TFile, envir = .GlobalEnv)
-  }
-  
+  }  
  }
- assign("LoadModule", LoadModule, envir = .GlobalEnv)
+assign("LoadModule", LoadModule, envir = .GlobalEnv)
+
+
 
 
 
@@ -91,9 +96,18 @@ assign("gApplication", gApplication, envir = .GlobalEnv)
 gSystem      <- new(TSystem)
 assign("gSystem", gSystem, envir = .GlobalEnv)
 
+#system to cast TObject into other ROOT classes
+CastObject <- function(class,obj)
+{
+    new(class,obj)
+}
+
+assign("CastObject", CastObject, envir = .GlobalEnv)
+
+
+
 #starting Gui eventloop
 gSystem$ProcessEventsLoop()
-
 #creating  registers to clean memory when R ends the session 
 reg.finalizer(.GlobalEnv, function(e){gApplication$Terminate(0)},TRUE) 
 }
