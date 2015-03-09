@@ -89,25 +89,35 @@ assign("LoadModule", LoadModule, envir = .GlobalEnv)
 LoadModule("Rint")
 LoadModule("Core")
 
-#creating global variables
-gApplication <- new(TRint,'ROOTR')
-assign("gApplication", gApplication, envir = .GlobalEnv)
-
-gSystem      <- new(TSystem)
-assign("gSystem", gSystem, envir = .GlobalEnv)
-
 #system to cast TObject into other ROOT classes
-CastObject <- function(class,obj)
+as.tobject <- function(class,obj)
 {
     new(class,obj)
 }
 
-assign("CastObject", CastObject, envir = .GlobalEnv)
+assign("as.tobject",as.tobject, envir = .GlobalEnv)
 
 
+if(!exists(".rootusefromcling"))
+{
+  #creating global variables
+  gApplication <- new(TRint,'ROOTR')
+  assign("gApplication", gApplication, envir = .GlobalEnv)
 
-#starting Gui eventloop
-gSystem$ProcessEventsLoop()
-#creating  registers to clean memory when R ends the session 
-reg.finalizer(.GlobalEnv, function(e){gApplication$Terminate(0)},TRUE) 
+  gSystem      <- new(TSystem)
+  assign("gSystem", gSystem, envir = .GlobalEnv)
+
+  #starting Gui eventloop
+  gSystem$ProcessEventsLoop()
+  #creating  registers to clean memory when R ends the session 
+  reg.finalizer(.GlobalEnv, function(e){gApplication$Terminate(0)},TRUE) 
+}else
+{
+##improve here to use into ROOT, set a wrapper instead a real object
+gSystem=NULL
+assign("gSystem", gSystem, envir = .GlobalEnv)
+
+gApplication=NULL
+assign("gApplication", gApplication, envir = .GlobalEnv)
+}
 }
